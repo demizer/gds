@@ -1,6 +1,6 @@
-=========================
-My External Backup Thingy
-=========================
+======================================
+todrives -- The External Backup Thingy
+======================================
 
 todrives copies files from one large storage pool, to multiple miscellaneous
 drives mounted to a single mount point sequentially. I have a really nice 16TB
