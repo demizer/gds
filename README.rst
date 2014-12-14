@@ -15,6 +15,9 @@ system. Thus todrives was born!
 Tar does support multi volume mount points, but if the need ever arises to
 retrieve a single file... It can literally take days to get it.
 
+Dar is a little better, but it still stores everything in an archive. I don't
+need this.
+
 How
 ===
 
@@ -23,7 +26,8 @@ drive to the same mount point and then continues when the enter key is pressed.
 
 The files are copied to the dest mount point and given a UUID as the file name.
 A separate log file is made that maps the UUID to file metadata such as name,
-owner, group, mod time, and original path.
+owner, group, mod time, and original path. Lose this log file, and your files
+are as good as gone.
 
 No compression is done at all. todrives goes as fast as the hardware allows!
 
