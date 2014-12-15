@@ -34,8 +34,8 @@ No compression is done at all. todrives goes as fast as the hardware allows!
 Warning
 =======
 
-* This is currently alpha software. Do not use it!
+* This is currently alpha software. Only use it if you know what you are doing.
 
-* There is no way to easily retrieve files yet.
+* There is no way to retrieve files yet.
 
 * Recommended usage is to encrypt the drive before mounting!
