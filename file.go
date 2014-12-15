@@ -81,14 +81,15 @@ func NewFileList() (*FileList, error) {
 			return err2
 		}
 		f := File{
-			ID:      rName,
-			Name:    info.Name(),
-			Path:    path,
-			Size:    uint64(info.Size()),
-			Mode:    info.Mode(),
-			ModTime: info.ModTime(),
-			Owner:   info.Sys().(*syscall.Stat_t).Uid,
-			Group:   info.Sys().(*syscall.Stat_t).Gid,
+			ID:       rName,
+			Name:     info.Name(),
+			Path:     path,
+			Size:     uint64(info.Size()),
+			Mode:     info.Mode(),
+			ModTime:  info.ModTime(),
+			Owner:    info.Sys().(*syscall.Stat_t).Uid,
+			Group:    info.Sys().(*syscall.Stat_t).Gid,
+			DestPath: filepath.Join(DEST_PATH, rName),
 		}
 		bfl = append(bfl, f)
 		return err
