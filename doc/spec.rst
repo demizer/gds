@@ -5,7 +5,7 @@
 todrives Specification
 ======================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Sun Jul 12 14:37 2015
+:Modified: Sun Jul 12 14:41 2015
 
 -----
 Inbox
@@ -14,18 +14,18 @@ Inbox
 * Recommended usage is to encrypt the drive before mounting!
 * First run should setup config files.
 
----------------
-1. Introduction
----------------
+------------
+Introduction
+------------
 
 Building large home storage pools is expensive for the average consumer, and
 backing up this data is critical. Duplicating this system for backups would be
 financially impractical. ``todrives`` makes it simple to backup files to
 multiple dissimilar devices in a cost-effective manner.
 
-------------
-2. Rationale
-------------
+---------
+Rationale
+---------
 
 The simplest and cheapest solution is backing up to externaly attached storage.
 But the process is error prone and not efficient. Most of the time, tar is an
@@ -35,9 +35,9 @@ multi-volume multi-terabyte tar archive can take days.
 Dar (Disk ARchiver) tool is a little better, but it still stores everything in
 an binary archive format.
 
------------------
-3. Implementation
------------------
+--------------
+Implementation
+--------------
 
 As one drive is filled, todrives pauses to allow the user to mount another
 drive to the same mount point and then continues when the enter key is pressed.

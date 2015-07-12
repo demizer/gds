@@ -20,8 +20,8 @@ How-to
 
 #. Build and use
 
-   On the first run, todrives will use $EDITOR (default vim) to edit config
-   files.
+   On the first run, todrives will use ``$EDITOR`` (default is vim) to edit
+   config files.
 
    .. code:: console
 
