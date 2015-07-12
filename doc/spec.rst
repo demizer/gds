@@ -5,7 +5,7 @@
 todrives Specification
 ======================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Sun Jul 12 14:41 2015
+:Modified: Sun Jul 12 14:44 2015
 
 -----
 Inbox
@@ -22,6 +22,8 @@ Building large home storage pools is expensive for the average consumer, and
 backing up this data is critical. Duplicating this system for backups would be
 financially impractical. ``todrives`` makes it simple to backup files to
 multiple dissimilar devices in a cost-effective manner.
+
+.. contents::
 
 ---------
 Rationale
