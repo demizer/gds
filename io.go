@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+
+	log "gopkg.in/inconshreveable/log15.v2"
 )
 
 type IoReaderWriter struct {
@@ -39,7 +41,7 @@ func (i *IoReaderWriter) Read(p []byte) (int, error) {
 	n, err := i.Reader.Read(p)
 	if err == nil {
 		i.totalRead += uint64(n)
-		fmt.Println("Read", n, "bytes for a total of",
+		log.Info("Read stats", "bytes", n, "total_bytes",
 			humanize.IBytes(i.totalRead))
 	}
 	return n, err

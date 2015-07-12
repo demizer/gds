@@ -2,37 +2,58 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/dustin/go-humanize"
+
+	log "gopkg.in/inconshreveable/log15.v2"
 )
 
 type Drive struct {
 	Name      string
 	UsedSize  uint64
-	TotalSize uint64
+	Size      string
+	SizeBytes uint64
 }
 
 type DriveList []Drive
 
-func (D *DriveList) TotalSize() uint64 {
-	var total uint64
-	for _, x := range *D {
-		total += x.TotalSize
+func (d *DriveList) ParseSizes() {
+	for x, y := range *d {
+		var err error
+		(*d)[x].SizeBytes, err = humanize.ParseBytes(y.Size)
+		if err != nil {
+			log.Crit("Could not parse size!", "err", err.Error())
+		}
 	}
-	return total
 }
 
-func (d *DriveList) AvailableSpace(drive int, f File) int {
+func (d *DriveList) TotalSize() (uint64, error) {
+	var total uint64
+	var err error
+	for _, x := range *d {
+		x.SizeBytes, err = humanize.ParseBytes(x.Size)
+		if err != nil {
+			return 0, err
+		}
+		total += x.SizeBytes
+	}
+	return total, err
+}
+
+func (d *DriveList) AvailableSpace(drive int, f File) (int, error) {
 	drv := (*d)[drive]
-	if drv.UsedSize+f.Size+PADDING >= drv.TotalSize {
+	padd, err := humanize.ParseBytes(STATE.Config.Padding)
+	if err != nil {
+		return 0, err
+	}
+	if drv.UsedSize+f.Size+padd >= drv.SizeBytes {
 		var s string
-		log.Printf("Drive %q is full! (%s of %s) Mount new drive "+
-			"and press enter to continue...",
-			drv.Name, humanize.IBytes(drv.UsedSize),
+		log.Info("Drive is full! Mount new drive and press "+
+			"enter to continue...", "currentDrive", drv.Name,
+			"used", humanize.IBytes(drv.UsedSize), "totalSize",
 			humanize.IBytes(drv.UsedSize))
 		fmt.Scanf("%s", &s)
-		return drive + 1
+		return drive + 1, nil
 	}
-	return drive
+	return drive, nil
 }
