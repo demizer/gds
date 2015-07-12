@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
-)
 
-var FILES FileList
+	log "gopkg.in/inconshreveable/log15.v2"
+)
 
 type File struct {
 	ID        string      `json:"id"`
@@ -25,6 +25,7 @@ type File struct {
 	Group     uint32      `json:"group"`
 	SrcSha    string      `json:"srcSha"`
 	DestDrive string      `json:"destDrive"`
+	IsDir     bool        `json:"isDir"`
 }
 
 // VerifyHash checks the sum of the destination file with that of the source
@@ -137,8 +138,20 @@ func (f *FileList) TotalDataSize() uint64 {
 	return totalDataSize
 }
 
-func (f *FileList) Sync() {
-	// for _, x := range FILES {
+// catalog is used to determine the destination drive of the files. A best
+// effort is made to not split the files between drives. If the file is too
+// large for a single drive, then it is split across drives.
+func (f *FileList) catalog(d DriveList) {
+
+}
+
+// Sync synchornises files from the BackupPath to the destination drives. Sync
+// will copy new files, delete old files, and fix or update files on the
+// destination drive that do not match the source sha1 hash.
+func (f *FileList) Sync(d DriveList) {
+	for _, y := range *f {
+		log.Debug("test", "y", y)
+	}
 	// drive = backupDrives.AvailableSpace(drive, x)
 	// mIo := NewIoReaderWriter(oFile, x.Size)
 	// logs.Printf("Writing %q (%s)...\n\r",
