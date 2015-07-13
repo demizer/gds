@@ -5,7 +5,7 @@
 todrives Specification
 ======================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Sun Jul 12 22:47 2015
+:Modified: Sun Jul 12 22:49 2015
 
 .. -----
 .. Inbox
@@ -24,30 +24,6 @@ impractical for some. ``todrives`` makes it simple to backup files to multiple
 dissimilar devices in a cost-effective manner.
 
 .. contents::
-
--------
-Support
--------
-
-* Development is done on Arch Linux.
-
-* todrives supports Mac OSX and Linux. Windows may be added if a developer
-  wants to step up and support it at a later date.
-
-* todrives is built for sophisticated users. Users should understand operating
-  system mount points and filesystem technologies.
-
-* todrives assumes full destination device usage.
-
-* todrives does not modify, compress, encrypt, or encode files at any point and
-  never will. These are better left to a filesystem technology.
-
-* todrives is not network aware nor will it ever be. Backing up to mounted nfs
-  shares is perfectly fine, but todrives will fill it up eventually.
-
-* todrives can cause data loss if not used properly. The todrives contributors
-  cannot be responsible for dataloss and will not hold your hand in the case of
-  traumatic data loss.
 
 ---------
 Rationale
@@ -77,6 +53,30 @@ Goals
 
 #. Easy recovery: The files stored in the backup device can be restored using
    standard file copy mechanisms.
+
+-------
+Support
+-------
+
+* Development is done on Arch Linux.
+
+* todrives supports Mac OSX and Linux. Windows may be added if a developer
+  wants to step up and support it at a later date.
+
+* todrives is built for sophisticated users. Users should understand operating
+  system mount points and filesystem technologies.
+
+* todrives assumes full destination device usage.
+
+* todrives does not modify, compress, encrypt, or encode files at any point and
+  never will. These are better left to a filesystem technology.
+
+* todrives is not network aware nor will it ever be. Backing up to mounted nfs
+  shares is perfectly fine, but todrives will fill it up eventually.
+
+* todrives can cause data loss if not used properly. The todrives contributors
+  cannot be responsible for dataloss and will not hold your hand in the case of
+  traumatic data loss.
 
 --------------
 Implementation
