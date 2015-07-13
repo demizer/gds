@@ -5,7 +5,7 @@
 todrives Specification
 ======================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Sun Jul 12 22:51 2015
+:Modified: Sun Jul 12 23:06 2015
 
 .. -----
 .. Inbox
@@ -82,7 +82,7 @@ Support
   shares is perfectly fine, but todrives will fill it up eventually.
 
 * todrives can cause data loss if not used properly. The todrives contributors
-  cannot be responsible for dataloss and will not hold your hand in the case of
+  cannot be responsible for data loss and will not hold your hand in the case of
   traumatic data loss.
 
 --------------
@@ -141,7 +141,7 @@ Missing catalog file
 If the catalog is missing or corrupt, the user would be prompted to restore a
 copy of the catalog and given options to retry, or continue. If the catalog is
 restored, todrives will continue normally. If the catalog is not restored, the
-user will be notified again that dataloss may occurr on the destination
+user will be notified again that data loss may occurr on the destination
 devices. If the user continues, then todrives will do a normal sync to the
 devices updating changed files and removing files that are missing at the
 source directory.
@@ -161,11 +161,12 @@ There are multiple ways a file can be recovered from a todrives backup.
 Using todrives for recovery
 ---------------------------
 
-The user searches the catalog for the file they are looking for. Once found,
-they use ``--recover=<regex>`` to recover the files they desire. todrives will
-prompt the user to mount the device containing the file. After the user has
-indicated they would like to continue, todrives will sync the globbed files to
-the original location saved in the catalog, or to the specified path using the
+The user searches the catalog for the file they are looking for using the
+``--search=<regex>`` command argument. Once found, they use
+``--recover=<regex>`` to recover the files they desire. todrives will prompt
+the user to mount the device containing the file. After the user has indicated
+they would like to continue, todrives will sync the globbed files to the
+original location saved in the catalog, or to the specified path using the
 ``--output=<path>`` command argument.
 
 Using standard tools for recovery
@@ -177,8 +178,7 @@ Parallel sync
 -------------
 
 If the user has specified multple destination mount points in ``config.yml``,
-then todrives will sync to those number of mount points at a time
-asyncronously.
+then todrives will sync to those number of mount points concurrently.
 
 Third-party libraries
 +++++++++++++++++++++
