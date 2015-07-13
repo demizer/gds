@@ -5,7 +5,7 @@
 todrives Specification
 ======================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Sun Jul 12 22:49 2015
+:Modified: Sun Jul 12 22:51 2015
 
 .. -----
 .. Inbox
@@ -42,17 +42,24 @@ to contend with.
 Goals
 -----
 
-1. Simple: Provide a simple documentated interface for easily syncing files to
-   multiple dissimilar storage devices.
+1. **Simple**
 
-#. Do one thing: Sync files to multiple dissimilar mounted storage devices (in
-   parrellel if the user desires).
+   Provide a simple documentated interface for easily syncing files to multiple
+   dissimilar storage devices.
 
-#. Strong emphasis on correctness: Make sure the file on the destination
-   matches the source.
+#. **Do one thing**
 
-#. Easy recovery: The files stored in the backup device can be restored using
-   standard file copy mechanisms.
+   Sync files to multiple dissimilar mounted storage devices (in parrellel if
+   the user desires).
+
+#. **Correctness**
+
+   Make sure the file on the destination matches the source.
+
+#. **Easy recovery**
+
+   The files stored in the backup device can be restored using standard file
+   copy mechanisms.
 
 -------
 Support
