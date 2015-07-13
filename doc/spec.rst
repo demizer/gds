@@ -5,14 +5,14 @@
 todrives Specification
 ======================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Sun Jul 12 22:45 2015
+:Modified: Sun Jul 12 22:47 2015
 
------
-Inbox
------
+.. -----
+.. Inbox
+.. -----
 
-* Recommended usage is to encrypt the drive before mounting!
-* First run should setup config files.
+.. * Recommended usage is to encrypt the drive before mounting!
+.. * First run should setup config files.
 
 ------------
 Introduction
