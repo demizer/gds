@@ -22,4 +22,4 @@ How-to
 
    .. code:: console
 
-      gb build && ./bin/gb
+      gb build && ./bin/gds
