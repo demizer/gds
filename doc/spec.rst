@@ -5,7 +5,7 @@
 todrives Specification
 ======================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Sun Jul 12 23:06 2015
+:Modified: Mon Jul 13 16:29 2015
 
 .. -----
 .. Inbox
@@ -67,8 +67,8 @@ Support
 
 * Development is done on Arch Linux.
 
-* todrives supports Mac OSX and Linux. Windows may be added if a developer
-  wants to step up and support it at a later date.
+* todrives primarily supports Linux. Mac OSX and Windows support may be added
+  if a developer wants to step up and support it at a later date.
 
 * todrives is built for sophisticated users. Users should understand operating
   system mount points and filesystem technologies.
@@ -124,16 +124,29 @@ Multi-device operation
 ~~~~~~~~~~~~~~~~~~~~~~
 
 When the first device is filled, the user will be asked to mount the second
-device and provide a name (if being run without a config). Once this is done
-the operation will continue until all the data is copied. When the program is
-finished, statistics are dumped to the console and a catalog file is saved to
-the configuration directory in json format. The catalog file name contains the
-date.
+device. If the the current run is the first run, then the user will be prompted
+for a device name. Once this is done the operation will continue until all the
+data is copied. When the program is finished, statistics are dumped to the
+console and a catalog file is saved to the configuration directory in json
+format. The catalog file name contains the date.
 
 Successive runs
 ~~~~~~~~~~~~~~~
 
-TODO
+It's been a few weeks and the user wants to update the backup, so they initiate
+todrives. todrives checks the mounted device and it is not similar to the
+device listed in the configuration file (based on saved UUID). todrives prompts
+the user to mount a correct device, or force overwrite of the currently mounted
+device. The user wants to replace the device, so they select "Force overwrite".
+todrives updates the configuration for the new device and begins syncing the
+data.
+
+Once the new device is filled, todrives prompts the user to mount the second
+device. The new device was larger, so some of the files that were on the second
+device are now on the first device, so todrives removes those files, but there
+still are some files that need to be updated on the second device. todrives
+uses the rsync algorithm to sync the changed files efficiently. The process
+continues until done.
 
 Missing catalog file
 --------------------
@@ -152,6 +165,10 @@ Large files
 If the files for backup are too large for one device, then the file will be
 split across devices. This metadata will be stored in the catalog. If the
 ``--no-split`` argument is used then the program will exit.
+
+.. TODO: How to handle split files with the rsync algorithm?
+.. TODO: How to handle split files and changed device lists. I.e., user changes
+         a device to a larger or smaller device in the middle of the run.
 
 File recovery
 ~~~~~~~~~~~~~
@@ -183,22 +200,24 @@ then todrives will sync to those number of mount points concurrently.
 Third-party libraries
 +++++++++++++++++++++
 
+* Building
+
+  https://github.com/constabulary/gb
+
+  Per project build tool. Gives us more flexibility in the future around how
+  the todrives project is organized.
+
 * cli support
 
   https://github.com/codegangsta/cli
 
-* Argument parsing
+  Simplifies command-line argument handling and application structure.
 
-  https://github.com/docopt/docopt.go
+* logging
 
-* Output logging
+  - log15
 
-  log15
-  go-spew
-
-* Debugging
-
-  godebug
+  - go-spew
 
 Configuration
 +++++++++++++
@@ -223,6 +242,10 @@ config.yml
 
   This list is auto-generated when todrives is first run and the user does not
   provide a list.
+
+  - Device name provided by the user
+  - Mounted partition size
+  - Mounted partition UUID
 
 Command arguments
 ~~~~~~~~~~~~~~~~~
@@ -251,6 +274,13 @@ The catalog is needed for faster recovery of files and in the case of files
 being split across devices.
 
 The catalog should be backed up and protected just-in-case.
+
+File sync
++++++++++
+
+- Uses rsync algorithm
+
+- Split files for large files (unless ``--no-split`` is used).
 
 Recovery
 ++++++++
