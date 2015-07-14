@@ -9,18 +9,18 @@ type file struct {
 }
 
 var fileTests = [...]struct {
-	destPath  string
-	driveList func() DriveList
-	fileList  func() FileList
+	destPath   string
+	deviceList func() DeviceList
+	fileList   func() FileList
 }{
 	{
 		destPath: "/dev/null",
-		driveList: func() DriveList {
-			var n DriveList
+		deviceList: func() DeviceList {
+			var n DeviceList
 			n = append(n,
-				Drive{Name: "Test Drive 1", SizeBytes: 5368709120},
-				Drive{Name: "Test Drive 2", SizeBytes: 5368709120},
-				Drive{Name: "Test Drive 3", SizeBytes: 5368709120},
+				Device{Name: "Test Device 1", SizeBytes: 5368709120},
+				Device{Name: "Test Device 2", SizeBytes: 5368709120},
+				Device{Name: "Test Device 3", SizeBytes: 5368709120},
 			)
 			return n
 		},
@@ -51,7 +51,7 @@ var fileTests = [...]struct {
 func TestFileSortDest(t *testing.T) {
 	for _, y := range fileTests {
 		q := y.fileList()
-		z := y.driveList()
+		z := y.deviceList()
 		q.Sync(z)
 	}
 }

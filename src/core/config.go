@@ -15,15 +15,15 @@ type Config struct {
 	DestinationPath string `yaml:"destinationPath"`
 	Padding         string
 	PaddingBytes    uint64
-	Drives          DriveList
+	Devices         DeviceList
 }
 
 func NewConfig() *Config {
-	return &Config{Drives: make([]Drive, 0)}
+	return &Config{Devices: make([]Device, 0)}
 }
 
 func (c *Config) parseSizes() {
-	c.Drives.ParseSizes()
+	c.Devices.ParseSizes()
 	var err error
 	c.PaddingBytes, err = humanize.ParseBytes(c.Padding)
 	if err != nil {

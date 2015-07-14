@@ -5,13 +5,13 @@
 gds Specification
 =================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Mon Jul 13 22:07 2015
+:Modified: Mon Jul 13 22:21 2015
 
 .. -----
 .. Inbox
 .. -----
 
-.. * Recommended usage is to encrypt the drive before mounting!
+.. * Recommended usage is to encrypt the device before mounting!
 .. * First run should setup config files.
 
 ------------
@@ -102,7 +102,7 @@ This cost limitation makes backups a chore, and puts the data at severe risk.
 gds allows the user to backup all of their data to anything that can be
 mounted to a mount point in their OS and verify the data to be correct. The
 user is excited, so they scrounge up devices that have been sitting in a shoe
-box on the top shelf in the closet. The user needs a way to attach the drive to
+box on the top shelf in the closet. The user needs a way to attach the device to
 the storage device, so they purchase an external usb dock at local electronics
 warehouse.
 

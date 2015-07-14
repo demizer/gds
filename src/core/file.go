@@ -16,16 +16,16 @@ import (
 
 type File struct {
 	// ID        string      `json:"id"`
-	Name      string      `json:"name"`
-	Path      string      `json:"path"`
-	Size      uint64      `json:"size"`
-	Mode      os.FileMode `json:"mode"`
-	ModTime   time.Time   `json:"modTime"`
-	Owner     uint32      `json:"owner"`
-	Group     uint32      `json:"group"`
-	SrcSha    string      `json:"srcSha"`
-	DestDrive string      `json:"destDrive"`
-	IsDir     bool        `json:"isDir"`
+	Name       string      `json:"name"`
+	Path       string      `json:"path"`
+	Size       uint64      `json:"size"`
+	Mode       os.FileMode `json:"mode"`
+	ModTime    time.Time   `json:"modTime"`
+	Owner      uint32      `json:"owner"`
+	Group      uint32      `json:"group"`
+	SrcSha     string      `json:"srcSha"`
+	DestDevice string      `json:"destDevice"`
+	IsDir      bool        `json:"isDir"`
 }
 
 // VerifyHash checks the sum of the destination file with that of the source
@@ -57,7 +57,7 @@ type FileList []File
 func NewFileList(path string) (*FileList, error) {
 	bfl := FileList{}
 	// s := 0
-	// t := STATE.Config.Drives
+	// t := STATE.Config.Devices
 	// d := 0
 	// spd.Dump(t)
 	WalkFunc := func(p string, info os.FileInfo, err error) error {
@@ -138,9 +138,9 @@ func (f *FileList) TotalDataSize() uint64 {
 	return totalDataSize
 }
 
-// catalog is used to determine the destination drive of the files. A best
-// effort is made to not split the files between drives. If the file is too
-// large for a single drive, then it is split across drives.
-func (f *FileList) catalog(d DriveList) {
+// catalog is used to determine the destination device of the files. A best
+// effort is made to not split the files between devices. If the file is too
+// large for a single device, then it is split across devices.
+func (f *FileList) catalog(d DeviceList) {
 
 }

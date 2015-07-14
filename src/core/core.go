@@ -22,7 +22,7 @@ func Init() {
 	// os.Exit(1)
 	// }
 
-	// bSpace, err := conf.Drives.TotalSize()
+	// bSpace, err := conf.Devices.TotalSize()
 	// if err != nil {
 	// log.Crit(err.Error())
 	// os.Exit(1)
@@ -33,7 +33,7 @@ func Init() {
 	// BackupSpace: bSpace,
 	// }
 
-	// log.Info("Backup pool stats", "drives", len(STATE.Config.Drives), "total_size", humanize.IBytes(bSpace))
+	// log.Info("Backup pool stats", "devices", len(STATE.Config.Devices), "total_size", humanize.IBytes(bSpace))
 
 	// log.Info("Gathering a list of files to backup...")
 	// files, err := NewFileList(STATE.Config.BackupPath)
