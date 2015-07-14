@@ -2,8 +2,16 @@
 Ghetto Device Storage (gds)
 ===========================
 
-Cheap and easy multi-device backups. ``gds`` syncs files from one large storage
-pool, to multiple dissimilar devices.
+.. +--------------------------------------+--------------------------------------------------+
+.. | Cheap and easy multi-device backups. | .. image:: data/images/cartman_in_the_ghetto.png |
+.. | ``gds`` syncs files from one large   |                                                  |
+.. | storage pool, to multiple dissimilar |                                                  |
+.. | devices.                             |                                                  |
+.. +--------------------------------------+--------------------------------------------------+
+
+Cheap and easy multi-device backups. ``gds`` syncs files from one large storage pool, to multiple dissimilar devices...
+
+.. image:: data/images/cartman_in_the_ghetto.png
 
 .. warning:: This is alpha software. Use only if you know what you are doing.
 
