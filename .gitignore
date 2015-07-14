@@ -1,4 +1,4 @@
 bin/
 pkg/
 data/confidential
-todrives
+src/cmd/gds/gds

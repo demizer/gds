@@ -11,11 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	log "gopkg.in/inconshreveable/log15.v2"
+	// log "gopkg.in/inconshreveable/log15.v2"
 )
 
 type File struct {
-	// ID        string      `json:"id"`
 	Name       string      `json:"name"`
 	Path       string      `json:"path"`
 	Size       uint64      `json:"size"`

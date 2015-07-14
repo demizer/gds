@@ -1,10 +1,14 @@
 package core
 
+import (
+	log "gopkg.in/inconshreveable/log15.v2"
+)
+
 // Sync synchronizes files (f) to device. Sync
 // will copy new files, delete old files, and fix or update files on the
 // destination device that do not match the source sha1 hash.
-func Sync(f fileList, d DeviceList, destPaths []string) {
-	for _, y := range *f {
+func Sync(f FileList, d DeviceList, destPaths []string) {
+	for _, y := range f {
 		log.Debug("test", "y", y)
 	}
 	// device = backupDevices.AvailableSpace(device, x)

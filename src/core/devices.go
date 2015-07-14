@@ -42,10 +42,11 @@ func (d *DeviceList) TotalSize() (uint64, error) {
 
 func (d *DeviceList) AvailableSpace(device int, f File) (int, error) {
 	drv := (*d)[device]
-	padd, err := humanize.ParseBytes(STATE.Config.Padding)
-	if err != nil {
-		return 0, err
-	}
+	var padd uint64 = 1048576
+	// padd, err := humanize.ParseBytes(STATE.Config.Padding)
+	// if err != nil {
+	// return 0, err
+	// }
 	if drv.UsedSize+f.Size+padd >= drv.SizeBytes {
 		var s string
 		log.Info("The device is full! Mount new device and press "+
