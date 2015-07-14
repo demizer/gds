@@ -9,10 +9,12 @@ type file struct {
 }
 
 var fileTests = [...]struct {
+	destPath  string
 	driveList func() DriveList
 	fileList  func() FileList
 }{
 	{
+		destPath: "/dev/null",
 		driveList: func() DriveList {
 			var n DriveList
 			n = append(n,

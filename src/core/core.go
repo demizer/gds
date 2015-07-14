@@ -6,15 +6,15 @@ import (
 
 var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
 
-var STATE *State
+// var STATE *State
 
-type State struct {
-	Config      *Config
-	BackupSpace uint64
-}
+// type State struct {
+// Config      *Config
+// BackupSpace uint64
+// }
 
 func Init() {
-	// CONFIG_PATH := "/home/demizer/src/todrives/data/confidential/config_test.yml"
+	// CONFIG_PATH := "/home/demizer/src/gds/data/confidential/config_test.yml"
 	// // logs.Debugf("Loading config file from %q\n", CONFIG_PATH)
 	// conf, err := LoadConfigFromPath(CONFIG_PATH)
 	// if err != nil {

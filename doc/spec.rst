@@ -1,11 +1,11 @@
 .. -*- coding: utf-8 -*-
 .. sectnum::
 
-======================
-todrives Specification
-======================
+=================
+gds Specification
+=================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Mon Jul 13 16:29 2015
+:Modified: Mon Jul 13 22:07 2015
 
 .. -----
 .. Inbox
@@ -20,7 +20,7 @@ Introduction
 
 Building large home storage pools is expensive, and backing up this data is
 critical. Duplicating a large storage system for backups could be financially
-impractical for some. ``todrives`` makes it simple to backup files to multiple
+impractical for some. ``gds`` makes it simple to backup files to multiple
 dissimilar devices in a cost-effective manner.
 
 .. contents::
@@ -67,21 +67,21 @@ Support
 
 * Development is done on Arch Linux.
 
-* todrives primarily supports Linux. Mac OSX and Windows support may be added
+* gds primarily supports Linux. Mac OSX and Windows support may be added
   if a developer wants to step up and support it at a later date.
 
-* todrives is built for sophisticated users. Users should understand operating
+* gds is built for sophisticated users. Users should understand operating
   system mount points and filesystem technologies.
 
-* todrives assumes full destination device usage.
+* gds assumes full destination device usage.
 
-* todrives does not modify, compress, encrypt, or encode files at any point and
+* gds does not modify, compress, encrypt, or encode files at any point and
   never will. These are better left to a filesystem technology.
 
-* todrives is not network aware nor will it ever be. Backing up to mounted nfs
-  shares is perfectly fine, but todrives will fill it up eventually.
+* gds is not network aware nor will it ever be. Backing up to mounted nfs
+  shares is perfectly fine, but gds will fill it up eventually.
 
-* todrives can cause data loss if not used properly. The todrives contributors
+* gds can cause data loss if not used properly. The gds contributors
   cannot be responsible for data loss and will not hold your hand in the case of
   traumatic data loss.
 
@@ -99,9 +99,9 @@ priceless. They know this data is valuable, and the hardware they are storing
 it on is comodity, but the costs for professional solutions are just too high.
 This cost limitation makes backups a chore, and puts the data at severe risk.
 
-todrives allows the user to backup all of their data to anything that can be
+gds allows the user to backup all of their data to anything that can be
 mounted to a mount point in their OS and verify the data to be correct. The
-user is excited, so they scrounge up drives that have been sitting in a shoe
+user is excited, so they scrounge up devices that have been sitting in a shoe
 box on the top shelf in the closet. The user needs a way to attach the drive to
 the storage device, so they purchase an external usb dock at local electronics
 warehouse.
@@ -109,7 +109,7 @@ warehouse.
 Illustrative use cases
 ++++++++++++++++++++++
 
-Typical use cases of the todrives program.
+Typical use cases of the gds program.
 
 First run
 ~~~~~~~~~
@@ -134,17 +134,17 @@ Successive runs
 ~~~~~~~~~~~~~~~
 
 It's been a few weeks and the user wants to update the backup, so they initiate
-todrives. todrives checks the mounted device and it is not similar to the
-device listed in the configuration file (based on saved UUID). todrives prompts
+gds. gds checks the mounted device and it is not similar to the
+device listed in the configuration file (based on saved UUID). gds prompts
 the user to mount a correct device, or force overwrite of the currently mounted
 device. The user wants to replace the device, so they select "Force overwrite".
-todrives updates the configuration for the new device and begins syncing the
+gds updates the configuration for the new device and begins syncing the
 data.
 
-Once the new device is filled, todrives prompts the user to mount the second
+Once the new device is filled, gds prompts the user to mount the second
 device. The new device was larger, so some of the files that were on the second
-device are now on the first device, so todrives removes those files, but there
-still are some files that need to be updated on the second device. todrives
+device are now on the first device, so gds removes those files, but there
+still are some files that need to be updated on the second device. gds
 uses the rsync algorithm to sync the changed files efficiently. The process
 continues until done.
 
@@ -153,9 +153,9 @@ Missing catalog file
 
 If the catalog is missing or corrupt, the user would be prompted to restore a
 copy of the catalog and given options to retry, or continue. If the catalog is
-restored, todrives will continue normally. If the catalog is not restored, the
+restored, gds will continue normally. If the catalog is not restored, the
 user will be notified again that data loss may occurr on the destination
-devices. If the user continues, then todrives will do a normal sync to the
+devices. If the user continues, then gds will do a normal sync to the
 devices updating changed files and removing files that are missing at the
 source directory.
 
@@ -173,16 +173,16 @@ split across devices. This metadata will be stored in the catalog. If the
 File recovery
 ~~~~~~~~~~~~~
 
-There are multiple ways a file can be recovered from a todrives backup.
+There are multiple ways a file can be recovered from a gds backup.
 
-Using todrives for recovery
----------------------------
+Using gds for recovery
+----------------------
 
 The user searches the catalog for the file they are looking for using the
 ``--search=<regex>`` command argument. Once found, they use
-``--recover=<regex>`` to recover the files they desire. todrives will prompt
+``--recover=<regex>`` to recover the files they desire. gds will prompt
 the user to mount the device containing the file. After the user has indicated
-they would like to continue, todrives will sync the globbed files to the
+they would like to continue, gds will sync the globbed files to the
 original location saved in the catalog, or to the specified path using the
 ``--output=<path>`` command argument.
 
@@ -195,7 +195,7 @@ Parallel sync
 -------------
 
 If the user has specified multple destination mount points in ``config.yml``,
-then todrives will sync to those number of mount points concurrently.
+then gds will sync to those number of mount points concurrently.
 
 Third-party libraries
 +++++++++++++++++++++
@@ -205,7 +205,7 @@ Third-party libraries
   https://github.com/constabulary/gb
 
   Per project build tool. Gives us more flexibility in the future around how
-  the todrives project is organized.
+  the gds project is organized.
 
 * cli support
 
@@ -222,12 +222,12 @@ Third-party libraries
 Configuration
 +++++++++++++
 
-todrives checks the following paths for configuration files (in order)::
+gds checks the following paths for configuration files (in order)::
 
-    "--config" argument passed to todrives
-    $XDG_CONFIG_DIR/todrives/config.yml
-    $HOME/.todrives/config.yml
-    /etc/todrives/config.yml
+    "--config" argument passed to gds
+    $XDG_CONFIG_DIR/gds/config.yml
+    $HOME/.gds/config.yml
+    /etc/gds/config.yml
 
 config.yml
 ~~~~~~~~~~
@@ -236,11 +236,11 @@ config.yml
 
 - Multiple destination directories.
 
-  In this case todrives will backup in parallel.
+  In this case gds will backup in parallel.
 
 - A list of backup devices.
 
-  This list is auto-generated when todrives is first run and the user does not
+  This list is auto-generated when gds is first run and the user does not
   provide a list.
 
   - Device name provided by the user
@@ -266,7 +266,7 @@ Written in docopt_ syntax.
 Catalog file
 ++++++++++++
 
-After a successful run, todrives dumps a catalog file to the configuration
+After a successful run, gds dumps a catalog file to the configuration
 directory named ``2015-07-12T21:11-catalog.json``. This file is a the file list
 object from within the program encoded into json.
 
