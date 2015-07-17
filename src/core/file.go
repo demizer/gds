@@ -1,7 +1,7 @@
 package core
 
 import (
-	"crypto/sha256"
+	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -22,7 +22,7 @@ type File struct {
 	ModTime    time.Time   `json:"modTime"`
 	Owner      uint32      `json:"owner"`
 	Group      uint32      `json:"group"`
-	SrcSha     string      `json:"srcSha"`
+	SrcSha1    string      `json:"srcSha1"`
 	DestDevice string      `json:"destDevice"`
 	IsDir      bool        `json:"isDir"`
 }
@@ -35,7 +35,7 @@ func (f *File) VerifyHash(file File) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	s := sha256.New()
+	s := sha1.New()
 	if dSize, err := io.Copy(s, dFile); err != nil {
 		return "", err
 	} else if dSize != int64(file.Size) {
@@ -44,9 +44,9 @@ func (f *File) VerifyHash(file File) (string, error) {
 			file.Path, file.Size, dSize)
 	}
 	dSha := hex.EncodeToString(s.Sum(nil))
-	if file.SrcSha != dSha {
-		return "", fmt.Errorf("Source SHA (%s) != Dest SHA (%s)",
-			file.SrcSha, dSha)
+	if file.SrcSha1 != dSha {
+		return "", fmt.Errorf("Source sha1 (%s) != Dest sha1 (%s)",
+			file.SrcSha1, dSha)
 	}
 	return dSha, nil
 }

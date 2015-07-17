@@ -2,39 +2,10 @@
 	"version": 0,
 	"dependencies": [
 		{
-			"importpath": "github.com/dustin/go-humanize",
-			"repository": "https://github.com/dustin/go-humanize",
-			"revision": "c128122e0b9b93799aef8181a537e5d8fd7081d6",
-			"branch": "master",
-			"path": ""
-		},
-		{
-			"importpath": "gopkg.in/inconshreveable/log15.v2",
-			"repository": "https://gopkg.in/inconshreveable/log15.v2",
-			"revision": "dc7890abeaadcb6a79a9a5ee30bc1897bbf97713",
-			"branch": "master",
-			"path": ""
-		},
-		{
-			"importpath": "github.com/mattn/go-colorable",
-			"repository": "https://github.com/mattn/go-colorable",
-			"revision": "40e4aedc8fabf8c23e040057540867186712faa5",
-			"branch": "master",
-			"path": ""
-		},
-		{
-			"importpath": "gopkg.in/yaml.v2",
-			"repository": "https://gopkg.in/yaml.v2",
-			"revision": "7ad95dd0798a40da1ccdff6dff35fd177b5edf40",
-			"branch": "v2",
-			"path": ""
-		},
-		{
 			"importpath": "github.com/codegangsta/cli",
 			"repository": "https://github.com/codegangsta/cli",
 			"revision": "bca61c476e3c752594983e4c9bcd5f62fb09f157",
-			"branch": "master",
-			"path": ""
+			"branch": "master"
 		},
 		{
 			"importpath": "github.com/davecgh/go-spew/spew",
@@ -42,6 +13,30 @@
 			"revision": "2df174808ee097f90d259e432cc04442cf60be21",
 			"branch": "master",
 			"path": "/spew"
+		},
+		{
+			"importpath": "github.com/demizer/go-humanize",
+			"repository": "https://github.com/demizer/go-humanize",
+			"revision": "675823bfa41eb19bcb4a5899e129e09d637a7204",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/mattn/go-colorable",
+			"repository": "https://github.com/mattn/go-colorable",
+			"revision": "40e4aedc8fabf8c23e040057540867186712faa5",
+			"branch": "master"
+		},
+		{
+			"importpath": "gopkg.in/inconshreveable/log15.v2",
+			"repository": "https://gopkg.in/inconshreveable/log15.v2",
+			"revision": "dc7890abeaadcb6a79a9a5ee30bc1897bbf97713",
+			"branch": "master"
+		},
+		{
+			"importpath": "gopkg.in/yaml.v2",
+			"repository": "https://gopkg.in/yaml.v2",
+			"revision": "7ad95dd0798a40da1ccdff6dff35fd177b5edf40",
+			"branch": "v2"
 		}
 	]
 }

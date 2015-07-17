@@ -5,7 +5,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/dustin/go-humanize"
+	"github.com/demizer/go-humanize"
 
 	log "gopkg.in/inconshreveable/log15.v2"
 )

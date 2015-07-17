@@ -5,7 +5,7 @@
 gds Specification
 =================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Mon Jul 13 22:21 2015
+:Modified: Tue Jul 14 01:07 2015
 
 .. -----
 .. Inbox
@@ -260,6 +260,7 @@ Written in docopt_ syntax.
     -s=<regex>  --search=<regex>    Search the catalog for files.
     -r=<regex>  --recover=<regex>   Recover files.
     -o=<path>   --output=<path>     Recover files to path.
+    -V          --verify-dest       Check hash of destination file once copied.
     -l          --list-splits       Show multi-device files.
     -n          --no-split          Do not split files across devices.
 
