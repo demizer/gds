@@ -6,26 +6,48 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/demizer/go-humanize"
 )
 
-// Sync synchronizes files (f) to mounted devices (d) at mountpoints
-// (destPaths). Sync will copy new files, delete old files, and fix or update
-// files on the destination device that do not match the source sha1 hash.
-func Sync(f FileList, d DeviceList, destPaths []string) error {
-	var device int
-	for _, y := range f {
-		fName := filepath.Join(destPaths[device], y.Name)
+type syncerState struct {
+	io   *IoReaderWriter
+	file *File
+}
+
+func (s *syncerState) outputProgress(done chan<- bool) {
+	var lp time.Time
+	for {
+		if time.Since(lp).Seconds() < 1 && s.io.totalBytesWritten != s.file.Size {
+			continue
+		} else if s.io.totalBytesWritten < s.file.Size || lp.IsZero() {
+			lp = time.Now()
+			fmt.Printf("\033[2KCopying %q (%s/%s) [%s/s]\n", s.file.Name,
+				humanize.IBytes(s.io.totalBytesWritten),
+				humanize.IBytes(s.file.Size),
+				humanize.IBytes(s.io.progress.avgBytesPerSec(s.io.timeStart)))
+		} else {
+			fmt.Printf("Copy %q completed [%s/s]\n", s.file.Name,
+				humanize.IBytes(uint64(float64(s.file.Size)/time.Since(s.io.timeStart).Seconds())))
+			done <- true
+			return
+		}
+	}
+}
+
+func sync(device *Device, files map[string][]*File, oio chan<- *syncerState, done chan<- bool) error {
+	for _, f := range files[device.Name] {
+		fName := filepath.Join(device.MountPoint, f.Name)
 		// Open source file for reading
-		sFile, err := os.Open(y.Path)
+		sFile, err := os.Open(f.Path)
 		defer sFile.Close()
 		if err != nil {
-			return fmt.Errorf("Could not open source file %q for writing! -- %s", y.Path, err)
+			return fmt.Errorf("Could not open source file %q for writing! -- %s", f.Path, err)
 		}
 		var oFile io.Writer
 		// Open dest file for writing
-		if destPaths[device] == "/dev/null" {
+		if device.MountPoint == "/dev/null" {
 			oFile = ioutil.Discard
 		} else {
 			oFile, err := os.Open(fName)
@@ -34,31 +56,50 @@ func Sync(f FileList, d DeviceList, destPaths []string) error {
 				return fmt.Errorf("Could not open dest file %q for writing! -- %q", fName, err)
 			}
 		}
-		mIo := NewIoReaderWriter(oFile, y.Size)
-		fmt.Printf("Writing %q (%s)...\n\r", y.Name, humanize.IBytes(y.Size))
+		mIo := NewIoReaderWriter(oFile, f.Size)
+		fmt.Printf("Writing %q (%s)...\n", f.Name, humanize.IBytes(f.Size))
 		nIo := mIo.MultiWriter()
+		oio <- &syncerState{io: mIo, file: f}
 		if oSize, err := io.Copy(nIo, sFile); err != nil {
 			return fmt.Errorf("Error writing file %q, err: %q", fName, err)
 		} else {
-			d[device].UsedSize += uint64(oSize)
+			device.UsedSize += uint64(oSize)
 		}
-		fmt.Println("")
 		sFile.Close()
 	}
-	// device = backupDevices.AvailableSpace(device, x)
-	// x.SrcSha = mIo.Sha1SumToString()
-	// var vDestShaErr error
-	// fmt.Println("\r")
-	// Println("Verifying hash of destination file...")
-	// x.DestSha, vDestShaErr = verifyDestinationFileSHA(x)
-	// if err := writeJson(&x); err != nil {
-	// return err
-	// }
-	// if vDestShaErr != nil {
-	// return err
-	// } else {
-	// Println("Destination hash is good! :)")
-	// }
-	// }
+	done <- true
+	return nil
+}
+
+// Sync synchronizes files to mounted devices on mountpoints. Sync will copy
+// new files, delete old files, and fix or update files on the destination
+// device that do not match the source sha1 hash.
+func Sync(c *Context) error {
+	done := make(chan bool, 100)
+	doneSp := make(chan bool, 100)
+	ssc := make(chan *syncerState, 100)
+	for i := 0; i < c.OutputStreamNum; i++ {
+		go sync(&(c.Devices)[i], c.Catalog, ssc, done)
+	}
+	// for x := 0; x < c.OutputStreamNum; x++ {
+	dc := 0
+	dsp := 0
+	dspT := 0
+loop:
+	for {
+		select {
+		case <-done:
+			dc += 1
+		case <-doneSp:
+			dsp += 1
+		case sst := <-ssc:
+			dspT += 1
+			go sst.outputProgress(doneSp)
+		default:
+			if dc == c.OutputStreamNum && dsp == dspT {
+				break loop
+			}
+		}
+	}
 	return nil
 }

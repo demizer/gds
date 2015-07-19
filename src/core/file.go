@@ -10,21 +10,18 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
-
-	// log "gopkg.in/inconshreveable/log15.v2"
 )
 
 type File struct {
-	Name       string      `json:"name"`
-	Path       string      `json:"path"`
-	Size       uint64      `json:"size"`
-	Mode       os.FileMode `json:"mode"`
-	ModTime    time.Time   `json:"modTime"`
-	Owner      uint32      `json:"owner"`
-	Group      uint32      `json:"group"`
-	SrcSha1    string      `json:"srcSha1"`
-	DestDevice string      `json:"destDevice"`
-	IsDir      bool        `json:"isDir"`
+	Name    string      `json:"name"`
+	Path    string      `json:"path"`
+	Size    uint64      `json:"size"`
+	Mode    os.FileMode `json:"mode"`
+	ModTime time.Time   `json:"modTime"`
+	Owner   uint32      `json:"owner"`
+	Group   uint32      `json:"group"`
+	SrcSha1 string      `json:"srcSha1"`
+	IsDir   bool        `json:"isDir"`
 }
 
 // VerifyHash checks the sum of the destination file with that of the source
@@ -55,20 +52,11 @@ type FileList []File
 
 func NewFileList(path string) (*FileList, error) {
 	bfl := FileList{}
-	// s := 0
-	// t := STATE.Config.Devices
-	// d := 0
-	// spd.Dump(t)
 	WalkFunc := func(p string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
-		// rName, err2 := NewID()
-		// if err2 != nil {
-		// return err2
-		// }
 		f := File{
-			// ID:      rName,
 			Name:    info.Name(),
 			Path:    p,
 			Size:    uint64(info.Size()),
@@ -76,7 +64,6 @@ func NewFileList(path string) (*FileList, error) {
 			ModTime: info.ModTime(),
 			Owner:   info.Sys().(*syscall.Stat_t).Uid,
 			Group:   info.Sys().(*syscall.Stat_t).Gid,
-			// DestPath: filepath.Join(DEST_PATH, rName),
 		}
 		bfl = append(bfl, f)
 		return err
@@ -89,21 +76,14 @@ func NewFileList(path string) (*FileList, error) {
 }
 
 func (f *FileList) MarshalJSON() ([]byte, error) {
-	// var b bytes.Buffer
 	toJson := func(f *File) ([]byte, error) {
 		var v []byte
 		v, jErr := json.Marshal(f)
 		if jErr != nil {
-			// logs.Errorln("An error occurred transcoding to JSON!")
-			// logs.Errorln(jErr)
-			// logs.Errorf("%#v\n", f)
-			// logs.Errorln("Setting time to now and trying again")
-			// Sometimes the mod time is not formatted correctly
 			f.ModTime = time.Now()
 			var err2 error
 			v, err2 = json.Marshal(f)
 			if err2 != nil {
-				// logs.Debugln("IN HERE")
 				return nil, &BadFileMetadatError{f, err2}
 			}
 		}
@@ -122,10 +102,6 @@ func (f *FileList) MarshalJSON() ([]byte, error) {
 		jOut = append(jOut, ',')
 	}
 	jOut[len(jOut)-1] = ']'
-	// fmt.Println(string(jOut))
-	// fmt.Println(errs)
-	// fmt.Println("EXITINIGINIGIN")
-	// os.Exit(1)
 	return jOut, nil
 }
 
@@ -140,6 +116,17 @@ func (f *FileList) TotalDataSize() uint64 {
 // catalog is used to determine the destination device of the files. A best
 // effort is made to not split the files between devices. If the file is too
 // large for a single device, then it is split across devices.
-func (f *FileList) catalog(d DeviceList) {
-
+func (f *FileList) catalog(d DeviceList) map[string][]*File {
+	var dSize uint64
+	t := make(map[string][]*File)
+	dNum := 0
+	for fx, fy := range *f {
+		if (dSize + fy.Size) <= d[dNum].SizeBytes {
+			dSize += fy.Size
+		} else {
+			dNum += 1
+		}
+		t[d[dNum].Name] = append(t[d[dNum].Name], &(*f)[fx])
+	}
+	return t
 }
