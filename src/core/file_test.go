@@ -50,12 +50,12 @@ var fileTests = [...]struct {
 					Size: 727711744,
 				},
 				File{
-					Name: "test1",
+					Name: "alice_in_wonderland",
 					Path: "../../testdata/testwalk_001/test2/alice/alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm",
 					Size: 668711,
 				},
 				File{
-					Name: "test2",
+					Name: "ulysses",
 					Path: "../../testdata/testwalk_001/test2/ulysses/ulysses_by_james_joyce_gutenberg.org.htm",
 					Size: 1812584,
 				},

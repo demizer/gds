@@ -19,17 +19,19 @@ type syncerState struct {
 func (s *syncerState) outputProgress(done chan<- bool) {
 	var lp time.Time
 	for {
-		if time.Since(lp).Seconds() < 1 && s.io.totalBytesWritten != s.file.Size {
+		if lp.IsZero() {
+			lp = time.Now()
+		} else if time.Since(lp).Seconds() < 1 && s.io.totalBytesWritten != s.file.Size {
 			continue
 		} else if s.io.totalBytesWritten < s.file.Size || lp.IsZero() {
-			lp = time.Now()
 			fmt.Printf("\033[2KCopying %q (%s/%s) [%s/s]\n", s.file.Name,
 				humanize.IBytes(s.io.totalBytesWritten),
 				humanize.IBytes(s.file.Size),
-				humanize.IBytes(s.io.progress.avgBytesPerSec(s.io.timeStart)))
+				humanize.IBytes(s.io.WriteBytesPerSecond()))
+			lp = time.Now()
 		} else {
 			fmt.Printf("Copy %q completed [%s/s]\n", s.file.Name,
-				humanize.IBytes(uint64(float64(s.file.Size)/time.Since(s.io.timeStart).Seconds())))
+				humanize.IBytes(s.io.WriteBytesPerSecond()))
 			done <- true
 			return
 		}

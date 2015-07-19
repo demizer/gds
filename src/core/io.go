@@ -55,27 +55,6 @@ func (c *copyProgress) addPoint(totalBytesWritten uint64) {
 	})
 }
 
-func (c *copyProgress) avgBytesPerSec(timeStart time.Time) uint64 {
-	avgPoints := 10
-	var a copyProgress
-	// +1 to compensate for zero index
-	if len(*c) < avgPoints+1 {
-		a = (*c)[0:len(*c)]
-		avgPoints = len(*c)
-	} else {
-		a = (*c)[len(*c)-(avgPoints+1) : len(*c)-1]
-	}
-	var sum uint64
-	for _, y := range a {
-		sum += y.totalBytesWritten
-	}
-	td := time.Since(timeStart).Seconds()
-	if td == 0 {
-		td = 1
-	}
-	return uint64(float64(sum/uint64(avgPoints)) / td)
-}
-
 func (c *copyProgress) lastPoint() progressPoint {
 	if len(*c) == 0 {
 		return (*c)[0]
@@ -102,7 +81,10 @@ func (i *IoReaderWriter) Write(p []byte) (int, error) {
 }
 
 func (i *IoReaderWriter) WriteBytesPerSecond() uint64 {
-	return i.progress.avgBytesPerSec(i.timeStart)
+	if i.totalBytesWritten != i.size {
+		return uint64(float64(i.totalBytesWritten) / time.Since(i.timeStart).Seconds())
+	}
+	return uint64(float64(i.size) / time.Since(i.timeStart).Seconds())
 }
 
 func (i *IoReaderWriter) Sha1SumToString() string {
