@@ -38,52 +38,64 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 	}
 }
 
-func sync(device *Device, files map[string][]*File, oio chan<- *syncerState, done chan<- bool) error {
-	for _, f := range files[device.Name] {
-		fName := filepath.Join(device.MountPoint, f.Name)
+func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<- bool, cerr chan<- error) {
+	reportErr := func(err error) {
+		cerr <- err
+		done <- true
+	}
+	for _, cf := range (*catalog)[device.Name] {
+		fName := filepath.Join(device.MountPoint, cf.Name)
+		cf.DestPath = fName
 		// Open source file for reading
-		sFile, err := os.Open(f.Path)
+		sFile, err := os.Open(cf.Path)
 		defer sFile.Close()
 		if err != nil {
-			return fmt.Errorf("Could not open source file %q for writing! -- %s", f.Path, err)
+			reportErr(err)
+			return
 		}
-		var oFile io.Writer
+		var oFile *os.File
 		// Open dest file for writing
 		if device.MountPoint == "/dev/null" {
-			oFile = ioutil.Discard
+			oFile = ioutil.Discard.(*os.File)
 		} else {
-			oFile, err := os.Open(fName)
+			oFile, err = os.Open(fName)
 			defer oFile.Close()
 			if err != nil {
-				return fmt.Errorf("Could not open dest file %q for writing! -- %q", fName, err)
+				oFile, err = os.Create(fName)
+				if err != nil {
+					reportErr(err)
+					return
+				}
 			}
 		}
-		mIo := NewIoReaderWriter(oFile, f.Size)
-		fmt.Printf("Writing %q (%s)...\n", f.Name, humanize.IBytes(f.Size))
+		mIo := NewIoReaderWriter(oFile, cf.Size)
 		nIo := mIo.MultiWriter()
-		oio <- &syncerState{io: mIo, file: f}
+		oio <- &syncerState{io: mIo, file: cf}
 		if oSize, err := io.Copy(nIo, sFile); err != nil {
-			return fmt.Errorf("Error writing file %q, err: %q", fName, err)
+			reportErr(err)
+			return
 		} else {
 			device.UsedSize += uint64(oSize)
 		}
 		sFile.Close()
 	}
 	done <- true
-	return nil
 }
 
 // Sync synchronizes files to mounted devices on mountpoints. Sync will copy
 // new files, delete old files, and fix or update files on the destination
 // device that do not match the source sha1 hash.
-func Sync(c *Context) error {
+func Sync(c *Context) []error {
 	done := make(chan bool, 100)
 	doneSp := make(chan bool, 100)
+	errorChan := make(chan error, 100)
+	var retError []error
 	ssc := make(chan *syncerState, 100)
 	for i := 0; i < c.OutputStreamNum; i++ {
-		go sync(&(c.Devices)[i], c.Catalog, ssc, done)
+		go sync(&(c.Devices)[i], &c.Catalog, ssc, done, errorChan)
 	}
-	// for x := 0; x < c.OutputStreamNum; x++ {
+	// TODO: CODE SMELL... need a better concurrency pattern here.
+	// Look at http://tip.golang.org/pkg/sync/#WaitGroup
 	dc := 0
 	dsp := 0
 	dspT := 0
@@ -94,14 +106,17 @@ loop:
 			dc += 1
 		case <-doneSp:
 			dsp += 1
+		case err := <-errorChan:
+			retError = append(retError, err)
 		case sst := <-ssc:
 			dspT += 1
 			go sst.outputProgress(doneSp)
 		default:
+			// fmt.Println(dc, c.OutputStreamNum, dsp, dspT)
 			if dc == c.OutputStreamNum && dsp == dspT {
 				break loop
 			}
 		}
 	}
-	return nil
+	return retError
 }

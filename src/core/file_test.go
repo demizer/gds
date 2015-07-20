@@ -1,6 +1,10 @@
 package core
 
-import "testing"
+import (
+	"fmt"
+	"io/ioutil"
+	"testing"
+)
 
 type file struct {
 	Path      string
@@ -9,24 +13,23 @@ type file struct {
 }
 
 var fileTests = [...]struct {
-	outputStreams int
+	testName      string
+	outputStreams int // Must be at least 1
 	deviceList    func() DeviceList
 	fileList      func() FileList
+	catalog       func() Catalog
 }{
 	{
-		outputStreams: 2,
+		testName:      "Test #1 - Simple Copy",
+		outputStreams: 1,
 		deviceList: func() DeviceList {
 			var n DeviceList
+			tmp0, _ := ioutil.TempDir("", "gds-filetests-")
 			n = append(n,
 				Device{
-					Name:       "Test Device 1",
-					SizeBytes:  8122329361,
-					MountPoint: "/dev/null",
-				},
-				Device{
-					Name:       "Test Device 2",
-					SizeBytes:  73019310000,
-					MountPoint: "/dev/null",
+					Name:       "Test Device 0",
+					SizeBytes:  28173338480,
+					MountPoint: tmp0,
 				},
 			)
 			return n
@@ -34,30 +37,17 @@ var fileTests = [...]struct {
 		fileList: func() FileList {
 			var n FileList
 			n = append(n,
-				// File{
-				// Name: "dark_knight",
-				// Path: "/mnt/data/movies/The Dark Knight - 2008.mkv",
-				// Size: 28173338480,
-				// },
 				File{
-					Name: "The Wolf and the Lion",
-					Path: "/mnt/data/shows/Game of Thrones/Season 1/Game of Thrones - 1x05 - The Wolf and the Lion.mkv",
-					Size: 8122329361,
+					Name:    "alice_in_wonderland",
+					Path:    "../../testdata/testwalk_001/test2/alice/alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm",
+					Size:    668711,
+					SrcSha1: "08cdd7178a20032c27d152a1f440334ee5f132a0",
 				},
 				File{
-					Name: "elementaryos_2013",
-					Path: "/mnt/data/files/images/elementaryos-stable-amd64.20130810.iso",
-					Size: 727711744,
-				},
-				File{
-					Name: "alice_in_wonderland",
-					Path: "../../testdata/testwalk_001/test2/alice/alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm",
-					Size: 668711,
-				},
-				File{
-					Name: "ulysses",
-					Path: "../../testdata/testwalk_001/test2/ulysses/ulysses_by_james_joyce_gutenberg.org.htm",
-					Size: 1812584,
+					Name:    "ulysses",
+					Path:    "../../testdata/testwalk_001/test2/ulysses/ulysses_by_james_joyce_gutenberg.org.htm",
+					Size:    1812584,
+					SrcSha1: "d1f59d0fa64815a5f0c7527b5b4ac5c1b5a85ffb",
 				},
 			)
 			return n
@@ -65,18 +55,32 @@ var fileTests = [...]struct {
 	},
 }
 
-func TestFileSortDest(t *testing.T) {
+func TestFileSync(t *testing.T) {
 	for _, y := range fileTests {
 		c := NewContext()
+		fmt.Println("Test:", y.testName, "- START")
 		c.Files = y.fileList()
 		c.Devices = y.deviceList()
 		c.OutputStreamNum = y.outputStreams
-		c.Catalog = c.Files.catalog(c.Devices)
-		// spd.Dump(c)
-		// os.Exit(1)
+		c.Catalog = NewCatalog(c.Devices, &c.Files)
 		err := Sync(c)
-		if err != nil {
-			t.Error(err)
+		if len(err) != 0 {
+			for _, e := range err {
+				t.Errorf("Test: %q\n\t Error: %q\n", y.testName, e.Error())
+			}
 		}
+		for _, cv := range c.Catalog {
+			for _, cvf := range cv {
+				sum, err := sha1sum(cvf.DestPath)
+				if err != nil {
+					t.Errorf("Test: %q\n\t Error: %q\n", y.testName, err.Error())
+				}
+				if cvf.SrcSha1 != sum {
+					t.Errorf("Test: %q\n\t Error: %q\n", y.testName,
+						fmt.Errorf("SrcSha1: %q, DestSha1: %q", cvf.SrcSha1, sum))
+				}
+			}
+		}
+		fmt.Println("Test:", y.testName, "- PASS")
 	}
 }

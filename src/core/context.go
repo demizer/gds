@@ -12,15 +12,12 @@ type Context struct {
 	OutputStreamNum int
 	Files           FileList
 	Devices         DeviceList
-	Catalog         map[string][]*File
+	Catalog         Catalog
 }
 
 // NewContext returns an application context
 func NewContext() *Context {
-	return &Context{
-		OutputStreamNum: 1,
-		Catalog:         make(map[string][]*File),
-	}
+	return &Context{OutputStreamNum: 1}
 }
 
 // LoadConfigFromPath loads the application config file from a file path and

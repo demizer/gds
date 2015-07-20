@@ -13,15 +13,16 @@ import (
 )
 
 type File struct {
-	Name    string      `json:"name"`
-	Path    string      `json:"path"`
-	Size    uint64      `json:"size"`
-	Mode    os.FileMode `json:"mode"`
-	ModTime time.Time   `json:"modTime"`
-	Owner   uint32      `json:"owner"`
-	Group   uint32      `json:"group"`
-	SrcSha1 string      `json:"srcSha1"`
-	IsDir   bool        `json:"isDir"`
+	Name     string      `json:"name"`
+	Path     string      `json:"path"`
+	DestPath string      `json:"destPath"`
+	Size     uint64      `json:"size"`
+	Mode     os.FileMode `json:"mode"`
+	ModTime  time.Time   `json:"modTime"`
+	Owner    uint32      `json:"owner"`
+	Group    uint32      `json:"group"`
+	SrcSha1  string      `json:"srcSha1"`
+	IsDir    bool        `json:"isDir"`
 }
 
 // VerifyHash checks the sum of the destination file with that of the source
@@ -111,22 +112,4 @@ func (f *FileList) TotalDataSize() uint64 {
 		totalDataSize += x.Size
 	}
 	return totalDataSize
-}
-
-// catalog is used to determine the destination device of the files. A best
-// effort is made to not split the files between devices. If the file is too
-// large for a single device, then it is split across devices.
-func (f *FileList) catalog(d DeviceList) map[string][]*File {
-	var dSize uint64
-	t := make(map[string][]*File)
-	dNum := 0
-	for fx, fy := range *f {
-		if (dSize + fy.Size) <= d[dNum].SizeBytes {
-			dSize += fy.Size
-		} else {
-			dNum += 1
-		}
-		t[d[dNum].Name] = append(t[d[dNum].Name], &(*f)[fx])
-	}
-	return t
 }
