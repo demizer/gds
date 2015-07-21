@@ -2,7 +2,9 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -13,7 +15,11 @@ func sha1sum(filePath string) (string, error) {
 	cmd.Stdout = &out
 	err := cmd.Run()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("sha1sum error - %s", err.Error())
 	}
 	return strings.Fields(out.String())[0], err
+}
+
+func stripDotDot(path string) string {
+	return strings.Replace(filepath.Clean(path), "../", "", -1)
 }

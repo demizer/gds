@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/demizer/go-humanize"
@@ -30,12 +29,34 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 				humanize.IBytes(s.io.WriteBytesPerSecond()))
 			lp = time.Now()
 		} else {
-			fmt.Printf("Copy %q completed [%s/s]\n", s.file.Name,
+			fmt.Printf("Copy %q to %q completed [%s/s]\n", s.file.Name, s.file.DestPath,
 				humanize.IBytes(s.io.WriteBytesPerSecond()))
 			done <- true
 			return
 		}
 	}
+}
+
+func setMetaData(f *File) error {
+	err := os.Chown(f.DestPath, f.Owner, f.Group)
+	if err != nil {
+		return err
+	}
+	err = os.Chtimes(f.DestPath, f.AccTime, f.ModTime)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type SyncIncorrectOwnershipError struct {
+	FilePath string
+	OwnerId  int
+	UserId   int
+}
+
+func (e SyncIncorrectOwnershipError) Error() string {
+	return fmt.Sprintf("Cannot copy %q (owner id: %d) as user id: %d", e.FilePath, e.OwnerId, e.UserId)
 }
 
 func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<- bool, cerr chan<- error) {
@@ -44,8 +65,25 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		done <- true
 	}
 	for _, cf := range (*catalog)[device.Name] {
-		fName := filepath.Join(device.MountPoint, cf.Name)
-		cf.DestPath = fName
+		if cf.Owner != os.Getuid() && os.Getuid() != 0 {
+			cerr <- SyncIncorrectOwnershipError{cf.DestPath, cf.Owner, os.Getuid()}
+			continue
+		}
+		// This is where directories are created and given the correct metadata.
+		if cf.IsDir {
+			err := os.Mkdir(cf.DestPath, cf.Mode)
+			if err != nil {
+				reportErr(err)
+				return
+			}
+			err = setMetaData(cf)
+			if err != nil {
+				reportErr(err)
+				return
+			}
+			continue
+		}
+
 		// Open source file for reading
 		sFile, err := os.Open(cf.Path)
 		defer sFile.Close()
@@ -58,10 +96,15 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		if device.MountPoint == "/dev/null" {
 			oFile = ioutil.Discard.(*os.File)
 		} else {
-			oFile, err = os.Open(fName)
+			oFile, err = os.Open(cf.DestPath)
 			defer oFile.Close()
 			if err != nil {
-				oFile, err = os.Create(fName)
+				oFile, err = os.Create(cf.DestPath)
+				if err != nil {
+					reportErr(err)
+					return
+				}
+				err = os.Chmod(cf.DestPath, cf.Mode)
 				if err != nil {
 					reportErr(err)
 					return
@@ -77,7 +120,12 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		} else {
 			device.UsedSize += uint64(oSize)
 		}
-		sFile.Close()
+		cf.SrcSha1 = mIo.Sha1SumToString()
+		err = setMetaData(cf)
+		if err != nil {
+			reportErr(err)
+			return
+		}
 	}
 	done <- true
 }
@@ -91,6 +139,9 @@ func Sync(c *Context) []error {
 	errorChan := make(chan error, 100)
 	var retError []error
 	ssc := make(chan *syncerState, 100)
+	if c.OutputStreamNum == 0 {
+		c.OutputStreamNum = 1
+	}
 	for i := 0; i < c.OutputStreamNum; i++ {
 		go sync(&(c.Devices)[i], &c.Catalog, ssc, done, errorChan)
 	}

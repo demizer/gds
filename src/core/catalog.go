@@ -1,8 +1,13 @@
 package core
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 type Catalog map[string][]*File
 
-func NewCatalog(d DeviceList, f *FileList) Catalog {
+func NewCatalog(b string, d DeviceList, f *FileList) Catalog {
 	var dSize uint64
 	t := make(Catalog)
 	dNum := 0
@@ -12,7 +17,9 @@ func NewCatalog(d DeviceList, f *FileList) Catalog {
 		} else {
 			dNum += 1
 		}
-		t[d[dNum].Name] = append(t[d[dNum].Name], &(*f)[fx])
+		key := d[dNum].Name
+		t[key] = append(t[key], &(*f)[fx])
+		t[key][len(t[key])-1].DestPath = filepath.Join(d[dNum].MountPoint, strings.Replace(fy.Path, b, "", 1))
 	}
 	return t
 }

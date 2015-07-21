@@ -19,8 +19,10 @@ type File struct {
 	Size     uint64      `json:"size"`
 	Mode     os.FileMode `json:"mode"`
 	ModTime  time.Time   `json:"modTime"`
-	Owner    uint32      `json:"owner"`
-	Group    uint32      `json:"group"`
+	AccTime  time.Time   `json:"accessTime"`
+	ChgTime  time.Time   `json:"changeTime"`
+	Owner    int         `json:"owner"`
+	Group    int         `json:"group"`
 	SrcSha1  string      `json:"srcSha1"`
 	IsDir    bool        `json:"isDir"`
 }
@@ -51,10 +53,10 @@ func (f *File) VerifyHash(file File) (string, error) {
 
 type FileList []File
 
-func NewFileList(path string) (*FileList, error) {
+func NewFileList(path string) (FileList, error) {
 	bfl := FileList{}
 	WalkFunc := func(p string, info os.FileInfo, err error) error {
-		if info.IsDir() {
+		if info.IsDir() && p == path {
 			return nil
 		}
 		f := File{
@@ -63,8 +65,11 @@ func NewFileList(path string) (*FileList, error) {
 			Size:    uint64(info.Size()),
 			Mode:    info.Mode(),
 			ModTime: info.ModTime(),
-			Owner:   info.Sys().(*syscall.Stat_t).Uid,
-			Group:   info.Sys().(*syscall.Stat_t).Gid,
+			AccTime: time.Unix(info.Sys().(*syscall.Stat_t).Atim.Unix()),
+			ChgTime: time.Unix(info.Sys().(*syscall.Stat_t).Ctim.Unix()),
+			Owner:   int(info.Sys().(*syscall.Stat_t).Uid),
+			Group:   int(info.Sys().(*syscall.Stat_t).Gid),
+			IsDir:   info.IsDir(),
 		}
 		bfl = append(bfl, f)
 		return err
@@ -73,7 +78,7 @@ func NewFileList(path string) (*FileList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &bfl, nil
+	return bfl, nil
 }
 
 func (f *FileList) MarshalJSON() ([]byte, error) {
