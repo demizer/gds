@@ -74,6 +74,38 @@ var fileTests = [...]struct {
 			return e
 		},
 	},
+	{
+		testName:   "Test #3 - Subdirs",
+		backupPath: "../../testdata/filesync_test03_subdirs/",
+		deviceList: func() DeviceList {
+			var n DeviceList
+			test2_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
+			n = append(n,
+				Device{
+					Name:       "Test Device 0",
+					SizeBytes:  28173338480,
+					MountPoint: test2_output_dir,
+				},
+			)
+			return n
+		},
+	},
+	{
+		testName:   "Test #4 - Symlinks",
+		backupPath: "../../testdata/filesync_test04_symlinks/",
+		deviceList: func() DeviceList {
+			var n DeviceList
+			test2_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
+			n = append(n,
+				Device{
+					Name:       "Test Device 0",
+					SizeBytes:  28173338480,
+					MountPoint: test2_output_dir,
+				},
+			)
+			return n
+		},
+	},
 }
 
 func TestFileSync(t *testing.T) {
@@ -114,34 +146,36 @@ func TestFileSync(t *testing.T) {
 				if cvf.IsDir || cvf.Owner != os.Getuid() {
 					continue
 				}
-				sum, err := sha1sum(cvf.DestPath)
-				if err != nil {
-					t.Errorf("Test: %q\n\t Error: %s\n", y.testName, err.Error())
-				}
-				if cvf.SrcSha1 != sum {
-					t.Errorf("Test: %q\n\t Error: %s\n", y.testName,
-						fmt.Errorf("SrcSha1: %q, DestSha1: %q", cvf.SrcSha1, sum))
+				if !cvf.IsDir && !cvf.IsSymlink {
+					sum, err := sha1sum(cvf.DestPath)
+					if err != nil {
+						t.Errorf("Test: %q\n\t Error: %s\n", y.testName, err.Error())
+					}
+					if cvf.SrcSha1 != sum {
+						t.Errorf("Test: %q\n\t Error: %s\n", y.testName,
+							fmt.Errorf("File: %q SrcSha1: %q, DestSha1: %q", cvf.Name, cvf.SrcSha1, sum))
+					}
 				}
 				// Check uid, gid, and mod time
-				f, err := os.Open(cvf.DestPath)
+				fi, err := os.Lstat(cvf.DestPath)
 				if err != nil {
 					t.Errorf("Test: %q\n\t Error: %s\n", y.testName, err)
 				}
-				fs, err := f.Stat()
-				if err != nil {
-					t.Errorf("Test: %q\n\t Error: %s\n", y.testName, err)
+				if fi.Mode() != cvf.Mode {
+					t.Errorf("Test: %q\n\t File: %q\n\t Got Mode: %q Expect: %q\n",
+						y.testName, cvf.Name, fi.Mode(), cvf.Mode)
 				}
-				if fs.Mode() != cvf.Mode {
-					t.Errorf("Test: %q\n\t Got Mode: %q Expect: %q\n", y.testName, fs.Mode(), cvf.Mode)
+				if fi.ModTime() != cvf.ModTime {
+					t.Errorf("Test: %q\n\t File: %q\n\t Got ModTime: %q Expect: %q\n",
+						y.testName, cvf.Name, fi.ModTime(), cvf.ModTime)
 				}
-				if fs.ModTime() != cvf.ModTime {
-					t.Errorf("Test: %q\n\t Got ModTime: %q Expect: %q\n", y.testName, fs.ModTime(), cvf.ModTime)
+				if int(fi.Sys().(*syscall.Stat_t).Uid) != cvf.Owner {
+					t.Errorf("Test: %q\n\t File: %q\n\t Got Owner: %q Expect: %q\n",
+						y.testName, cvf.ModTime, int(fi.Sys().(*syscall.Stat_t).Uid), cvf.Owner)
 				}
-				if int(fs.Sys().(*syscall.Stat_t).Uid) != cvf.Owner {
-					t.Errorf("Test: %q\n\t Got Owner: %q Expect: %q\n", y.testName, int(fs.Sys().(*syscall.Stat_t).Uid), cvf.Owner)
-				}
-				if int(fs.Sys().(*syscall.Stat_t).Gid) != cvf.Group {
-					t.Errorf("Test: %q\n\t Got Group: %q Expect: %q\n", y.testName, int(fs.Sys().(*syscall.Stat_t).Gid), cvf.Group)
+				if int(fi.Sys().(*syscall.Stat_t).Gid) != cvf.Group {
+					t.Errorf("Test: %q\n\t File: %q\n\t Got Group: %q Expect: %q\n",
+						y.testName, cvf.Name, int(fi.Sys().(*syscall.Stat_t).Gid), cvf.Group)
 				}
 			}
 		}

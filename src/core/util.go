@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"unsafe"
 )
 
 // sha1sum gets the sha1 hash of filePath using an external hashing tool.
@@ -22,4 +24,25 @@ func sha1sum(filePath string) (string, error) {
 
 func stripDotDot(path string) string {
 	return strings.Replace(filepath.Clean(path), "../", "", -1)
+}
+
+// From https://github.com/docker/docker/blob/master/pkg/system/utimes_linux.go
+func LUtimesNano(path string, ts []syscall.Timespec) error {
+	// These are not currently available in syscall
+	AT_FDCWD := -100
+	AT_SYMLINK_NOFOLLOW := 0x100
+
+	var _path *byte
+	_path, err := syscall.BytePtrFromString(path)
+	if err != nil {
+		return err
+	}
+
+	if _, _, err := syscall.Syscall6(syscall.SYS_UTIMENSAT, uintptr(AT_FDCWD),
+		uintptr(unsafe.Pointer(_path)), uintptr(unsafe.Pointer(&ts[0])),
+		uintptr(AT_SYMLINK_NOFOLLOW), 0, 0); err != 0 && err != syscall.ENOSYS {
+		return err
+	}
+
+	return nil
 }

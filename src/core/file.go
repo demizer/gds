@@ -13,18 +13,19 @@ import (
 )
 
 type File struct {
-	Name     string      `json:"name"`
-	Path     string      `json:"path"`
-	DestPath string      `json:"destPath"`
-	Size     uint64      `json:"size"`
-	Mode     os.FileMode `json:"mode"`
-	ModTime  time.Time   `json:"modTime"`
-	AccTime  time.Time   `json:"accessTime"`
-	ChgTime  time.Time   `json:"changeTime"`
-	Owner    int         `json:"owner"`
-	Group    int         `json:"group"`
-	SrcSha1  string      `json:"srcSha1"`
-	IsDir    bool        `json:"isDir"`
+	Name      string      `json:"name"`
+	Path      string      `json:"path"`
+	DestPath  string      `json:"destPath"`
+	Size      uint64      `json:"size"`
+	Mode      os.FileMode `json:"mode"`
+	ModTime   time.Time   `json:"modTime"`
+	AccTime   time.Time   `json:"accessTime"`
+	ChgTime   time.Time   `json:"changeTime"`
+	Owner     int         `json:"owner"`
+	Group     int         `json:"group"`
+	SrcSha1   string      `json:"srcSha1"`
+	IsDir     bool        `json:"isDir"`
+	IsSymlink bool        `json:"IsSymlink"`
 }
 
 // VerifyHash checks the sum of the destination file with that of the source
@@ -70,6 +71,9 @@ func NewFileList(path string) (FileList, error) {
 			Owner:   int(info.Sys().(*syscall.Stat_t).Uid),
 			Group:   int(info.Sys().(*syscall.Stat_t).Gid),
 			IsDir:   info.IsDir(),
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			f.IsSymlink = true
 		}
 		bfl = append(bfl, f)
 		return err

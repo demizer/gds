@@ -5,7 +5,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/demizer/go-humanize"
 )
@@ -42,10 +44,18 @@ func setMetaData(f *File) error {
 	if err != nil {
 		return err
 	}
-	err = os.Chtimes(f.DestPath, f.AccTime, f.ModTime)
+
+	// Take a journey of a thousand steps to set atime and mtime on a symlink without following it...
+	mTimeval := syscall.NsecToTimespec(f.ModTime.UnixNano())
+	times := []syscall.Timespec{
+		mTimeval,
+		mTimeval,
+	}
+	err = LUtimesNano(f.DestPath, times)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -80,6 +90,26 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			if err != nil {
 				reportErr(err)
 				return
+			}
+			continue
+		}
+
+		// Symlink handling
+		if cf.IsSymlink {
+			p, err := os.Readlink(cf.Path)
+			if err != nil {
+				reportErr(err)
+				continue
+			}
+			err = os.Symlink(p, cf.DestPath)
+			if err != nil {
+				reportErr(err)
+				continue
+			}
+			err = setMetaData(cf)
+			if err != nil {
+				reportErr(err)
+				continue
 			}
 			continue
 		}
