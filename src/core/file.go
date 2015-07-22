@@ -64,7 +64,7 @@ type FileList []File
 func NewFileList(path string) (FileList, error) {
 	bfl := FileList{}
 	WalkFunc := func(p string, info os.FileInfo, err error) error {
-		if info.IsDir() && p == path {
+		if info.IsDir() && p == path && p[len(p)-1] == '/' {
 			return nil
 		}
 		f := File{

@@ -30,17 +30,12 @@ func (d *DeviceList) ParseSizes() {
 	}
 }
 
-func (d *DeviceList) DevicePoolSize() (uint64, error) {
+func (d *DeviceList) DevicePoolSize() uint64 {
 	var total uint64
-	var err error
 	for _, x := range *d {
-		x.SizeBytes, err = humanize.ParseBytes(x.Size)
-		if err != nil {
-			return 0, err
-		}
 		total += x.SizeBytes
 	}
-	return total, err
+	return total
 }
 
 func (d *DeviceList) AvailableSpace(device int, f File) (int, error) {

@@ -16,7 +16,8 @@ type file struct {
 }
 
 var (
-	test2_output_dir string
+	// Used for tests that expect errors
+	test_output_dir string
 )
 
 // fileTests test subdirectory creation, fileinfo synchronization, and file duplication.
@@ -50,12 +51,12 @@ var fileTests = [...]struct {
 		backupPath: "../../testdata/filesync_test02_permissions/",
 		deviceList: func() DeviceList {
 			var n DeviceList
-			test2_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
+			test_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
 			n = append(n,
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
-					MountPoint: test2_output_dir,
+					MountPoint: test_output_dir,
 				},
 			)
 			return n
@@ -63,11 +64,11 @@ var fileTests = [...]struct {
 		expectErrors: func() []error {
 			var e []error
 			e = append(e, SyncIncorrectOwnershipError{
-				FilePath: filepath.Join(test2_output_dir, "diff_user"),
+				FilePath: filepath.Join(test_output_dir, "diff_user"),
 				OwnerId:  25755,
 				UserId:   os.Getuid(),
 			}, SyncIncorrectOwnershipError{
-				FilePath: filepath.Join(test2_output_dir, "diff_user_unreadable"),
+				FilePath: filepath.Join(test_output_dir, "diff_user_unreadable"),
 				OwnerId:  25755,
 				UserId:   os.Getuid(),
 			})
@@ -79,12 +80,12 @@ var fileTests = [...]struct {
 		backupPath: "../../testdata/filesync_test03_subdirs/",
 		deviceList: func() DeviceList {
 			var n DeviceList
-			test2_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
+			tmp0, _ := ioutil.TempDir("", "gds-filetests-")
 			n = append(n,
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
-					MountPoint: test2_output_dir,
+					MountPoint: tmp0,
 				},
 			)
 			return n
@@ -95,12 +96,28 @@ var fileTests = [...]struct {
 		backupPath: "../../testdata/filesync_test04_symlinks/",
 		deviceList: func() DeviceList {
 			var n DeviceList
-			test2_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
+			tmp0, _ := ioutil.TempDir("", "gds-filetests-")
 			n = append(n,
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
-					MountPoint: test2_output_dir,
+					MountPoint: tmp0,
+				},
+			)
+			return n
+		},
+	},
+	{
+		testName:   "Test #5 - Copy backup directory with contents",
+		backupPath: "../../testdata/filesync_test01_freebooks",
+		deviceList: func() DeviceList {
+			var n DeviceList
+			tmp0, _ := ioutil.TempDir("", "gds-filetests-")
+			n = append(n,
+				Device{
+					Name:       "Test Device 0",
+					SizeBytes:  28173338480,
+					MountPoint: tmp0,
 				},
 			)
 			return n
@@ -111,7 +128,6 @@ var fileTests = [...]struct {
 func TestFileSync(t *testing.T) {
 	for _, y := range fileTests {
 		c := NewContext()
-		fmt.Println("Test:", y.testName, "- START")
 		var err error
 		c.Files, err = NewFileList(y.backupPath)
 		if err != nil {
@@ -132,7 +148,7 @@ func TestFileSync(t *testing.T) {
 			}
 			for _, e := range err2 {
 				for _, e2 := range y.expectErrors() {
-					if e.Error() == e2.Error() {
+					if e == e2 {
 						found = true
 						break
 					}
@@ -184,10 +200,26 @@ func TestFileSync(t *testing.T) {
 				}
 			}
 		}
-		pf := "PASS"
-		if t.Failed() {
-			pf = "FAIL"
-		}
-		fmt.Println("Test:", y.testName, "-", pf)
+	}
+}
+
+// A test for checking the error value of checkDevicePoolSpace()
+func TestCheckDevicePoolSpace(t *testing.T) {
+	file := File{
+		Name: "Large File",
+		Size: 100000,
+	}
+	device := Device{
+		Name:      "Device 0",
+		SizeBytes: 10000,
+	}
+	var fl FileList
+	fl = append(fl, file)
+	var dl DeviceList
+	dl = append(dl, device)
+	eerr := NotEnoughStorageSpaceError{100000, 10000}
+	err := checkDevicePoolSpace(fl, dl)
+	if err != eerr {
+		t.Errorf("Test: NotEnoughStorageSpaceError Check\n\t  Got: %q Expect: %q\n", err, eerr)
 	}
 }
