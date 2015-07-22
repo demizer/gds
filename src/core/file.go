@@ -12,20 +12,27 @@ import (
 	"time"
 )
 
+type FileType int
+
+const (
+	FILE FileType = iota
+	DIRECTORY
+	SYMLINK
+)
+
 type File struct {
-	Name      string      `json:"name"`
-	Path      string      `json:"path"`
-	DestPath  string      `json:"destPath"`
-	Size      uint64      `json:"size"`
-	Mode      os.FileMode `json:"mode"`
-	ModTime   time.Time   `json:"modTime"`
-	AccTime   time.Time   `json:"accessTime"`
-	ChgTime   time.Time   `json:"changeTime"`
-	Owner     int         `json:"owner"`
-	Group     int         `json:"group"`
-	SrcSha1   string      `json:"srcSha1"`
-	IsDir     bool        `json:"isDir"`
-	IsSymlink bool        `json:"IsSymlink"`
+	Name     string      `json:"name"`
+	Path     string      `json:"path"`
+	FileType FileType    `json:"fileType"`
+	DestPath string      `json:"destPath"`
+	Size     uint64      `json:"size"`
+	Mode     os.FileMode `json:"mode"`
+	ModTime  time.Time   `json:"modTime"`
+	AccTime  time.Time   `json:"accessTime"`
+	ChgTime  time.Time   `json:"changeTime"`
+	Owner    int         `json:"owner"`
+	Group    int         `json:"group"`
+	SrcSha1  string      `json:"srcSha1"`
 }
 
 // VerifyHash checks the sum of the destination file with that of the source
@@ -70,10 +77,11 @@ func NewFileList(path string) (FileList, error) {
 			ChgTime: time.Unix(info.Sys().(*syscall.Stat_t).Ctim.Unix()),
 			Owner:   int(info.Sys().(*syscall.Stat_t).Uid),
 			Group:   int(info.Sys().(*syscall.Stat_t).Gid),
-			IsDir:   info.IsDir(),
 		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			f.IsSymlink = true
+		if info.IsDir() {
+			f.FileType = DIRECTORY
+		} else if info.Mode()&os.ModeSymlink != 0 {
+			f.FileType = SYMLINK
 		}
 		bfl = append(bfl, f)
 		return err

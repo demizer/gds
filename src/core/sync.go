@@ -7,19 +7,23 @@ import (
 	"os"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/demizer/go-humanize"
 )
 
 type syncerState struct {
-	io   *IoReaderWriter
-	file *File
+	io     *IoReaderWriter
+	file   *File
+	closed bool
 }
 
 func (s *syncerState) outputProgress(done chan<- bool) {
 	var lp time.Time
 	for {
+		if s.closed {
+			done <- true
+			return
+		}
 		if lp.IsZero() {
 			lp = time.Now()
 		} else if time.Since(lp).Seconds() < 1 && s.io.totalBytesWritten != s.file.Size {
@@ -40,7 +44,15 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 }
 
 func setMetaData(f *File) error {
-	err := os.Chown(f.DestPath, f.Owner, f.Group)
+	var err error
+	if f.FileType != SYMLINK {
+		err = os.Chmod(f.DestPath, f.Mode)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = os.Chown(f.DestPath, f.Owner, f.Group)
 	if err != nil {
 		return err
 	}
@@ -69,92 +81,87 @@ func (e SyncIncorrectOwnershipError) Error() string {
 	return fmt.Sprintf("Cannot copy %q (owner id: %d) as user id: %d", e.FilePath, e.OwnerId, e.UserId)
 }
 
-func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<- bool, cerr chan<- error) {
-	reportErr := func(err error) {
-		cerr <- err
-		done <- true
+func createFile(f *File, cerr chan<- error) bool {
+	var err error
+	switch f.FileType {
+	case FILE:
+		var oFile *os.File
+		if _, lerr := os.Lstat(f.DestPath); lerr != nil {
+			oFile, err = os.Create(f.DestPath)
+			oFile.Close()
+			if err == nil {
+				err = setMetaData(f)
+			}
+		}
+	case DIRECTORY:
+		err = os.Mkdir(f.DestPath, f.Mode)
+		if err == nil {
+			err = setMetaData(f)
+		}
+	case SYMLINK:
+		p, err := os.Readlink(f.Path)
+		if err != nil {
+			break
+		}
+		err = os.Symlink(p, f.DestPath)
+		if err == nil {
+			err = setMetaData(f)
+		}
 	}
+	if err != nil {
+		cerr <- err
+		return true
+	}
+	return false
+}
+
+func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<- bool, cerr chan<- error) {
 	for _, cf := range (*catalog)[device.Name] {
 		if cf.Owner != os.Getuid() && os.Getuid() != 0 {
 			cerr <- SyncIncorrectOwnershipError{cf.DestPath, cf.Owner, os.Getuid()}
 			continue
 		}
-		// This is where directories are created and given the correct metadata.
-		if cf.IsDir {
-			err := os.Mkdir(cf.DestPath, cf.Mode)
-			if err != nil {
-				reportErr(err)
-				return
-			}
-			err = setMetaData(cf)
-			if err != nil {
-				reportErr(err)
-				return
-			}
+
+		createFile(cf, cerr)
+		if cf.FileType == DIRECTORY || cf.FileType == SYMLINK {
 			continue
 		}
 
-		// Symlink handling
-		if cf.IsSymlink {
-			p, err := os.Readlink(cf.Path)
-			if err != nil {
-				reportErr(err)
-				continue
-			}
-			err = os.Symlink(p, cf.DestPath)
-			if err != nil {
-				reportErr(err)
-				continue
-			}
-			err = setMetaData(cf)
-			if err != nil {
-				reportErr(err)
-				continue
-			}
-			continue
-		}
-
-		// Open source file for reading
-		sFile, err := os.Open(cf.Path)
-		defer sFile.Close()
-		if err != nil {
-			reportErr(err)
-			return
-		}
 		var oFile *os.File
 		// Open dest file for writing
 		if device.MountPoint == "/dev/null" {
 			oFile = ioutil.Discard.(*os.File)
 		} else {
-			oFile, err = os.Open(cf.DestPath)
-			defer oFile.Close()
-			if err != nil {
-				oFile, err = os.Create(cf.DestPath)
-				if err != nil {
-					reportErr(err)
-					return
-				}
-				err = os.Chmod(cf.DestPath, cf.Mode)
-				if err != nil {
-					reportErr(err)
-					return
-				}
-			}
+			oFile, _ = os.OpenFile(cf.DestPath, os.O_RDWR, cf.Mode)
 		}
+		defer oFile.Close()
+
+		// Open source file for reading
+		sFile, err := os.Open(cf.Path)
+		defer sFile.Close()
+		if err != nil {
+			cerr <- err
+			break
+		}
+
 		mIo := NewIoReaderWriter(oFile, cf.Size)
 		nIo := mIo.MultiWriter()
-		oio <- &syncerState{io: mIo, file: cf}
+		sst := &syncerState{io: mIo, file: cf}
+		oio <- sst
 		if oSize, err := io.Copy(nIo, sFile); err != nil {
-			reportErr(err)
-			return
+			// code smell ...
+			(*sst).closed = true
+			cerr <- err
+			break
 		} else {
 			device.UsedSize += uint64(oSize)
 		}
+
 		cf.SrcSha1 = mIo.Sha1SumToString()
 		err = setMetaData(cf)
 		if err != nil {
-			reportErr(err)
-			return
+			cerr <- err
+			break
 		}
 	}
 	done <- true
