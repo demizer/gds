@@ -5,7 +5,7 @@
 gds Specification
 =================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Tue Jul 14 01:07 2015
+:Modified: Tue Jul 21 23:12 2015
 
 .. -----
 .. Inbox
@@ -70,20 +70,16 @@ Support
 * gds primarily supports Linux. Mac OSX and Windows support may be added
   if a developer wants to step up and support it at a later date.
 
-* gds is built for sophisticated users. Users should understand operating
-  system mount points and filesystem technologies.
-
-* gds assumes full destination device usage.
+* gds users should understand operating system mount points and filesystem
+  technologies.
 
 * gds does not modify, compress, encrypt, or encode files at any point and
   never will. These are better left to a filesystem technology.
 
-* gds is not network aware nor will it ever be. Backing up to mounted nfs
-  shares is perfectly fine, but gds will fill it up eventually.
+* gds is not network aware nor will it ever be.
 
 * gds can cause data loss if not used properly. The gds contributors
-  cannot be responsible for data loss and will not hold your hand in the case of
-  traumatic data loss.
+  cannot be responsible for data loss or data recovery.
 
 --------------
 Implementation
@@ -147,6 +143,9 @@ device are now on the first device, so gds removes those files, but there
 still are some files that need to be updated on the second device. gds
 uses the rsync algorithm to sync the changed files efficiently. The process
 continues until done.
+
+.. Thought experiment: What happens when large files are added to a directory
+   that is saved on one device, but that device is full?
 
 Missing catalog file
 --------------------
@@ -233,6 +232,10 @@ config.yml
 ~~~~~~~~~~
 
 - Multiple backup source directories.
+
+  If the path ends with a "/" then only the contents of the path are saved to
+  the destination. If a path does not end with a "/", then the path and the
+  contents are saved to the destination.
 
 - Multiple destination directories.
 
