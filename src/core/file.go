@@ -93,6 +93,15 @@ func NewFileList(path string) (FileList, error) {
 	return bfl, nil
 }
 
+type BadFileMetadatError struct {
+	Info      *File
+	JsonError error
+}
+
+func (e BadFileMetadatError) Error() string {
+	return fmt.Sprintf("%s\n\n%s\n", e.JsonError, spd.Sdump(e.Info))
+}
+
 func (f *FileList) MarshalJSON() ([]byte, error) {
 	toJson := func(f *File) ([]byte, error) {
 		var v []byte
@@ -102,7 +111,7 @@ func (f *FileList) MarshalJSON() ([]byte, error) {
 			var err2 error
 			v, err2 = json.Marshal(f)
 			if err2 != nil {
-				return nil, &BadFileMetadatError{f, err2}
+				return nil, BadFileMetadatError{f, err2}
 			}
 		}
 		return v, nil
