@@ -1,13 +1,29 @@
 package core
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
+
+	log "gopkg.in/inconshreveable/log15.v2"
 )
+
+func init() {
+	var debug bool
+
+	flag.BoolVar(&debug, "debug", false, "Enable debug output.")
+	flag.Parse()
+
+	if !debug {
+		log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StdoutHandler))
+	}
+}
 
 type file struct {
 	Path      string
@@ -40,6 +56,7 @@ var fileTests = [...]struct {
 	outputStreams int
 	backupPath    string
 	deviceList    func() DeviceList
+	fileList      func() FileList
 	catalog       func() Catalog
 	expectErrors  func() []error
 	splitMinSize  uint64
@@ -63,10 +80,49 @@ var fileTests = [...]struct {
 	},
 	{
 		testName:   "Test #2 - Permissions",
-		backupPath: "../../testdata/filesync_test02_permissions/",
+		backupPath: "/dev/null/",
+		fileList: func() FileList {
+			var n FileList
+			test_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
+			n = append(n,
+				File{
+					Name:     "diff_user",
+					FileType: FILE,
+					Size:     1024,
+					Path:     "/dev/zero",
+					DestPath: path.Join(test_output_dir, "diff_user"),
+					Mode:     0640,
+					ModTime:  time.Now(),
+					Owner:    55000,
+					Group:    55000,
+				},
+				File{
+					Name:     "script.sh",
+					FileType: FILE,
+					Size:     1024,
+					Path:     "/dev/zero",
+					DestPath: path.Join(test_output_dir, "script.sh"),
+					Mode:     0777,
+					ModTime:  time.Now(),
+					Owner:    os.Getuid(),
+					Group:    os.Getgid(),
+				},
+				File{
+					Name:     "some_dir",
+					Path:     "/dev/zero",
+					FileType: DIRECTORY,
+					Size:     4096,
+					DestPath: path.Join(test_output_dir, "some_dir"),
+					Mode:     0755,
+					ModTime:  time.Now(),
+					Owner:    os.Getuid(),
+					Group:    55000,
+				},
+			)
+			return n
+		},
 		deviceList: func() DeviceList {
 			var n DeviceList
-			test_output_dir, _ = ioutil.TempDir("", "gds-filetests-")
 			n = append(n,
 				Device{
 					Name:       "Test Device 0",
@@ -80,11 +136,7 @@ var fileTests = [...]struct {
 			var e []error
 			e = append(e, SyncIncorrectOwnershipError{
 				FilePath: filepath.Join(test_output_dir, "diff_user"),
-				OwnerId:  25755,
-				UserId:   os.Getuid(),
-			}, SyncIncorrectOwnershipError{
-				FilePath: filepath.Join(test_output_dir, "diff_user_unreadable"),
-				OwnerId:  25755,
+				OwnerId:  55000,
 				UserId:   os.Getuid(),
 			})
 			return e
@@ -167,13 +219,18 @@ var fileTests = [...]struct {
 // little large...
 func TestFileSync(t *testing.T) {
 	for _, y := range fileTests {
+		fmt.Println("\n--- Running test: ", y.testName, "\n")
 		c := NewContext()
 		var err error
 		c.BackupPath = y.backupPath
-		c.Files, err = NewFileList(c)
-		if err != nil {
-			t.Errorf("%s\n\t  Error: %s\n", y.testName, err.Error())
-			return
+		if y.fileList == nil {
+			c.Files, err = NewFileList(c)
+			if err != nil {
+				t.Errorf("%s\n\t  Error: %s\n", y.testName, err.Error())
+				return
+			}
+		} else {
+			c.Files = y.fileList()
 		}
 		c.Devices = y.deviceList()
 		c.OutputStreamNum = y.outputStreams
@@ -237,7 +294,7 @@ func TestFileSync(t *testing.T) {
 						y.testName, cvf.ModTime, int(fi.Sys().(*syscall.Stat_t).Uid), cvf.Owner)
 				}
 				if int(fi.Sys().(*syscall.Stat_t).Gid) != cvf.Group {
-					t.Errorf("%s\n\t  File: %q\n\t  Got Group: %q Expect: %q\n",
+					t.Errorf("%s\n\t  File: %q\n\t  Got Group: %d Expect: %d\n",
 						y.testName, cvf.Name, int(fi.Sys().(*syscall.Stat_t).Gid), cvf.Group)
 				}
 				// Check the size of the output file

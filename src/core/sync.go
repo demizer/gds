@@ -53,20 +53,22 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 	}
 }
 
-func setMetaData(f *File) error {
+func setMetaData(f *File, cErr chan<- error) error {
 	var err error
 	if f.FileType != SYMLINK {
 		err = os.Chmod(f.DestPath, f.Mode)
 		if err != nil {
-			return err
+			cErr <- fmt.Errorf("setMetaData chmod: %s", err.Error())
+		} else {
+			log.Debug("Set mode", "file", f.DestPath, "mode", f.Mode)
 		}
-		log.Debug("Set mode", "file", f.DestPath, "mode", f.Mode)
 	}
 	err = os.Chown(f.DestPath, f.Owner, f.Group)
 	if err != nil {
-		return err
+		cErr <- fmt.Errorf("setMetaData chown: %s", err.Error())
+	} else {
+		log.Debug("Set owner", "owner", f.Owner, "group", f.Group)
 	}
-	log.Debug("Set owner", "owner", f.Owner, "group", f.Group)
 	// Change the modtime of a symlink without following it
 	mTimeval := syscall.NsecToTimespec(f.ModTime.UnixNano())
 	times := []syscall.Timespec{
@@ -75,7 +77,7 @@ func setMetaData(f *File) error {
 	}
 	err = LUtimesNano(f.DestPath, times)
 	if err != nil {
-		return err
+		cErr <- fmt.Errorf("setMetaData LUtimesNano: %s", err.Error())
 	}
 	return nil
 }
@@ -112,11 +114,11 @@ func createFile(f *File, cerr chan<- error) {
 		log.Debug("Created Symlink", "path", f.DestPath)
 	}
 	if err != nil {
-		cerr <- err
+		cerr <- fmt.Errorf("createFile: %s", err.Error())
 	} else {
-		err = setMetaData(f)
+		err = setMetaData(f, cerr)
 		if err != nil {
-			cerr <- err
+			cerr <- fmt.Errorf("createFile: %s", err.Error())
 		}
 	}
 }
@@ -124,16 +126,17 @@ func createFile(f *File, cerr chan<- error) {
 // preSync uses the catalog to pre-create the files that are to be synced at the mountpoint. This allows for increased
 // accuracy when calculating actual device usage during the sync. This is needed because directory files on Linux increase in
 // size once they contain pointers to files and sub-directories.
-func preSync(d *Device, c *Catalog, cerr chan<- error) {
+func preSync(d *Device, c *Catalog) {
+	// Discard any errors, they will be caught by the main sync process
+	dErr := make(chan<- error, 100)
 	for _, xy := range (*c)[d.Name] {
-		createFile(xy, cerr)
+		createFile(xy, dErr)
 	}
 }
 
 func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<- bool, cerr chan<- error) {
-	log.Debug("Syncing to device", "device", device.Name)
-	preSync(device, catalog, cerr)
-	// os.Exit(1)
+	log.Info("Syncing to device", "device", device.Name)
+	preSync(device, catalog)
 	for _, cf := range (*catalog)[device.Name] {
 		if cf.Owner != os.Getuid() && os.Getuid() != 0 {
 			cerr <- SyncIncorrectOwnershipError{cf.DestPath, cf.Owner, os.Getuid()}
@@ -158,10 +161,14 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		defer oFile.Close()
 
 		// Open source file for reading
+		if cf.Path == "/dev/zero" {
+			cf.SplitStartByte = 0
+			cf.SplitEndByte = 4096
+		}
 		sFile, err := os.Open(cf.Path)
 		defer sFile.Close()
 		if err != nil {
-			cerr <- err
+			cerr <- fmt.Errorf("sync sfile open: %s", err.Error())
 			break
 		}
 
@@ -178,7 +185,7 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			if oSize, err := io.Copy(nIo, sFile); err != nil {
 				// code smell ...
 				sst.closed = true
-				cerr <- err
+				cerr <- fmt.Errorf("sync copy: %s", err.Error())
 				break
 			} else {
 				log.Debug("File size", "file", cf.DestPath, "size", oSize)
@@ -192,7 +199,7 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			if oSize, err := io.CopyN(nIo, sFile, int64(cb)); err != nil {
 				// code smell ...
 				sst.closed = true
-				cerr <- err
+				cerr <- fmt.Errorf("sync copyn: %s", err.Error())
 				break
 			} else {
 				log.Debug("File size", "file", cf.DestPath, "size", oSize)
@@ -203,9 +210,9 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		cf.SrcSha1 = mIo.Sha1SumToString()
 		log.Debug("File sha1sum", "file", cf.DestPath, "sha1sum", cf.SrcSha1)
 
-		err = setMetaData(cf)
+		err = setMetaData(cf, cerr)
 		if err != nil {
-			cerr <- err
+			cerr <- fmt.Errorf("sync: %s", err.Error())
 			break
 		}
 	}

@@ -54,6 +54,12 @@ func NewCatalog(c *Context) Catalog {
 		}
 		key := c.Devices[dNum].Name
 		t[key] = append(t[key], &(c.Files)[fx])
+
+		if fy.Path == "/dev/zero" {
+			// For testing
+			continue
+		}
+
 		if !split {
 			t[key][len(t[key])-1].DestPath = filepath.Join(c.Devices[dNum].MountPoint, fy.Path[len(bpath):])
 		} else {

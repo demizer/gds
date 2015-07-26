@@ -86,11 +86,14 @@ func NewFileList(c *Context) (FileList, error) {
 			f.FileType = SYMLINK
 		}
 		bfl = append(bfl, f)
+		if err != nil {
+			return fmt.Errorf("NewFileList WalkFunc: %s", err.Error())
+		}
 		return err
 	}
 	err := filepath.Walk(c.BackupPath, WalkFunc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("NewFileList: %s", err.Error())
 	}
 	return bfl, nil
 }
