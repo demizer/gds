@@ -2,4 +2,5 @@ pkg/
 data/confidential
 bin/gds
 src/cmd/gds/gds
+testdata/temp/
 coverage.out

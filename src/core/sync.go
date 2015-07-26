@@ -45,8 +45,7 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 			showProgress()
 			lp = time.Now()
 		} else {
-			fmt.Printf("Copy %q to %q completed [%s/s]\n", s.file.Name, s.file.DestPath,
-				humanize.IBytes(s.io.WriteBytesPerSecond()))
+			fmt.Printf("Copy %q completed [%s/s]\n", s.file.Name, humanize.IBytes(s.io.WriteBytesPerSecond()))
 			done <- true
 			return
 		}
@@ -190,6 +189,8 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			} else {
 				log.Debug("File size", "file", cf.DestPath, "size", oSize)
 				device.UsedSize += uint64(oSize)
+				sFile.Close()
+				oFile.Close()
 			}
 		} else {
 			cb := cf.SplitEndByte - cf.SplitStartByte
@@ -204,6 +205,8 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			} else {
 				log.Debug("File size", "file", cf.DestPath, "size", oSize)
 				device.UsedSize += uint64(oSize)
+				sFile.Close()
+				oFile.Close()
 			}
 		}
 
