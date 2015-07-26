@@ -55,8 +55,8 @@ var fileTests = [...]struct {
 	testName      string
 	outputStreams int
 	backupPath    string
+	fileList      func() FileList // Must come before deviceList in the anon struct
 	deviceList    func() DeviceList
-	fileList      func() FileList
 	catalog       func() Catalog
 	expectErrors  func() []error
 	splitMinSize  uint64
@@ -213,6 +213,29 @@ var fileTests = [...]struct {
 			return n
 		},
 	},
+	{
+		testName:     "Test #7 - Large file on one whole device and partly on another",
+		backupPath:   "../../testdata/filesync_test07_file_split/",
+		splitMinSize: 1000,
+		deviceList: func() DeviceList {
+			var n DeviceList
+			tmp0, _ := ioutil.TempDir("", "gds-filetests-")
+			tmp1, _ := ioutil.TempDir("", "gds-filetests-")
+			n = append(n,
+				Device{
+					Name:       "Test Device 0",
+					SizeBytes:  9999999,
+					MountPoint: tmp0,
+				},
+				Device{
+					Name:       "Test Device 1",
+					SizeBytes:  850000,
+					MountPoint: tmp1,
+				},
+			)
+			return n
+		},
+	},
 }
 
 // TestFileSync is the main test function for testing file sync operations. Being it is the main test function, it is a
@@ -322,7 +345,6 @@ func TestFileSync(t *testing.T) {
 					y.testName, dev.MountPoint, ms, dev.UsedSize)
 			}
 		}
-		// spd.Dump(c)
 	}
 }
 
