@@ -20,6 +20,20 @@ var (
 	test_output_dir string
 )
 
+// checkMountpointUsage calculates the total size of files located under the mountpoint (m).
+func checkMountpointUsage(m string) (int64, error) {
+	var byts int64 = 0
+	walkFunc := func(p string, i os.FileInfo, err error) error {
+		if p == m {
+			return nil
+		}
+		byts += i.Size()
+		return nil
+	}
+	err := filepath.Walk(m, walkFunc)
+	return byts, err
+}
+
 // fileTests test subdirectory creation, fileinfo synchronization, and file duplication.
 var fileTests = [...]struct {
 	testName      string
@@ -28,6 +42,7 @@ var fileTests = [...]struct {
 	deviceList    func() DeviceList
 	catalog       func() Catalog
 	expectErrors  func() []error
+	splitMinSize  uint64
 }{
 	{
 		testName: "Test #1 - Simple Copy",
@@ -123,32 +138,59 @@ var fileTests = [...]struct {
 			return n
 		},
 	},
+	{
+		testName:     "Test #6 - Split file across devices",
+		backupPath:   "../../testdata/filesync_test01_freebooks",
+		splitMinSize: 1000,
+		deviceList: func() DeviceList {
+			var n DeviceList
+			tmp0, _ := ioutil.TempDir("", "gds-filetests-")
+			tmp1, _ := ioutil.TempDir("", "gds-filetests-")
+			n = append(n,
+				Device{
+					Name:       "Test Device 0",
+					SizeBytes:  850000,
+					MountPoint: tmp0,
+				},
+				Device{
+					Name:       "Test Device 1",
+					SizeBytes:  850000,
+					MountPoint: tmp1,
+				},
+			)
+			return n
+		},
+	},
 }
 
+// TestFileSync is the main test function for testing file sync operations. Being it is the main test function, it is a
+// little large...
 func TestFileSync(t *testing.T) {
 	for _, y := range fileTests {
 		c := NewContext()
 		var err error
-		c.Files, err = NewFileList(y.backupPath)
+		c.BackupPath = y.backupPath
+		c.Files, err = NewFileList(c)
 		if err != nil {
-			t.Errorf("Test: %q\n\t  Error: %q\n", y.testName, err.Error())
+			t.Errorf("%s\n\t  Error: %s\n", y.testName, err.Error())
 			return
 		}
 		c.Devices = y.deviceList()
 		c.OutputStreamNum = y.outputStreams
-		c.Catalog = NewCatalog(y.backupPath, c.Devices, &c.Files)
+		c.SplitMinSize = y.splitMinSize
+		c.Catalog = NewCatalog(c)
 
 		// Do the work!
 		err2 := Sync(c)
 		if len(err2) != 0 {
 			found := false
 			if y.expectErrors == nil {
-				t.Errorf("Test: %q\n\t  Expect: No errors\n\t  Got: %s", y.testName, spd.Sprint(err2))
+				t.Errorf("%s\n\t  Expect: No errors\n\t  Got: %s", y.testName, spd.Sprint(err2))
 				continue
 			}
 			for _, e := range err2 {
 				for _, e2 := range y.expectErrors() {
-					if e == e2 {
+					if e.Error() == e2.Error() {
 						found = true
 						break
 					}
@@ -156,12 +198,12 @@ func TestFileSync(t *testing.T) {
 				if found {
 					continue
 				}
-				t.Errorf("Test: %q\n\t  Error: %s\n", y.testName, e.Error())
+				t.Errorf("%s\n\t  Error: %s\n", y.testName, e.Error())
 			}
 		}
 
 		// Check the work!
-		for _, cv := range c.Catalog {
+		for cx, cv := range c.Catalog {
 			for _, cvf := range cv {
 				if cvf.FileType == DIRECTORY || cvf.Owner != os.Getuid() {
 					continue
@@ -169,37 +211,61 @@ func TestFileSync(t *testing.T) {
 				if cvf.FileType != DIRECTORY && cvf.FileType != SYMLINK {
 					sum, err := sha1sum(cvf.DestPath)
 					if err != nil {
-						t.Errorf("Test: %q\n\t  Error: %s\n", y.testName, err.Error())
+						t.Errorf("%s\n\t  Error: %s\n", y.testName, err.Error())
 					}
 					if cvf.SrcSha1 != sum {
-						t.Errorf("Test: %q\n\t  Error: %s\n", y.testName,
+						t.Errorf("%s\n\t  Error: %s\n", y.testName,
 							fmt.Errorf("File: %q SrcSha1: %q, DestSha1: %q", cvf.Name, cvf.SrcSha1, sum))
 					}
 				}
 				// Check uid, gid, and mod time
 				fi, err := os.Lstat(cvf.DestPath)
 				if err != nil {
-					t.Errorf("Test: %q\n\t  Error: %s\n", y.testName, err)
+					t.Errorf("%s\n\t  Error: %s\n", y.testName, err)
 					continue
 				}
 				if fi.Mode() != cvf.Mode {
-					t.Errorf("Test: %q\n\t  File: %q\n\t  Got Mode: %q Expect: %q\n",
+					t.Errorf("%s\n\t  File: %q\n\t  Got Mode: %q Expect: %q\n",
 						y.testName, cvf.Name, fi.Mode(), cvf.Mode)
 				}
 				if fi.ModTime() != cvf.ModTime {
-					t.Errorf("Test: %q\n\t  File: %q\n\t  Got ModTime: %q Expect: %q\n",
+					t.Errorf("%s\n\t  File: %q\n\t  Got ModTime: %q Expect: %q\n",
 						y.testName, cvf.Name, fi.ModTime(), cvf.ModTime)
 				}
 				if int(fi.Sys().(*syscall.Stat_t).Uid) != cvf.Owner {
-					t.Errorf("Test: %q\n\t  File: %q\n\t  Got Owner: %q Expect: %q\n",
+					t.Errorf("%s\n\t  File: %q\n\t  Got Owner: %q Expect: %q\n",
 						y.testName, cvf.ModTime, int(fi.Sys().(*syscall.Stat_t).Uid), cvf.Owner)
 				}
 				if int(fi.Sys().(*syscall.Stat_t).Gid) != cvf.Group {
-					t.Errorf("Test: %q\n\t  File: %q\n\t  Got Group: %q Expect: %q\n",
+					t.Errorf("%s\n\t  File: %q\n\t  Got Group: %q Expect: %q\n",
 						y.testName, cvf.Name, int(fi.Sys().(*syscall.Stat_t).Gid), cvf.Group)
 				}
+				// Check the size of the output file
+				ls, err := os.Lstat(cvf.DestPath)
+				if err != nil {
+					t.Errorf("Could not stat %q, %s", cvf.DestPath, err.Error())
+				}
+				if cvf.SplitEndByte == 0 && uint64(ls.Size()) != cvf.Size {
+					t.Errorf("%s\n\t  File: %q\n\t  Got Size: %d Expect: %d\n",
+						y.testName, cvf.DestPath, ls.Size, cvf.Size)
+				} else if cvf.SplitEndByte != 0 && uint64(ls.Size()) != cvf.SplitEndByte-cvf.SplitStartByte {
+					t.Errorf("%s\n\t  File: %q\n\t  Got Size: %d Expect: %d\n",
+						y.testName, cvf.DestPath, ls.Size, cvf.SplitEndByte-cvf.SplitStartByte)
+				}
+
+			}
+			// Check the size of the MountPoint
+			dev := c.Devices.GetDeviceByName(cx)
+			ms, err := checkMountpointUsage(dev.MountPoint)
+			if err != nil {
+				t.Error(err)
+			}
+			if uint64(ms) != dev.UsedSize {
+				t.Errorf("%s\n\t  MountPoint: %q\n\t  Got Size: %d Expect: %d\n",
+					y.testName, dev.MountPoint, ms, dev.UsedSize)
 			}
 		}
+		// spd.Dump(c)
 	}
 }
 

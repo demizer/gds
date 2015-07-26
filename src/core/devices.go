@@ -53,6 +53,15 @@ func (d *DeviceList) AvailableSpace(device int, f File) (int, error) {
 	return device, nil
 }
 
+func (d *DeviceList) GetDeviceByName(name string) *Device {
+	for x, y := range *d {
+		if y.Name == name {
+			return &(*d)[x]
+		}
+	}
+	return nil
+}
+
 // SetMountPointByName sets the mount point of a device using the name of the
 // device.
 func (d *DeviceList) SetMountPointByName(name string, mountPoint string) {

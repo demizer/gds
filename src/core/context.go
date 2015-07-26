@@ -13,6 +13,9 @@ type Context struct {
 	Files           FileList
 	Devices         DeviceList
 	Catalog         Catalog
+
+	// Minimum number of bytes that must remain on the device before a file is split across devices
+	SplitMinSize uint64
 }
 
 // NewContext returns an application context

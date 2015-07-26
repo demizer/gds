@@ -21,18 +21,20 @@ const (
 )
 
 type File struct {
-	Name     string      `json:"name"`
-	Path     string      `json:"path"`
-	FileType FileType    `json:"fileType"`
-	DestPath string      `json:"destPath"`
-	Size     uint64      `json:"size"`
-	Mode     os.FileMode `json:"mode"`
-	ModTime  time.Time   `json:"modTime"`
-	AccTime  time.Time   `json:"accessTime"`
-	ChgTime  time.Time   `json:"changeTime"`
-	Owner    int         `json:"owner"`
-	Group    int         `json:"group"`
-	SrcSha1  string      `json:"srcSha1"`
+	Name           string      `json:"name"`
+	Path           string      `json:"path"`
+	FileType       FileType    `json:"fileType"`
+	DestPath       string      `json:"destPath"`
+	Size           uint64      `json:"size"`
+	Mode           os.FileMode `json:"mode"`
+	ModTime        time.Time   `json:"modTime"`
+	AccTime        time.Time   `json:"accessTime"`
+	ChgTime        time.Time   `json:"changeTime"`
+	Owner          int         `json:"owner"`
+	Group          int         `json:"group"`
+	SrcSha1        string      `json:"srcSha1"`
+	SplitStartByte uint64      `json:"splitStartByte"`
+	SplitEndByte   uint64      `json:"splitEndByte"`
 }
 
 // VerifyHash checks the sum of the destination file with that of the source
@@ -61,10 +63,10 @@ func (f *File) VerifyHash(file File) (string, error) {
 
 type FileList []File
 
-func NewFileList(path string) (FileList, error) {
+func NewFileList(c *Context) (FileList, error) {
 	bfl := FileList{}
 	WalkFunc := func(p string, info os.FileInfo, err error) error {
-		if info.IsDir() && p == path && p[len(p)-1] == '/' {
+		if info.IsDir() && p == c.BackupPath && p[len(p)-1] == '/' {
 			return nil
 		}
 		f := File{
@@ -86,7 +88,7 @@ func NewFileList(path string) (FileList, error) {
 		bfl = append(bfl, f)
 		return err
 	}
-	err := filepath.Walk(path, WalkFunc)
+	err := filepath.Walk(c.BackupPath, WalkFunc)
 	if err != nil {
 		return nil, err
 	}
