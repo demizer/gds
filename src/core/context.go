@@ -35,7 +35,7 @@ func LoadConfigFromPath(path string) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.Devices.ParseSizes()
+	// c.Devices.ParseSizes()
 	return c, nil
 }
 
@@ -47,6 +47,6 @@ func LoadConfigFromBytes(config []byte) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.Devices.ParseSizes()
+	// c.Devices.ParseSizes()
 	return c, nil
 }

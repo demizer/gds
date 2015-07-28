@@ -128,11 +128,12 @@ func runFileSyncTest(t *testing.T, f *fileSyncTest) *Context {
 					found = true
 					break
 				}
+				t.Error(e)
+				t.Error(e2)
 			}
 			if found {
-				continue
+				return c
 			}
-			t.Error(err)
 		}
 	}
 
@@ -226,16 +227,14 @@ func TestFileSyncSimpleCopy(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_freebooks/",
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
 					MountPoint: tmp0,
 				},
-			)
-			return n
+			}
 		},
 	}
 	c := runFileSyncTest(t, f)
@@ -246,9 +245,8 @@ func TestFileSyncPerms(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "/dev/null/",
 		fileList: func() FileList {
-			var n FileList
 			test_output_dir, _ = ioutil.TempDir(test_temp_dir, "mountpoint-0-")
-			n = append(n,
+			return FileList{
 				File{
 					Name:     "diff_user",
 					FileType: FILE,
@@ -282,28 +280,25 @@ func TestFileSyncPerms(t *testing.T) {
 					Owner:    os.Getuid(),
 					Group:    55000,
 				},
-			)
-			return n
+			}
 		},
 		deviceList: func() DeviceList {
-			var n DeviceList
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
 					MountPoint: test_output_dir,
 				},
-			)
-			return n
+			}
 		},
 		expectErrors: func() []error {
-			var e []error
-			e = append(e, SyncIncorrectOwnershipError{
-				FilePath: filepath.Join(test_output_dir, "diff_user"),
-				OwnerId:  55000,
-				UserId:   os.Getuid(),
-			})
-			return e
+			return []error{
+				SyncIncorrectOwnershipError{
+					FilePath: filepath.Join(test_output_dir, "diff_user"),
+					OwnerId:  55000,
+					UserId:   os.Getuid(),
+				},
+			}
 		},
 	}
 	runFileSyncTest(t, f)
@@ -314,16 +309,14 @@ func TestFileSyncSubDirs(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_directories/subdirs",
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
 					MountPoint: tmp0,
 				},
-			)
-			return n
+			}
 		},
 	}
 	c := runFileSyncTest(t, f)
@@ -334,16 +327,14 @@ func TestFileSyncSymlinks(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_symlinks/",
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
 					MountPoint: tmp0,
 				},
-			)
-			return n
+			}
 		},
 	}
 	c := runFileSyncTest(t, f)
@@ -354,16 +345,14 @@ func TestFileSyncBackupathIncluded(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  28173338480,
 					MountPoint: tmp0,
 				},
-			)
-			return n
+			}
 		},
 	}
 	c := runFileSyncTest(t, f)
@@ -375,22 +364,20 @@ func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
 		backupPath:   "../../testdata/filesync_freebooks",
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
 			tmp1, _ := ioutil.TempDir(test_temp_dir, "mountpoint-1-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
-					SizeBytes:  850000,
+					SizeBytes:  1493583,
 					MountPoint: tmp0,
 				},
 				Device{
 					Name:       "Test Device 1",
-					SizeBytes:  850000,
+					SizeBytes:  1000000,
 					MountPoint: tmp1,
 				},
-			)
-			return n
+			}
 		},
 	}
 	c := runFileSyncTest(t, f)
@@ -403,10 +390,9 @@ func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 		backupPath:   "../../testdata/filesync_large_binary_file/",
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
 			tmp1, _ := ioutil.TempDir(test_temp_dir, "mountpoint-1-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  9999999,
@@ -417,8 +403,7 @@ func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 					SizeBytes:  850000,
 					MountPoint: tmp1,
 				},
-			)
-			return n
+			}
 		},
 		expectDeviceUsage: func() []expectDevice {
 			return []expectDevice{
@@ -443,11 +428,10 @@ func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
 			tmp1, _ := ioutil.TempDir(test_temp_dir, "mountpoint-1-")
 			tmp2, _ := ioutil.TempDir(test_temp_dir, "mountpoint-2-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  3499350,
@@ -463,8 +447,7 @@ func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
 					SizeBytes:  3499346,
 					MountPoint: tmp2,
 				},
-			)
-			return n
+			}
 		},
 		expectDeviceUsage: func() []expectDevice {
 			return []expectDevice{
@@ -524,16 +507,14 @@ func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: path.Join(test_temp_dir, "filesync_directories"),
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  4300000,
 					MountPoint: tmp0,
 				},
-			)
-			return n
+			}
 		},
 	}
 	runFileSyncTest(t, f)
@@ -544,11 +525,10 @@ func TestFileSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
-			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
 			tmp1, _ := ioutil.TempDir(test_temp_dir, "mountpoint-1-")
 			tmp2, _ := ioutil.TempDir(test_temp_dir, "mountpoint-2-")
-			n = append(n,
+			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					SizeBytes:  3499350,
@@ -564,8 +544,15 @@ func TestFileSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 					SizeBytes:  300000,
 					MountPoint: tmp2,
 				},
-			)
-			return n
+			}
+		},
+		expectErrors: func() []error {
+			return []error{
+				SyncNotEnoughDevicePoolSpace{
+					backupSize:     10489856,
+					devicePoolSize: 7298700,
+				},
+			}
 		},
 	}
 	c := runFileSyncTest(t, f)

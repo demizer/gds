@@ -81,16 +81,33 @@ func setMetaData(f *File, cErr chan<- error) error {
 	return nil
 }
 
+// SyncIncorrectOwnershipError is an error given when a file is encountered that is not owned by the current user. This error
+// does not occur if the current user is root.
 type SyncIncorrectOwnershipError struct {
 	FilePath string
 	OwnerId  int
 	UserId   int
 }
 
+// Error implements the Error interface.
 func (e SyncIncorrectOwnershipError) Error() string {
 	return fmt.Sprintf("Cannot copy %q (owner id: %d) as user id: %d", e.FilePath, e.OwnerId, e.UserId)
 }
 
+// SyncNotEnoughDevicePoolSpace is an error given when the backup size exceeds the device pool storage size.
+type SyncNotEnoughDevicePoolSpace struct {
+	backupSize     uint64
+	devicePoolSize uint64
+}
+
+// Error implements the Error interface.
+func (e SyncNotEnoughDevicePoolSpace) Error() string {
+	return fmt.Sprintf("Not enough device pool space! backup_size: %d (%s) device_pool_size: %d (%s)", e.backupSize,
+		humanize.IBytes(e.backupSize), e.devicePoolSize, humanize.IBytes(e.devicePoolSize))
+}
+
+// createFile is a helper function for creating directories, symlinks, and regular files. If it encounters errors creating
+// these files, the error is sent on the cerr buffered error channel.
 func createFile(f *File, cerr chan<- error) {
 	var err error
 	switch f.FileType {
@@ -133,6 +150,7 @@ func preSync(d *Device, c *Catalog) {
 	}
 }
 
+// sync is the main file syncing function. It is big, mean, and will eat your bytes.
 func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<- bool, cerr chan<- error) {
 	log.Info("Syncing to device", "device", device.Name)
 	preSync(device, catalog)
@@ -224,18 +242,26 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 	done <- true
 }
 
-// Sync synchronizes files to mounted devices on mountpoints. Sync will copy
-// new files, delete old files, and fix or update files on the destination
-// device that do not match the source sha1 hash.
+// Sync synchronizes files to mounted devices on mountpoints. Sync will copy new files, delete old files, and fix or update
+// files on the destination device that do not match the source sha1 hash.
 func Sync(c *Context) []error {
+	var retError []error
+
+	// Make sure we can actually do something
+	if c.Files.TotalDataSize() > c.Devices.DevicePoolSize() {
+		return []error{SyncNotEnoughDevicePoolSpace{c.Files.TotalDataSize(), c.Devices.DevicePoolSize()}}
+	}
+
+	// channels! channels for everyone!
 	done := make(chan bool, 100)
 	doneSp := make(chan bool, 100)
 	errorChan := make(chan error, 100)
-	var retError []error
+
 	ssc := make(chan *syncerState, 100)
 	if c.OutputStreamNum == 0 {
 		c.OutputStreamNum = 1
 	}
+
 	i := 0
 	for i < len(c.Catalog) {
 		for j := 0; j < c.OutputStreamNum; j++ {
@@ -267,5 +293,6 @@ func Sync(c *Context) []error {
 			}
 		}
 	}
+
 	return retError
 }
