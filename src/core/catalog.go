@@ -52,7 +52,7 @@ func NewCatalog(c *Context) Catalog {
 		if (dSize + f.Size) <= d.SizeBytes {
 			dSize += f.Size
 		} else if (dSize+c.SplitMinSize) <= d.SizeBytes && f.Size > d.SizeBytes-d.UsedSize {
-			// Split de file
+			// Split de file, more logic to follow ...
 			split = true
 			f.SplitStartByte = 0
 			f.SplitEndByte = c.Devices[dNum].SizeBytes - dSize
@@ -78,28 +78,40 @@ func NewCatalog(c *Context) Catalog {
 			for {
 				// Loop filling up devices as needed
 				d = c.Devices[dNum]
+
 				fNew := lastf
 				fNew.SplitStartByte = fNew.SplitEndByte + 1
-				fNew.DestPath = filepath.Join(d.MountPoint, fNew.Path[len(bpath):])
-				dSize += duplicateDirTree(&t, &d, bpath, &fNew)
 				fNew.SplitEndByte = fNew.Size
+				fNew.DestPath = filepath.Join(d.MountPoint, fNew.Path[len(bpath):])
+
+				// Duplicate the dir tree to of the file on the new device
+				dSize += duplicateDirTree(&t, &d, bpath, &fNew)
+
 				log.Debug("File/Device state in split", "file_remain_size", fNew.Size-fNew.SplitStartByte,
 					"device_usage", dSize, "device_name", d.Name, "device_size", d.SizeBytes)
+
+				// If the file is still larger than the new divice, use all of the available space
 				if (fNew.Size - fNew.SplitStartByte) > (d.SizeBytes - dSize) {
 					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeBytes - dSize)
 				}
+
 				log.Debug("Splitting file", "file_name", fNew.Name, "file_size", fNew.Size, "file_split_start_byte",
 					fNew.SplitStartByte, "file_split_end_byte", fNew.SplitEndByte, "device_used + splitMinSize",
 					dSize+c.SplitMinSize, "device_size_bytes", d.SizeBytes, "device_number", dNum)
+
 				t[d.Name] = append(t[d.Name], &fNew)
 				if fNew.SplitEndByte == fNew.Size {
+					// No more file left
 					break
 				}
+
 				dNum += 1
 				dSize = 0
 				if dNum == len(c.Devices) {
+					// Out of devices
 					break
 				}
+
 				lastf = fNew
 			}
 		} else {
