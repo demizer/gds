@@ -420,8 +420,21 @@ func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 			)
 			return n
 		},
+		expectDeviceUsage: func() []expectDevice {
+			return []expectDevice{
+				expectDevice{
+					name:      "Test Device 0",
+					usedBytes: 9999999,
+				},
+				expectDevice{
+					name:      "Test Device 1",
+					usedBytes: 485760,
+				},
+			}
+		},
 	}
 	c := runFileSyncTest(t, f)
+	checkDevices(t, c, f.expectDeviceUsage())
 	fmt.Println("Test directory:", c.Devices[0].MountPoint)
 	fmt.Println("Test directory:", c.Devices[1].MountPoint)
 }

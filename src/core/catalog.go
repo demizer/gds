@@ -88,6 +88,9 @@ func NewCatalog(c *Context) Catalog {
 				if (fNew.Size - fNew.SplitStartByte) > (d.SizeBytes - dSize) {
 					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeBytes - dSize)
 				}
+				log.Debug("Splitting file", "file_name", fNew.Name, "file_size", fNew.Size, "file_split_start_byte",
+					fNew.SplitStartByte, "file_split_end_byte", fNew.SplitEndByte, "device_used + splitMinSize",
+					dSize+c.SplitMinSize, "device_size_bytes", d.SizeBytes, "device_number", dNum)
 				t[d.Name] = append(t[d.Name], &fNew)
 				if fNew.SplitEndByte == fNew.Size {
 					break
