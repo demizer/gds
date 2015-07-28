@@ -59,7 +59,7 @@ func setMetaData(f *File, cErr chan<- error) error {
 		if err != nil {
 			cErr <- fmt.Errorf("setMetaData chmod: %s", err.Error())
 		} else {
-			log.Debug("Set mode", "file", f.DestPath, "mode", f.Mode)
+			log.Debug("Set mode", "file", f.Name, "mode", f.Mode)
 		}
 	}
 	err = os.Chown(f.DestPath, f.Owner, f.Group)
@@ -137,6 +137,8 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 	log.Info("Syncing to device", "device", device.Name)
 	preSync(device, catalog)
 	for _, cf := range (*catalog)[device.Name] {
+		log.Info("Syncing file", "file_name", cf.Name, "device", device.Name, "file_size", cf.Size, "file_split_start",
+			cf.SplitStartByte, "file_split_end", cf.SplitEndByte)
 		if cf.Owner != os.Getuid() && os.Getuid() != 0 {
 			cerr <- SyncIncorrectOwnershipError{cf.DestPath, cf.Owner, os.Getuid()}
 			continue

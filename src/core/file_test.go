@@ -60,39 +60,41 @@ func checkMountpointUsage(m string) (int64, error) {
 	return byts, err
 }
 
-// A test for checking the error value of checkDevicePoolSpace()
-func TestCheckDevicePoolSpace(t *testing.T) {
-	file := File{
-		Name: "Large File",
-		Size: 100000,
+type expectDevice struct {
+	name      string
+	usedBytes uint64
+}
+
+func checkDevices(t *testing.T, c *Context, e []expectDevice) {
+	expectDeviceByName := func(n string) *expectDevice {
+		for _, x := range e {
+			if x.name == n {
+				return &x
+			}
+		}
+		return nil
 	}
-	device := Device{
-		Name:      "Device 0",
-		SizeBytes: 10000,
-	}
-	var fl FileList
-	fl = append(fl, file)
-	var dl DeviceList
-	dl = append(dl, device)
-	eerr := NotEnoughStorageSpaceError{100000, 10000}
-	err := checkDevicePoolSpace(fl, dl)
-	if err != eerr {
-		t.Errorf("Test: NotEnoughStorageSpaceError Check\n\t  Got: %q Expect: %q\n", err, eerr)
+	for _, xy := range c.Devices {
+		if c.Devices.GetDeviceByName(xy.Name).UsedSize != expectDeviceByName(xy.Name).usedBytes {
+			t.Errorf("MountPoint: %q\n\t Got Used Bytes: %d Expect: %d\n", xy.MountPoint,
+				c.Devices.GetDeviceByName(xy.Name).UsedSize, expectDeviceByName(xy.Name).usedBytes)
+		}
 	}
 }
 
 // fileTests test subdirectory creation, fileinfo synchronization, and file duplication.
 type fileSyncTest struct {
-	outputStreams int
-	backupPath    string
-	fileList      func() FileList // Must come before deviceList in the anon struct
-	deviceList    func() DeviceList
-	catalog       func() Catalog
-	expectErrors  func() []error
-	splitMinSize  uint64
+	outputStreams     int
+	backupPath        string
+	fileList          func() FileList // Must come before deviceList in the anon struct
+	deviceList        func() DeviceList
+	catalog           func() Catalog
+	expectErrors      func() []error
+	expectDeviceUsage func() []expectDevice
+	splitMinSize      uint64
 }
 
-func runFileSyncTest(t *testing.T, f *fileSyncTest) {
+func runFileSyncTest(t *testing.T, f *fileSyncTest) *Context {
 	c := NewContext()
 	var err error
 	c.BackupPath = f.backupPath
@@ -100,7 +102,7 @@ func runFileSyncTest(t *testing.T, f *fileSyncTest) {
 		c.Files, err = NewFileList(c)
 		if err != nil {
 			t.Error(err)
-			return
+			return nil
 		}
 	} else {
 		c.Files = f.fileList()
@@ -118,7 +120,7 @@ func runFileSyncTest(t *testing.T, f *fileSyncTest) {
 		found := false
 		if f.expectErrors == nil {
 			t.Errorf("Expect: No errors\n\t  Got: %s", spd.Sprint(err2))
-			return
+			return nil
 		}
 		for _, e := range err2 {
 			for _, e2 := range f.expectErrors() {
@@ -190,11 +192,33 @@ func runFileSyncTest(t *testing.T, f *fileSyncTest) {
 		if err != nil {
 			t.Error(err)
 		}
-		log.Info("Mountpoint used size", "size", ms)
-		log.Info("Device used size", "size", dev.UsedSize)
+		log.Info("Mountpoint size", "mountpoint", dev.MountPoint, "size", ms)
+		log.Info("Device used size", "device", dev.Name, "size", dev.UsedSize)
 		if uint64(ms) != dev.UsedSize {
 			t.Errorf("MountPoint: %q\n\t  Got Size: %d Expect: %d\n", dev.MountPoint, ms, dev.UsedSize)
 		}
+	}
+	return c
+}
+
+// A test for checking the error value of checkDevicePoolSpace()
+func TestCheckDevicePoolSpace(t *testing.T) {
+	file := File{
+		Name: "Large File",
+		Size: 100000,
+	}
+	device := Device{
+		Name:      "Device 0",
+		SizeBytes: 10000,
+	}
+	var fl FileList
+	fl = append(fl, file)
+	var dl DeviceList
+	dl = append(dl, device)
+	eerr := NotEnoughStorageSpaceError{100000, 10000}
+	err := checkDevicePoolSpace(fl, dl)
+	if err != eerr {
+		t.Errorf("Test: NotEnoughStorageSpaceError Check\n\t  Got: %q Expect: %q\n", err, eerr)
 	}
 }
 
@@ -214,7 +238,8 @@ func TestFileSyncSimpleCopy(t *testing.T) {
 			return n
 		},
 	}
-	runFileSyncTest(t, f)
+	c := runFileSyncTest(t, f)
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
 }
 
 func TestFileSyncPerms(t *testing.T) {
@@ -282,6 +307,7 @@ func TestFileSyncPerms(t *testing.T) {
 		},
 	}
 	runFileSyncTest(t, f)
+	fmt.Println("Test directory:", test_output_dir)
 }
 
 func TestFileSyncSubDirs(t *testing.T) {
@@ -300,7 +326,8 @@ func TestFileSyncSubDirs(t *testing.T) {
 			return n
 		},
 	}
-	runFileSyncTest(t, f)
+	c := runFileSyncTest(t, f)
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
 }
 
 func TestFileSyncSymlinks(t *testing.T) {
@@ -319,7 +346,8 @@ func TestFileSyncSymlinks(t *testing.T) {
 			return n
 		},
 	}
-	runFileSyncTest(t, f)
+	c := runFileSyncTest(t, f)
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
 }
 
 func TestFileSyncBackupathIncluded(t *testing.T) {
@@ -338,7 +366,8 @@ func TestFileSyncBackupathIncluded(t *testing.T) {
 			return n
 		},
 	}
-	runFileSyncTest(t, f)
+	c := runFileSyncTest(t, f)
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
 }
 
 func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
@@ -364,7 +393,9 @@ func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
 			return n
 		},
 	}
-	runFileSyncTest(t, f)
+	c := runFileSyncTest(t, f)
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
+	fmt.Println("Test directory:", c.Devices[1].MountPoint)
 }
 
 func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
@@ -390,7 +421,9 @@ func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 			return n
 		},
 	}
-	runFileSyncTest(t, f)
+	c := runFileSyncTest(t, f)
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
+	fmt.Println("Test directory:", c.Devices[1].MountPoint)
 }
 
 func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
@@ -404,24 +437,44 @@ func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
 			n = append(n,
 				Device{
 					Name:       "Test Device 0",
-					SizeBytes:  3495255,
+					SizeBytes:  3499350,
 					MountPoint: tmp0,
 				},
 				Device{
 					Name:       "Test Device 1",
-					SizeBytes:  3495255,
+					SizeBytes:  3499350,
 					MountPoint: tmp1,
 				},
 				Device{
 					Name:       "Test Device 2",
-					SizeBytes:  3495250,
+					SizeBytes:  3499346,
 					MountPoint: tmp2,
 				},
 			)
 			return n
 		},
+		expectDeviceUsage: func() []expectDevice {
+			return []expectDevice{
+				expectDevice{
+					name:      "Test Device 0",
+					usedBytes: 3499350,
+				},
+				expectDevice{
+					name:      "Test Device 1",
+					usedBytes: 3499350,
+				},
+				expectDevice{
+					name:      "Test Device 2",
+					usedBytes: 3499346,
+				},
+			}
+		},
 	}
-	runFileSyncTest(t, f)
+	c := runFileSyncTest(t, f)
+	checkDevices(t, c, f.expectDeviceUsage())
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
+	fmt.Println("Test directory:", c.Devices[1].MountPoint)
+	fmt.Println("Test directory:", c.Devices[2].MountPoint)
 }
 
 // TestFileSyncDirsWithLotsOfFiles checks syncing directories with thousands of files and directories that _had_ thousands of
@@ -471,5 +524,5 @@ func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
 		},
 	}
 	runFileSyncTest(t, f)
-	fmt.Println("TestFileSyncDirsWithLotsOfFiles output directory:", test_temp_dir)
+	fmt.Println("Test directory:", test_temp_dir)
 }
