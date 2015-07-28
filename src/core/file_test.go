@@ -224,7 +224,7 @@ func TestCheckDevicePoolSpace(t *testing.T) {
 
 func TestFileSyncSimpleCopy(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath: "../../testdata/filesync_test01_freebooks/",
+		backupPath: "../../testdata/filesync_freebooks/",
 		deviceList: func() DeviceList {
 			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
@@ -312,7 +312,7 @@ func TestFileSyncPerms(t *testing.T) {
 
 func TestFileSyncSubDirs(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath: "../../testdata/filesync_test03_subdirs/",
+		backupPath: "../../testdata/filesync_directories/subdirs",
 		deviceList: func() DeviceList {
 			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
@@ -332,7 +332,7 @@ func TestFileSyncSubDirs(t *testing.T) {
 
 func TestFileSyncSymlinks(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath: "../../testdata/filesync_test04_symlinks/",
+		backupPath: "../../testdata/filesync_symlinks/",
 		deviceList: func() DeviceList {
 			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
@@ -352,7 +352,7 @@ func TestFileSyncSymlinks(t *testing.T) {
 
 func TestFileSyncBackupathIncluded(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath: "../../testdata/filesync_test01_freebooks",
+		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
@@ -372,7 +372,7 @@ func TestFileSyncBackupathIncluded(t *testing.T) {
 
 func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath:   "../../testdata/filesync_test01_freebooks",
+		backupPath:   "../../testdata/filesync_freebooks",
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			var n DeviceList
@@ -400,7 +400,7 @@ func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
 
 func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath:   "../../testdata/filesync_test07_file_split/",
+		backupPath:   "../../testdata/filesync_large_binary_file/",
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			var n DeviceList
@@ -441,7 +441,7 @@ func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 
 func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath: "../../testdata/filesync_test07_file_split",
+		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
 			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
@@ -500,20 +500,20 @@ func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
 		t.Error(err)
 	}
 	// Copy filesync_test09_directories to the temp dir and delete all of the files in the dir
-	cmd := exec.Command("/usr/bin/cp", "-R", "../../testdata/filesync_test09_directories", test_temp_dir)
+	cmd := exec.Command("/usr/bin/cp", "-R", "../../testdata/filesync_directories", test_temp_dir)
 	err = cmd.Run()
 	if err != nil {
 		t.Error(err)
 	}
 	// Duplicate the sub dir
-	cmd = exec.Command("/usr/bin/cp", "-R", path.Join(test_temp_dir, "filesync_test09_directories", "dir_with_thousand_files"),
-		path.Join(test_temp_dir, "filesync_test09_directories", "dir_with_thousand_files_deleted"))
+	cmd = exec.Command("/usr/bin/cp", "-R", path.Join(test_temp_dir, "filesync_directories", "dir_with_thousand_files"),
+		path.Join(test_temp_dir, "filesync_directories", "dir_with_thousand_files_deleted"))
 	err = cmd.Run()
 	if err != nil {
 		t.Error(err)
 	}
 	// Delete all of the files in the directory
-	files, err := filepath.Glob(path.Join(test_temp_dir, "filesync_test09_directories", "dir_with_thousand_files_deleted", "*"))
+	files, err := filepath.Glob(path.Join(test_temp_dir, "filesync_directories", "dir_with_thousand_files_deleted", "*"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -522,7 +522,7 @@ func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
 	}
 
 	f := &fileSyncTest{
-		backupPath: path.Join(test_temp_dir, "filesync_test09_directories"),
+		backupPath: path.Join(test_temp_dir, "filesync_directories"),
 		deviceList: func() DeviceList {
 			var n DeviceList
 			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
@@ -538,4 +538,38 @@ func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
 	}
 	runFileSyncTest(t, f)
 	fmt.Println("Test directory:", test_temp_dir)
+}
+
+func TestFileSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
+	f := &fileSyncTest{
+		backupPath: "../../testdata/filesync_large_binary_file",
+		deviceList: func() DeviceList {
+			var n DeviceList
+			tmp0, _ := ioutil.TempDir(test_temp_dir, "mountpoint-0-")
+			tmp1, _ := ioutil.TempDir(test_temp_dir, "mountpoint-1-")
+			tmp2, _ := ioutil.TempDir(test_temp_dir, "mountpoint-2-")
+			n = append(n,
+				Device{
+					Name:       "Test Device 0",
+					SizeBytes:  3499350,
+					MountPoint: tmp0,
+				},
+				Device{
+					Name:       "Test Device 1",
+					SizeBytes:  3499350,
+					MountPoint: tmp1,
+				},
+				Device{
+					Name:       "Test Device 2",
+					SizeBytes:  300000,
+					MountPoint: tmp2,
+				},
+			)
+			return n
+		},
+	}
+	c := runFileSyncTest(t, f)
+	fmt.Println("Test directory:", c.Devices[0].MountPoint)
+	fmt.Println("Test directory:", c.Devices[1].MountPoint)
+	fmt.Println("Test directory:", c.Devices[2].MountPoint)
 }
