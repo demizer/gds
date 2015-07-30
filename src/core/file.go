@@ -20,6 +20,24 @@ const (
 	SYMLINK
 )
 
+type BadFileMetadatError struct {
+	Info      *File
+	JsonError error
+}
+
+func (e BadFileMetadatError) Error() string {
+	return fmt.Sprintf("%s\n\n%s\n", e.JsonError, spd.Sdump(e.Info))
+}
+
+type BadDestPathSha1Sum struct {
+	srcSha1sum  string
+	destSha1sum string
+}
+
+func (e BadDestPathSha1Sum) Error() string {
+	return fmt.Sprintf("Destination file sum mismatch: expect_sha1sum=%s got=%s", e.srcSha1sum, e.destSha1sum)
+}
+
 type File struct {
 	Name           string      `json:"name"`
 	Path           string      `json:"path"`
@@ -35,12 +53,13 @@ type File struct {
 	SrcSha1        string      `json:"srcSha1"`
 	SplitStartByte uint64      `json:"splitStartByte"`
 	SplitEndByte   uint64      `json:"splitEndByte"`
+	err            error
 }
 
-// VerifyHash checks the sum of the destination file with that of the source
-// file. If the hashes differ, then an error is returned.
-func (f *File) VerifyHash(file File) (string, error) {
-	dFile, err := os.Open(file.Path)
+// DestPathSha1Sum checks the sum of the destination file with that of the source file. If the hashes differ, then an error
+// is returned.
+func (f *File) DestPathSha1Sum() (string, error) {
+	dFile, err := os.Open(f.DestPath)
 	defer dFile.Close()
 	if err != nil {
 		return "", err
@@ -48,15 +67,12 @@ func (f *File) VerifyHash(file File) (string, error) {
 	s := sha1.New()
 	if dSize, err := io.Copy(s, dFile); err != nil {
 		return "", err
-	} else if dSize != int64(file.Size) {
-		return "", fmt.Errorf("A problem occurred reading %q! "+
-			"Source Size (%d) != Destination Size (%d)",
-			file.Path, file.Size, dSize)
+	} else if dSize != int64(f.Size) {
+		return "", fmt.Errorf("Error reading file=%q expect_bytes=%d got_bytes=%d", f.DestPath, f.Size, dSize)
 	}
 	dSha := hex.EncodeToString(s.Sum(nil))
-	if file.SrcSha1 != dSha {
-		return "", fmt.Errorf("Source sha1 (%s) != Dest sha1 (%s)",
-			file.SrcSha1, dSha)
+	if f.SrcSha1 != dSha {
+		return "", fmt.Errorf("sha1sum error: expect_sha1sum=%s got=%s", f.SrcSha1, dSha)
 	}
 	return dSha, nil
 }
@@ -98,15 +114,6 @@ func NewFileList(c *Context) (FileList, error) {
 	return bfl, nil
 }
 
-type BadFileMetadatError struct {
-	Info      *File
-	JsonError error
-}
-
-func (e BadFileMetadatError) Error() string {
-	return fmt.Sprintf("%s\n\n%s\n", e.JsonError, spd.Sdump(e.Info))
-}
-
 func (f *FileList) MarshalJSON() ([]byte, error) {
 	toJson := func(f *File) ([]byte, error) {
 		var v []byte
@@ -143,4 +150,14 @@ func (f *FileList) TotalDataSize() uint64 {
 		totalDataSize += x.Size
 	}
 	return totalDataSize
+}
+
+// GetFileByName return a pointer to the named file.
+func (f *FileList) GetFileByName(name string) *File {
+	for xx, xy := range *f {
+		if xy.Name == name {
+			return &(*f)[xx]
+		}
+	}
+	return nil
 }

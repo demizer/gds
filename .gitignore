@@ -4,3 +4,4 @@ bin/gds
 src/cmd/gds/gds
 testdata/temp/
 coverage.out
+*_output*

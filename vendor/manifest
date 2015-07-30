@@ -2,6 +2,30 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "github.com/Sirupsen/logrus",
+			"repository": "https://github.com/Sirupsen/logrus",
+			"revision": "8bca2664072173a3c71db4c28ca8d304079b1787",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/bugsnag/bugsnag-go",
+			"repository": "https://github.com/bugsnag/bugsnag-go",
+			"revision": "13fd6b8acda029830ef9904df6b63be0a83369d0",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/bugsnag/osext",
+			"repository": "https://github.com/bugsnag/osext",
+			"revision": "0dd3f918b21bec95ace9dc86c7e70266cfc5c702",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/bugsnag/panicwrap",
+			"repository": "https://github.com/bugsnag/panicwrap",
+			"revision": "e5f9854865b9778a45169fc249e99e338d4d6f27",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/codegangsta/cli",
 			"repository": "https://github.com/codegangsta/cli",
 			"revision": "bca61c476e3c752594983e4c9bcd5f62fb09f157",
@@ -21,15 +45,21 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/getsentry/raven-go",
+			"repository": "https://github.com/getsentry/raven-go",
+			"revision": "74c334d7b8aaa4fd1b4fc6aa428c36fed1699e28",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/mattn/go-colorable",
 			"repository": "https://github.com/mattn/go-colorable",
 			"revision": "40e4aedc8fabf8c23e040057540867186712faa5",
 			"branch": "master"
 		},
 		{
-			"importpath": "gopkg.in/inconshreveable/log15.v2",
-			"repository": "https://gopkg.in/inconshreveable/log15.v2",
-			"revision": "dc7890abeaadcb6a79a9a5ee30bc1897bbf97713",
+			"importpath": "github.com/tobi/airbrake-go",
+			"repository": "https://github.com/tobi/airbrake-go",
+			"revision": "5b5e269e1bc398d43f67e43dafff3414a59cd5a2",
 			"branch": "master"
 		},
 		{

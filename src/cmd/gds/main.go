@@ -4,7 +4,10 @@ import (
 	"os"
 
 	"github.com/codegangsta/cli"
+	"github.com/davecgh/go-spew/spew"
 )
+
+var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
 
 func main() {
 	app := cli.NewApp()
@@ -14,9 +17,15 @@ func main() {
 	app.Email = "jeezusjr@gmail.com"
 	app.Author = "Jesus Alvarez"
 	app.Usage = "Large data backups to dissimilar devices."
-
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "config,c",
+			Value: "~/.config/gds/config.yml",
+			Usage: "Load configuration from path",
+		},
+	}
 	app.Commands = []cli.Command{
-		NewRunCommand(),
+		NewSyncCommand(),
 	}
 
 	app.Run(os.Args)

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -20,10 +19,6 @@ func sha1sum(filePath string) (string, error) {
 		return "", fmt.Errorf("sha1sum error - %s", err.Error())
 	}
 	return strings.Fields(out.String())[0], err
-}
-
-func stripDotDot(path string) string {
-	return strings.Replace(filepath.Clean(path), "../", "", -1)
 }
 
 // From https://github.com/docker/docker/blob/master/pkg/system/utimes_linux.go

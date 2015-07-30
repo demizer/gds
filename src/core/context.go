@@ -9,7 +9,7 @@ import (
 // Context stores the application state
 type Context struct {
 	BackupPath      string `yaml:"backupPath"`
-	OutputStreamNum int
+	OutputStreamNum int    `yaml:"outputStreams"`
 	Files           FileList
 	Devices         DeviceList
 	Catalog         Catalog
@@ -18,9 +18,12 @@ type Context struct {
 	SplitMinSize uint64
 }
 
-// NewContext returns an application context
-func NewContext() *Context {
-	return &Context{OutputStreamNum: 1}
+// NewContext returns an application context. Accepts a string indicating the backup path for the context.
+func NewContext(backupPath string) *Context {
+	return &Context{
+		BackupPath:      backupPath,
+		OutputStreamNum: 1,
+	}
 }
 
 // LoadConfigFromPath loads the application config file from a file path and
@@ -30,7 +33,7 @@ func LoadConfigFromPath(path string) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := NewContext()
+	c := &Context{}
 	err = yaml.Unmarshal(conf, c)
 	if err != nil {
 		return nil, err
@@ -42,7 +45,7 @@ func LoadConfigFromPath(path string) (*Context, error) {
 // LoadConfigFromBytes process a byte stream of yaml data and returns an
 // application context on success.
 func LoadConfigFromBytes(config []byte) (*Context, error) {
-	c := NewContext()
+	c := &Context{}
 	err := yaml.Unmarshal(config, c)
 	if err != nil {
 		return nil, err

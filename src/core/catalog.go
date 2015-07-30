@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "gopkg.in/inconshreveable/log15.v2"
+	"github.com/Sirupsen/logrus"
 )
 
 type Catalog map[string][]*File
@@ -49,24 +49,29 @@ func NewCatalog(c *Context) Catalog {
 		split := false
 		f := &(c.Files)[fx]
 		d := c.Devices[dNum]
-		if (dSize + f.Size) <= d.SizeBytes {
+		if f.Size == 0 {
+			Log.WithFields(logrus.Fields{"path": f.Path}).Debug("NewCatalog: File with zero size")
+		}
+		if (dSize + f.Size) <= d.Size {
 			dSize += f.Size
-		} else if (dSize+c.SplitMinSize) <= d.SizeBytes && f.Size > d.SizeBytes-d.UsedSize {
+		} else if (dSize+c.SplitMinSize) <= d.Size && f.Size > d.Size-d.UsedSize {
 			// Split de file, more logic to follow ...
 			split = true
 			f.SplitStartByte = 0
-			f.SplitEndByte = c.Devices[dNum].SizeBytes - dSize
-			log.Debug("Splitting file", "file_name", f.Name, "file_size", f.Size, "file_split_start_byte",
-				f.SplitStartByte, "file_split_end_byte", f.SplitEndByte, "device_used + splitMinSize",
-				dSize+c.SplitMinSize, "device_size_bytes", d.SizeBytes, "device_number", dNum)
+			f.SplitEndByte = c.Devices[dNum].Size - dSize
+			Log.WithFields(logrus.Fields{
+				"file_name":                  f.Name,
+				"file_size":                  f.Size,
+				"file_split_start_byte":      f.SplitStartByte,
+				"file_split_end_byte":        f.SplitEndByte,
+				"device_used_+_splitMinSize": dSize + c.SplitMinSize,
+				"device_size_bytes":          d.Size,
+				"device_number":              dNum,
+			}).Debugln("NewCatalog: Splitting file")
 		} else {
 			dNum += 1
+			d = c.Devices[dNum]
 			dSize = 0
-		}
-
-		if f.Path == "/dev/zero" {
-			// Used only for testing
-			continue
 		}
 
 		f.DestPath = filepath.Join(d.MountPoint, f.Path[len(bpath):])
@@ -87,17 +92,26 @@ func NewCatalog(c *Context) Catalog {
 				// Duplicate the dir tree to of the file on the new device
 				dSize += duplicateDirTree(&t, &d, bpath, &fNew)
 
-				log.Debug("File/Device state in split", "file_remain_size", fNew.Size-fNew.SplitStartByte,
-					"device_usage", dSize, "device_name", d.Name, "device_size", d.SizeBytes)
+				Log.WithFields(logrus.Fields{
+					"file_remain_size": fNew.Size - fNew.SplitStartByte,
+					"device_usage":     dSize,
+					"device_name":      d.Name,
+					"device_size":      d.Size}).Debug("NewCatalog: File/Device state in split")
 
 				// If the file is still larger than the new divice, use all of the available space
-				if (fNew.Size - fNew.SplitStartByte) > (d.SizeBytes - dSize) {
-					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeBytes - dSize)
+				if (fNew.Size - fNew.SplitStartByte) > (d.Size - dSize) {
+					fNew.SplitEndByte = fNew.SplitStartByte + (d.Size - dSize)
 				}
 
-				log.Debug("Splitting file", "file_name", fNew.Name, "file_size", fNew.Size, "file_split_start_byte",
-					fNew.SplitStartByte, "file_split_end_byte", fNew.SplitEndByte, "device_used + splitMinSize",
-					dSize+c.SplitMinSize, "device_size_bytes", d.SizeBytes, "device_number", dNum)
+				Log.WithFields(logrus.Fields{
+					"file_name":                  fNew.Name,
+					"file_size":                  fNew.Size,
+					"file_split_start_byte":      fNew.SplitStartByte,
+					"file_split_end_byte":        fNew.SplitEndByte,
+					"device_used_+_splitMinSize": dSize + c.SplitMinSize,
+					"device_size_bytes":          d.Size,
+					"device_number":              dNum,
+				}).Debugln("NewCatalog: Splitting file")
 
 				t[d.Name] = append(t[d.Name], &fNew)
 				if fNew.SplitEndByte == fNew.Size {
@@ -115,6 +129,9 @@ func NewCatalog(c *Context) Catalog {
 				lastf = fNew
 			}
 		} else {
+			if dSize == 0 {
+				dSize += duplicateDirTree(&t, &d, bpath, f)
+			}
 			t[d.Name] = append(t[d.Name], f)
 		}
 

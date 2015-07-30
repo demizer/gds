@@ -5,7 +5,7 @@
 gds Specification
 =================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Tue Jul 21 23:12 2015
+:Modified: Wed Jul 29 14:26 2015
 
 .. -----
 .. Inbox
@@ -214,7 +214,7 @@ Third-party libraries
 
 * logging
 
-  - log15
+  - logrus
 
   - go-spew
 
