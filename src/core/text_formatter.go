@@ -35,6 +35,7 @@ func miniTS() int {
 	return int(time.Since(baseTimestamp) / time.Second)
 }
 
+// TextFormatter satisfies the logrus formatter interface.
 type TextFormatter struct {
 	// Set to true to bypass checking for a TTY before outputting colors.
 	ForceColors bool
@@ -59,6 +60,7 @@ type TextFormatter struct {
 	DisableSorting bool
 }
 
+// Format formats a log entry into pretty color output, or key=value formatted output in case of output being sent to a file.
 func (f *TextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	var keys []string = make([]string, 0, len(entry.Data))
 	for k := range entry.Data {

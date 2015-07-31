@@ -9,11 +9,13 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
+// Catalog is the data structure that indicates onto which device files in the backup will be copied to. The Catalog is also
+// saved as the record of the backup. The key is the name of the device, and the values are a list of pointers to File
+// structs. Using a map of pre-determined sync paths makes it possible to sync to multiple devices at once, concurrently.
 type Catalog map[string][]*File
 
-// duplicateDirTree is used when a file is split across devices. The parent directories of the file must be duplicated on the
-// next device. Copies of the individual parent directories of file f are copied from the catalog and appended to the new
-// catalog device.
+// duplicateDirTree is used when a file is split across devices, or a file in a directory tree is destined for a fresh
+// device. The directory tree of the file must be duplicated on the next device within the catalog.
 func duplicateDirTree(c *Catalog, d *Device, bpath string, f *File) uint64 {
 	ppaths := strings.Split(path.Dir(f.DestPath[len(d.MountPoint):]), string(os.PathSeparator))
 	var usize uint64
@@ -39,20 +41,20 @@ func duplicateDirTree(c *Catalog, d *Device, bpath string, f *File) uint64 {
 // path is also calculated. NewCatalog assumes all files will fit in the storage pool.
 func NewCatalog(c *Context) Catalog {
 	var dSize uint64
-	t := make(Catalog)
 	dNum := 0
+	t := make(Catalog)
+
 	bpath := c.BackupPath
 	if c.BackupPath[len(c.BackupPath)-1] != '/' {
 		bpath = path.Dir(c.BackupPath)
 	}
+
 	for fx, _ := range c.Files {
 		split := false
 		f := &(c.Files)[fx]
 		d := c.Devices[dNum]
-		if f.Size == 0 {
-			Log.WithFields(logrus.Fields{"path": f.Path}).Debug("NewCatalog: File with zero size")
-		}
 		if (dSize + f.Size) <= d.Size {
+			// Add the file to the current device
 			dSize += f.Size
 		} else if (dSize+c.SplitMinSize) <= d.Size && f.Size > d.Size-d.UsedSize {
 			// Split de file, more logic to follow ...
@@ -69,6 +71,7 @@ func NewCatalog(c *Context) Catalog {
 				"device_number":              dNum,
 			}).Debugln("NewCatalog: Splitting file")
 		} else {
+			// Out of device space, get the next device
 			dNum += 1
 			d = c.Devices[dNum]
 			dSize = 0
@@ -81,9 +84,8 @@ func NewCatalog(c *Context) Catalog {
 			dSize = 0
 			lastf := *f
 			for {
-				// Loop filling up devices as needed
+				// Loop until the file is completely accounted for, across devices if necessary
 				d = c.Devices[dNum]
-
 				fNew := lastf
 				fNew.SplitStartByte = fNew.SplitEndByte + 1
 				fNew.SplitEndByte = fNew.Size
@@ -115,26 +117,29 @@ func NewCatalog(c *Context) Catalog {
 
 				t[d.Name] = append(t[d.Name], &fNew)
 				if fNew.SplitEndByte == fNew.Size {
-					// No more file left
+					// The file is accounted for, break the loop
 					break
 				}
 
+				// If the exec path reaches this point, we are out of device space, but still have a portion
+				// of file remaning. Increase the device number, we'll set it in the next loop.
 				dNum += 1
 				dSize = 0
 				if dNum == len(c.Devices) {
 					// Out of devices
 					break
 				}
-
 				lastf = fNew
 			}
 		} else {
 			if dSize == 0 {
+				// A new device has been added above, and the file is not being split. If the file is burried
+				// in a directory tree, we need to add those directories to the catalog before setting the
+				// file otherwise the file copy will fail.
 				dSize += duplicateDirTree(&t, &d, bpath, f)
 			}
 			t[d.Name] = append(t[d.Name], f)
 		}
-
 	}
 	return t
 }
