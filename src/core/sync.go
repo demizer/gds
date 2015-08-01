@@ -373,6 +373,16 @@ func Sync(c *Context) []error {
 				}
 			}
 		}
+		// Allow the user to mount new devices
+		if len(c.Devices) > i {
+			d := (c.Devices)[i]
+			Log.WithFields(logrus.Fields{
+				"deviceName":       d.Name,
+				"deviceMountPoint": d.MountPoint,
+			}).Printf("Mount fresh device then press the Enter key to continue...")
+			var input string
+			fmt.Scanln(&input)
+		}
 	}
 
 	return retError

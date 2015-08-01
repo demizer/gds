@@ -20,6 +20,7 @@ func init() {
 	flag.BoolVar(&debug, "debug", false, "Enable debug output.")
 	flag.Parse()
 	if debug {
+		Log.Out = os.Stdout
 		Log.Level = logrus.DebugLevel
 	}
 }
@@ -642,7 +643,7 @@ func TestSyncDestPathPermissionDenied(t *testing.T) {
 	}
 }
 
-func TestFileSyncFileAcrossDevicesNoSplit(t *testing.T) {
+func TestFileSyncAcrossDevicesNoSplit(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath:   "../../testdata/filesync_freebooks",
 		splitMinSize: 1000,
