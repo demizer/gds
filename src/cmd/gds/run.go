@@ -49,9 +49,8 @@ func sync(c *cli.Context) {
 	errs := core.Sync(c2)
 	if len(errs) > 0 {
 		for _, e := range errs {
-			log.Fatalf("Sync failed: %s", e.Error())
+			log.Errorf("Sync error: %s", e.Error())
 		}
-		os.Exit(1)
 	}
 	log.Info("ALL DONE -- Sync complete!")
 }
