@@ -5,14 +5,15 @@
 gds Specification
 =================
 :Created: Sun Jul 12 14:29 2015
-:Modified: Wed Jul 29 14:26 2015
+:Modified: Sat Aug 01 10:48 2015
 
 .. -----
 .. Inbox
 .. -----
 
-.. * Recommended usage is to encrypt the device before mounting!
-.. * First run should setup config files.
+.. Recommended usage is to encrypt the device before mounting!
+.. First run should setup config files.
+.. Command option for copying static binary and catalog to every device.
 
 ------------
 Introduction
