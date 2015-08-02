@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
@@ -14,7 +13,8 @@ import (
 	"github.com/demizer/go-humanize"
 )
 
-var testBackupPath string = "/just/a/backup/path"
+// Used for testing
+var fakeTestPath string = "/fake/path/" // If the trailing slash is removed, tests will break.
 
 type syncerState struct {
 	io     *IoReaderWriter
@@ -42,9 +42,9 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 			((s.io.totalBytesWritten != s.file.Size) ||
 				(s.io.totalBytesWritten != s.file.SplitEndByte-s.file.SplitStartByte)) {
 			continue
-		} else if lp.IsZero() || s.file.SplitEndByte == 0 && s.io.totalBytesWritten < s.file.Size {
-			showProgress()
-			lp = time.Now()
+			// } else if lp.IsZero() || s.file.SplitEndByte == 0 && s.io.totalBytesWritten < s.file.Size {
+			// showProgress()
+			// lp = time.Now()
 		} else if s.file.SplitEndByte != 0 && s.io.totalBytesWritten < s.file.SplitEndByte-s.file.SplitStartByte {
 			showProgress()
 			lp = time.Now()
@@ -60,21 +60,22 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 
 func setMetaData(f *File) error {
 	var err error
-	err = os.Chown(f.DestPath, f.Owner, f.Group)
-	if err != nil {
-		return fmt.Errorf("setMetaData chown: %s", err.Error())
-	} else {
-		Log.WithFields(logrus.Fields{"owner": f.Owner, "group": f.Group}).Debugln("Set owner")
-	}
-	// Change the modtime of a symlink without following it
 	mTimeval := syscall.NsecToTimespec(f.ModTime.UnixNano())
 	times := []syscall.Timespec{
 		mTimeval,
 		mTimeval,
 	}
-	err = LUtimesNano(f.DestPath, times)
+	err = os.Chown(f.DestPath, f.Owner, f.Group)
+	if err == nil {
+		Log.WithFields(logrus.Fields{"owner": f.Owner, "group": f.Group}).Debugln("Set owner")
+		// Change the modtime of a symlink without following it
+		err = LUtimesNano(f.DestPath, times)
+		if err == nil {
+			Log.WithFields(logrus.Fields{"modTime": f.ModTime}).Debugln("Set modification time")
+		}
+	}
 	if err != nil {
-		return fmt.Errorf("setMetaData LUtimesNano: %s", err.Error())
+		return fmt.Errorf("setMetaData: %s", err.Error())
 	}
 	return nil
 }
@@ -131,19 +132,14 @@ func createFile(f *File) {
 		}
 	case SYMLINK:
 		if _, lerr := os.Lstat(f.DestPath); lerr != nil {
-			p, err := os.Readlink(f.Path)
-			if err != nil {
-				break
-			}
+			p, _ := os.Readlink(f.Path)
 			err = os.Symlink(p, f.DestPath)
 			if err == nil {
 				Log.WithFields(logrus.Fields{"path": f.DestPath}).Debugln("Created symlink")
 			}
 		}
 	}
-	if err != nil {
-		f.err = fmt.Errorf("createFile: %s", err.Error())
-	} else {
+	if err == nil {
 		err = setMetaData(f)
 		if err != nil {
 			f.err = fmt.Errorf("createFile: %s", err.Error())
@@ -156,6 +152,7 @@ func createFile(f *File) {
 // size once they contain pointers to files and sub-directories.
 func preSync(d *Device, c *Catalog) {
 	for _, xy := range (*c)[d.Name] {
+		// fmt.Println(xy.DestPath)
 		createFile(xy)
 	}
 }
@@ -176,18 +173,14 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			"file_size":        cf.Size,
 			"file_split_start": cf.SplitStartByte,
 			"file_split_end":   cf.SplitEndByte}).Infoln("Syncing file")
-		if cf.Owner != os.Getuid() && os.Getuid() != 0 {
-			cerr <- SyncIncorrectOwnershipError{cf.DestPath, cf.Owner, os.Getuid()}
-			continue
-		}
+		// if cf.Owner != os.Getuid() && os.Getuid() != 0 {
+		// cerr <- SyncIncorrectOwnershipError{cf.DestPath, cf.Owner, os.Getuid()}
+		// continue
+		// }
 
 		// We only need to check the size of the file if it is a directory or a symlink
 		if cf.FileType == DIRECTORY || cf.FileType == SYMLINK {
-			ls, err := os.Lstat(cf.DestPath)
-			if err != nil {
-				cerr <- fmt.Errorf("sync Lstat: %s", err.Error())
-				continue
-			}
+			ls, _ := os.Lstat(cf.DestPath)
 			Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
 			device.UsedSize += uint64(ls.Size())
 			continue
@@ -196,22 +189,24 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		var oFile *os.File
 		var err error
 		// Open dest file for writing
-		if device.MountPoint == "/dev/null" || strings.Contains(cf.DestPath, testBackupPath) {
-			// For testing
-			oFile = ioutil.Discard.(*os.File)
-		} else {
-			oFile, err = os.OpenFile(cf.DestPath, os.O_RDWR, cf.Mode)
-			if err != nil {
-				cerr <- fmt.Errorf("sync ofile open: %s", err.Error())
-				continue
-			}
+		// if device.MountPoint == "/dev/null" || strings.Contains(cf.DestPath, fakeTestPath) {
+		// // For testing
+		// oFile = ioutil.Discard.(*os.File)
+		// } else {
+		oFile, err = os.OpenFile(cf.DestPath, os.O_RDWR, cf.Mode)
+		if err != nil {
+			cerr <- fmt.Errorf("sync ofile open: %s", err.Error())
+			continue
 		}
+		// }
 		defer oFile.Close()
 
 		var sFile *os.File
-		if strings.Contains(cf.Path, testBackupPath) {
+		var syncTest bool
+		if strings.Contains(cf.Path, fakeTestPath) {
 			// For testing
-			sFile, err = os.Open("/dev/zero")
+			syncTest = true
+			sFile, err = os.Open("/dev/urandom")
 		} else {
 			sFile, err = os.Open(cf.Path)
 			defer sFile.Close()
@@ -230,7 +225,7 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		nIo := mIo.MultiWriter()
 		sst := &syncerState{io: mIo, file: cf}
 		oio <- sst
-		if cf.SplitEndByte == 0 {
+		if cf.SplitEndByte == 0 && !syncTest {
 			if _, err := io.Copy(nIo, sFile); err != nil {
 				// code smell ...
 				sst.closed = true
@@ -243,32 +238,35 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 				cerr <- fmt.Errorf("sync copy %s: %s", cf.DestPath, err.Error())
 				break
 			} else {
-				// Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": oSize}).Debugln("File size")
-				// device.UsedSize += uint64(oSize)
 				sFile.Close()
 				oFile.Close()
 				ls, err := os.Lstat(cf.DestPath)
-				if err != nil {
-					cerr <- fmt.Errorf("sync Lstat: %s", err.Error())
-					continue
+				if err == nil {
+					Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
+					device.UsedSize += uint64(ls.Size())
+					// Set mode after file is copied to prevent no write perms from causing trouble
+					err = os.Chmod(cf.DestPath, cf.Mode)
+					if err == nil {
+						Log.WithFields(logrus.Fields{
+							"file": cf.Name,
+							"mode": cf.Mode,
+						}).Debugln("Set mode")
+					}
 				}
-				Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
-				device.UsedSize += uint64(ls.Size())
-				// Set mode after file is copied to prevent no write perms from causing trouble
-				err = os.Chmod(cf.DestPath, cf.Mode)
-				if err != nil {
-					cerr <- fmt.Errorf("sync chmod: %s", err.Error())
-				} else {
-					Log.WithFields(logrus.Fields{
-						"file": cf.Name,
-						"mode": cf.Mode,
-					}).Debugln("Set mode")
-				}
+				// if err != nil {
+				// cerr <- fmt.Errorf("sync: %s", err.Error())
+				// // continue
+				// }
 			}
 		} else {
-			cb := cf.SplitEndByte - cf.SplitStartByte
-			if cf.SplitStartByte == 0 {
-				cb = cf.SplitEndByte
+			var cb uint64
+			if syncTest && cf.SplitEndByte == 0 {
+				cb = cf.Size
+			} else {
+				cb = cf.SplitEndByte - cf.SplitStartByte
+				if cf.SplitStartByte == 0 {
+					cb = cf.SplitEndByte
+				}
 			}
 			if oSize, err := io.CopyN(nIo, sFile, int64(cb)); err != nil {
 				// code smell ...
@@ -280,20 +278,19 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 				// device.UsedSize += uint64(oSize)
 				sFile.Close()
 				oFile.Close()
-				ls, err := os.Lstat(cf.DestPath)
-				if err != nil {
-					cerr <- fmt.Errorf("sync Lstat: %s", err.Error())
-					continue
+				var ls os.FileInfo
+				ls, err = os.Lstat(cf.DestPath)
+				if err == nil {
+					Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
+					device.UsedSize += uint64(ls.Size())
 				}
-				Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
-				device.UsedSize += uint64(ls.Size())
 			}
 		}
-
-		cf.SrcSha1 = mIo.Sha1SumToString()
-		Log.WithFields(logrus.Fields{"file": cf.DestPath, "sha1sum": cf.SrcSha1}).Debugln("File sha1sum")
-
-		err = setMetaData(cf)
+		if err == nil {
+			cf.SrcSha1 = mIo.Sha1SumToString()
+			Log.WithFields(logrus.Fields{"file": cf.DestPath, "sha1sum": cf.SrcSha1}).Debugln("File sha1sum")
+			err = setMetaData(cf)
+		}
 		if err != nil {
 			cerr <- fmt.Errorf("sync: %s", err.Error())
 			break

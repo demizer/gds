@@ -294,7 +294,7 @@ func TestFileSyncSimpleCopy(t *testing.T) {
 
 func TestFileSyncPerms(t *testing.T) {
 	f := &fileSyncTest{
-		backupPath: testBackupPath,
+		backupPath: fakeTestPath,
 		fileList: func() FileList {
 			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return FileList{
@@ -302,8 +302,8 @@ func TestFileSyncPerms(t *testing.T) {
 					Name:     "diff_user",
 					FileType: FILE,
 					Size:     1024,
-					Path:     path.Join(testBackupPath, "diff_user"),
-					DestPath: path.Join(testOutputDir, "path", "diff_user"),
+					Path:     path.Join(fakeTestPath, "diff_user"),
+					DestPath: path.Join(testOutputDir, "diff_user"),
 					Mode:     0640,
 					ModTime:  time.Now(),
 					Owner:    55000,
@@ -313,8 +313,8 @@ func TestFileSyncPerms(t *testing.T) {
 					Name:     "script.sh",
 					FileType: FILE,
 					Size:     1024,
-					Path:     path.Join(testBackupPath, "script.sh"),
-					DestPath: path.Join(testOutputDir, "path", "script.sh"),
+					Path:     path.Join(fakeTestPath, "script.sh"),
+					DestPath: path.Join(testOutputDir, "script.sh"),
 					Mode:     0777,
 					ModTime:  time.Now(),
 					Owner:    os.Getuid(),
@@ -322,10 +322,10 @@ func TestFileSyncPerms(t *testing.T) {
 				},
 				File{
 					Name:     "some_dir",
-					Path:     path.Join(testBackupPath, "some_dir"),
+					Path:     path.Join(fakeTestPath, "some_dir"),
 					FileType: DIRECTORY,
 					Size:     4096,
-					DestPath: path.Join(testOutputDir, "path", "some_dir"),
+					DestPath: path.Join(testOutputDir, "some_dir"),
 					Mode:     0755,
 					ModTime:  time.Now(),
 					Owner:    os.Getuid(),
@@ -345,7 +345,7 @@ func TestFileSyncPerms(t *testing.T) {
 		expectErrors: func() []error {
 			return []error{
 				SyncIncorrectOwnershipError{
-					FilePath: filepath.Join(testOutputDir, "path/diff_user"),
+					FilePath: filepath.Join(testOutputDir, "diff_user"),
 					OwnerId:  55000,
 					UserId:   os.Getuid(),
 				},
@@ -442,6 +442,54 @@ func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
 				Device{
 					Name:       "Test Device 1",
 					Size:       1000000,
+					MountPoint: tmp1,
+				},
+			}
+		},
+	}
+	c := runFileSyncTest(t, f)
+	if c != nil {
+		Log.WithFields(logrus.Fields{
+			"deviceName": c.Devices[0].Name,
+			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+		Log.WithFields(logrus.Fields{
+			"deviceName": c.Devices[1].Name,
+			"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
+	}
+}
+
+func TestFileSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
+	f := &fileSyncTest{
+		splitMinSize: 1000,
+		backupPath:   fakeTestPath,
+		fileList: func() FileList {
+			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
+			return FileList{
+				File{
+					Name:     "testfile",
+					FileType: FILE,
+					Size:     41971520,
+					Path:     path.Join(fakeTestPath, "testfile"),
+					DestPath: path.Join(testOutputDir, "testfile"),
+					Mode:     0644,
+					ModTime:  time.Now(),
+					Owner:    os.Getuid(),
+					Group:    os.Getgid(),
+				},
+			}
+		},
+		deviceList: func() DeviceList {
+			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
+			tmp1, _ := ioutil.TempDir(testTempDir, "mountpoint-1-")
+			return DeviceList{
+				Device{
+					Name:       "Test Device 0",
+					Size:       31485760,
+					MountPoint: tmp0,
+				},
+				Device{
+					Name:       "Test Device 1",
+					Size:       10485760,
 					MountPoint: tmp1,
 				},
 			}

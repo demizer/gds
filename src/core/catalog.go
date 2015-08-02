@@ -19,19 +19,25 @@ type Catalog map[string][]*File
 func duplicateDirTree(c *Catalog, d *Device, bpath string, f *File) uint64 {
 	ppaths := strings.Split(path.Dir(f.DestPath[len(d.MountPoint):]), string(os.PathSeparator))
 	var usize uint64
-	for _, xy := range ppaths {
-	nextPath:
-		for _, yy := range *c {
-			for _, zy := range yy {
-				if zy.Name == xy {
-					nf := *zy
-					nf.DestPath = path.Join(d.MountPoint, zy.DestPath[len(d.MountPoint):])
-					nf.Size = zy.Size
-					usize += nf.Size
-					(*c)[d.Name] = append((*c)[d.Name], &nf)
-					break nextPath
+	for _, pathBase := range ppaths {
+		var found *File
+		for _, files := range *c {
+			for _, file := range files {
+				if file.Name == pathBase {
+					found = file
 				}
 			}
+		}
+		if found != nil {
+			nf := *found
+			nf.DestPath = path.Join(d.MountPoint, found.DestPath[len(d.MountPoint):])
+			nf.Size = found.Size
+			usize += nf.Size
+			Log.WithFields(logrus.Fields{
+				"name":     nf.Name,
+				"destPath": nf.DestPath,
+			}).Info("Adding parent path")
+			(*c)[d.Name] = append((*c)[d.Name], &nf)
 		}
 	}
 	return usize
