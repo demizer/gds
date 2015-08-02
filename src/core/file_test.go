@@ -39,6 +39,26 @@ var (
 	testOutputDir string
 )
 
+func TestBadFileMetadataError(t *testing.T) {
+	if new(BadFileMetadatError).Error() == "" {
+		t.Error("Missing error message")
+	}
+}
+
+func TestGetFileByName(t *testing.T) {
+	f := &FileList{
+		File{Name: "test1"},
+		File{Name: "test2"},
+	}
+	_, err := f.FileByName("test3")
+	if d, ok := err.(*FileNotFound); !ok {
+		t.Errorf("Expect: %T Got: %T", new(FileNotFound), d)
+	}
+	if new(FileNotFound).Error() == "" {
+		t.Error("Missing error message")
+	}
+}
+
 // checkMountpointUsage calculates the total size of files located under the mountpoint (m).
 func checkMountpointUsage(m string) (int64, error) {
 	var byts int64 = 0
@@ -68,9 +88,10 @@ func checkDevices(t *testing.T, c *Context, e []expectDevice) {
 		return nil
 	}
 	for _, xy := range c.Devices {
-		if c.Devices.DeviceByName(xy.Name).UsedSize != expectDeviceByName(xy.Name).usedBytes {
-			t.Errorf("MountPoint: %q\n\t Got Used Bytes: %d Expect: %d\n", xy.MountPoint,
-				c.Devices.DeviceByName(xy.Name).UsedSize, expectDeviceByName(xy.Name).usedBytes)
+		u, _ := c.Devices.DeviceByName(xy.Name)
+		if u.UsedSize != expectDeviceByName(xy.Name).usedBytes {
+			t.Errorf("MountPoint: %q\n\t Got Used Bytes: %d Expect: %d\n",
+				xy.MountPoint, u.UsedSize, expectDeviceByName(xy.Name).usedBytes)
 		}
 	}
 }
@@ -180,7 +201,7 @@ func runFileSyncTest(t *testing.T, f *fileSyncTest) *Context {
 
 		}
 		// Check the size of the MountPoint
-		dev := c.Devices.DeviceByName(cx)
+		dev, _ := c.Devices.DeviceByName(cx)
 		ms, err := checkMountpointUsage(dev.MountPoint)
 		if err != nil {
 			t.Error(err)
@@ -214,7 +235,11 @@ func TestFileDestPathSha1sum(t *testing.T) {
 		},
 	}
 	c := runFileSyncTest(t, f)
-	hash, err := c.Files.GetFileByName("alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm").DestPathSha1Sum()
+	fn, err := c.Files.FileByName("alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm")
+	if err != nil {
+		t.Error(err)
+	}
+	hash, err := fn.DestPathSha1Sum()
 	if err != nil {
 		t.Error(err)
 	}
@@ -228,6 +253,20 @@ func TestFileDestPathSha1sum(t *testing.T) {
 		Log.WithFields(logrus.Fields{
 			"deviceName": c.Devices[0].Name,
 			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+	}
+}
+
+func TestDestPathSha1SumError(t *testing.T) {
+	if new(BadDestPathSha1Sum).Error() == "" {
+		t.Error("Missing error message")
+	}
+}
+
+func TestDestPathSha1SumCopyError(t *testing.T) {
+	f := File{}
+	_, err := f.DestPathSha1Sum()
+	if err == nil {
+		t.Error("Expect: Error Got: No Error")
 	}
 }
 
@@ -672,5 +711,44 @@ func TestFileSyncAcrossDevicesNoSplit(t *testing.T) {
 		Log.WithFields(logrus.Fields{
 			"deviceName": c.Devices[1].Name,
 			"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
+	}
+}
+
+func TestDestPathSha1Sum(t *testing.T) {
+	expectSha1 := "08cdd7178a20032c27d152a1f440334ee5f132a0"
+
+	// Check bad dest path
+	f := File{
+		Name:    "alice",
+		SrcSha1: expectSha1,
+	}
+	_, err := f.DestPathSha1Sum()
+	if _, ok := err.(*os.PathError); !ok {
+		t.Errorf("Expect: *os.PathError Got: %T", err)
+		return
+	}
+
+	// Check no error
+	f.DestPath = "../../testdata/filesync_freebooks/alice/alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm"
+	s, err := f.DestPathSha1Sum()
+	if err != nil {
+		t.Errorf("Expect: No error Got: %T (%q)", err, err.Error())
+		return
+	}
+
+	f.DestPath = "../../testdata/filesync_freebooks/ulysses/ulysses_by_james_joyce_gutenberg.org.htm"
+	s, err = f.DestPathSha1Sum()
+	// Check sha1
+	if s == expectSha1 {
+		t.Error("Bad sha1 sum")
+		return
+	}
+}
+
+func TestNewFileList(t *testing.T) {
+	c := NewContext("/root")
+	_, err := NewFileList(c)
+	if err == nil {
+		t.Error("Expect: Error  Got: No errors")
 	}
 }

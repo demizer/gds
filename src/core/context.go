@@ -1,12 +1,13 @@
 package core
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
 )
 
-// Context stores the application state
+// Context contains the application state
 type Context struct {
 	BackupPath      string `yaml:"backupPath"`
 	OutputStreamNum int    `yaml:"outputStreams"`
@@ -15,10 +16,10 @@ type Context struct {
 	Catalog         Catalog
 
 	// Minimum number of bytes that must remain on the device before a file is split across devices
-	SplitMinSize uint64
+	SplitMinSize uint64 `yaml:"splitMinSize"`
 }
 
-// NewContext returns an application context. Accepts a string indicating the backup path for the context.
+// NewContext returns an app context set to the path from where the backup will be made.
 func NewContext(backupPath string) *Context {
 	return &Context{
 		BackupPath:      backupPath,
@@ -26,30 +27,32 @@ func NewContext(backupPath string) *Context {
 	}
 }
 
-// LoadConfigFromPath loads the application config file from a file path and
-// returns an application context on completion.
-func LoadConfigFromPath(path string) (*Context, error) {
-	conf, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	c := &Context{}
-	err = yaml.Unmarshal(conf, c)
-	if err != nil {
-		return nil, err
-	}
-	// c.Devices.ParseSizes()
-	return c, nil
+// ContextFileHasNoDevicesError is an error indicating that the configuration yaml data does not contain data for backup
+// devices. Backup device specification is an absolute requirement.
+type ContextFileHasNoDevicesError int
+
+func (e ContextFileHasNoDevicesError) Error() string {
+	return fmt.Sprint("YAML data did not contain any devices!")
 }
 
-// LoadConfigFromBytes process a byte stream of yaml data and returns an
-// application context on success.
-func LoadConfigFromBytes(config []byte) (*Context, error) {
+// ContextFromBytes parses a yaml encoded context from a slice of bytes.
+func ContextFromBytes(config []byte) (*Context, error) {
 	c := &Context{}
 	err := yaml.Unmarshal(config, c)
 	if err != nil {
 		return nil, err
 	}
-	// c.Devices.ParseSizes()
+	if len(c.Devices) == 0 {
+		return nil, new(ContextFileHasNoDevicesError)
+	}
 	return c, nil
+}
+
+// ContextFromPath parses a gds config file from a file path and returns a new context or an error.
+func ContextFromPath(path string) (*Context, error) {
+	conf, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return ContextFromBytes(conf)
 }

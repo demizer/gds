@@ -1,0 +1,11 @@
+# Test configuration file
+# Use: \df -B1 /mnt/backup1 to find correct available space in bytes.
+backupPath: "/home/demizer/documents"
+outputStreams: 1
+devices:
+  - name: "Test Drive 1"
+    size: 4965185763
+    mountPoint: "/mnt/backup1"
+  - name: "Test Drive 2"
+    size: 4965185763
+    mountPoint: "/mnt/backup2"

@@ -33,7 +33,7 @@ func NewSyncCommand() cli.Command {
 
 func sync(c *cli.Context) {
 	log.WithFields(logrus.Fields{"version": 1.1}).Infoln("Ghetto Device Storage")
-	c2, err := core.LoadConfigFromPath(c.GlobalString("config"))
+	c2, err := core.ContextFromPath(c.GlobalString("config"))
 	if err != nil {
 		log.Fatalf("Error loading config: %s", err.Error())
 		os.Exit(1)

@@ -5,7 +5,7 @@ type Device struct {
 	Name       string
 	MountPoint string `yaml:"mountPoint"`
 	Size       uint64
-	UsedSize   uint64
+	UsedSize   uint64 `yaml:"usedSize"`
 }
 
 // DeviceList is a type for a list of devices.
@@ -20,12 +20,20 @@ func (d *DeviceList) DevicePoolSize() uint64 {
 	return total
 }
 
-// DeviceByName returns a pointer to the object of the named device.
-func (d *DeviceList) DeviceByName(name string) *Device {
+// DeviceNotFoundError is given when a device name is not found in the device list.
+type DeviceNotFoundError int
+
+func (d DeviceNotFoundError) Error() string {
+	return "Device not found"
+}
+
+// DeviceByName returns a pointer to the object of the named device. Returns DeviceNotFoundError if the device is not in the
+// list.
+func (d *DeviceList) DeviceByName(name string) (*Device, error) {
 	for x, y := range *d {
 		if y.Name == name {
-			return &(*d)[x]
+			return &(*d)[x], nil
 		}
 	}
-	return nil
+	return nil, new(DeviceNotFoundError)
 }

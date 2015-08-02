@@ -7,13 +7,15 @@ func TestDeviceByName(t *testing.T) {
 		Device{Name: "Device 1"},
 		Device{Name: "Device 2"},
 	}
-	b := a.DeviceByName("Device 1")
-	if b != nil {
-		t.Errorf("Got: %#v Expect: %#v\n", b, Device{Name: "Device 1"})
+	_, err := a.DeviceByName("Device 1")
+	if err != nil {
+		t.Errorf("Expect: Device 1 Got: %q", err.Error())
 	}
-	c := a.DeviceByName("Device 3")
-	if c != nil {
-		t.Errorf("Got: %#v Expect: nil\n", b)
+	_, err = a.DeviceByName("Device 3")
+	if d, ok := err.(*DeviceNotFoundError); !ok {
+		t.Errorf("Expect: %T Got: %T", new(DeviceNotFoundError), d)
 	}
-
+	if new(DeviceNotFoundError).Error() == "" {
+		t.Error("Missing error message")
+	}
 }
