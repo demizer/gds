@@ -33,14 +33,6 @@ func (i *IoReaderWriter) MultiWriter() io.Writer {
 	return io.MultiWriter(i, i.sha1)
 }
 
-func (i *IoReaderWriter) Read(p []byte) (int, error) {
-	n, err := i.Reader.Read(p)
-	if err == nil {
-		i.totalRead += uint64(n)
-	}
-	return n, err
-}
-
 type progressPoint struct {
 	time              time.Time
 	totalBytesWritten uint64
@@ -56,9 +48,9 @@ func (c *copyProgress) addPoint(totalBytesWritten uint64) {
 }
 
 func (c *copyProgress) lastPoint() progressPoint {
-	if len(*c) == 0 {
-		return (*c)[0]
-	}
+	// if len(*c) == 0 {
+	// return (*c)[0]
+	// }
 	return (*c)[len(*c)-1]
 }
 
@@ -66,17 +58,18 @@ func (c *copyProgress) lastPoint() progressPoint {
 // write speed.
 func (i *IoReaderWriter) Write(p []byte) (int, error) {
 	n, err := i.Writer.Write(p)
-	if err != nil {
-		return n, err
-	}
 	i.totalBytesWritten += uint64(n)
-	if len(i.progress) == 0 {
-		i.progress.addPoint(i.totalBytesWritten)
-		return n, err
-	} else if (time.Since(i.progress.lastPoint().time).Seconds()) < 1 {
-		return n, err
+	var addPoint bool
+	if err == nil {
+		if len(i.progress) == 0 {
+			addPoint = true
+		} else if (time.Since(i.progress.lastPoint().time).Seconds()) < 1 {
+			addPoint = true
+		}
+		if addPoint {
+			i.progress.addPoint(i.totalBytesWritten)
+		}
 	}
-	i.progress.addPoint(i.totalBytesWritten)
 	return n, err
 }
 
