@@ -68,9 +68,9 @@ func checkDevices(t *testing.T, c *Context, e []expectDevice) {
 		return nil
 	}
 	for _, xy := range c.Devices {
-		if c.Devices.GetDeviceByName(xy.Name).UsedSize != expectDeviceByName(xy.Name).usedBytes {
+		if c.Devices.DeviceByName(xy.Name).UsedSize != expectDeviceByName(xy.Name).usedBytes {
 			t.Errorf("MountPoint: %q\n\t Got Used Bytes: %d Expect: %d\n", xy.MountPoint,
-				c.Devices.GetDeviceByName(xy.Name).UsedSize, expectDeviceByName(xy.Name).usedBytes)
+				c.Devices.DeviceByName(xy.Name).UsedSize, expectDeviceByName(xy.Name).usedBytes)
 		}
 	}
 }
@@ -180,7 +180,7 @@ func runFileSyncTest(t *testing.T, f *fileSyncTest) *Context {
 
 		}
 		// Check the size of the MountPoint
-		dev := c.Devices.GetDeviceByName(cx)
+		dev := c.Devices.DeviceByName(cx)
 		ms, err := checkMountpointUsage(dev.MountPoint)
 		if err != nil {
 			t.Error(err)

@@ -20,8 +20,8 @@ func (d *DeviceList) DevicePoolSize() uint64 {
 	return total
 }
 
-// GetDeviceByName returns a pointer to the object of the named device.
-func (d *DeviceList) GetDeviceByName(name string) *Device {
+// DeviceByName returns a pointer to the object of the named device.
+func (d *DeviceList) DeviceByName(name string) *Device {
 	for x, y := range *d {
 		if y.Name == name {
 			return &(*d)[x]
