@@ -292,6 +292,98 @@ func TestFileSyncSimpleCopy(t *testing.T) {
 	}
 }
 
+func TestFileSyncSimpleCopySourceFileError(t *testing.T) {
+	f := &fileSyncTest{
+		backupPath: "/root/",
+		fileList: func() FileList {
+			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
+			return FileList{
+				File{
+					Name:     "file",
+					FileType: FILE,
+					Size:     1024,
+					Path:     "/root/file",
+					DestPath: path.Join(testOutputDir, "file"),
+					Mode:     0644,
+					ModTime:  time.Now(),
+					Owner:    os.Getuid(),
+					Group:    os.Getgid(),
+				},
+			}
+		},
+		deviceList: func() DeviceList {
+			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
+			return DeviceList{
+				Device{
+					Name:       "Test Device 0",
+					Size:       42971520,
+					MountPoint: tmp0,
+				},
+			}
+		},
+	}
+	c := NewContext(f.backupPath)
+	c.Files = f.fileList()
+	c.Devices = f.deviceList()
+	c.OutputStreamNum = f.outputStreams
+	c.SplitMinSize = f.splitMinSize
+	c.Catalog = NewCatalog(c)
+	err2 := Sync(c)
+	if len(err2) == 0 {
+		t.Error("Expect: Errors  Got: No Errors")
+	}
+}
+
+func TestFileSyncSimpleCopyDestPathError(t *testing.T) {
+	f := &fileSyncTest{
+		backupPath: fakeTestPath,
+		fileList: func() FileList {
+			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
+			return FileList{
+				File{
+					Name:     "testfile",
+					FileType: FILE,
+					Size:     41971520,
+					Path:     path.Join(fakeTestPath, "testfile"),
+					DestPath: path.Join(testOutputDir, "testfile"),
+					Mode:     0444,
+					ModTime:  time.Now(),
+					Owner:    os.Getuid(),
+					Group:    os.Getgid(),
+				},
+			}
+		},
+		deviceList: func() DeviceList {
+			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
+			return DeviceList{
+				Device{
+					Name:       "Test Device 0",
+					Size:       42971520,
+					MountPoint: tmp0,
+				},
+			}
+		},
+	}
+	c := NewContext(f.backupPath)
+	c.Files = f.fileList()
+	c.Devices = f.deviceList()
+	c.OutputStreamNum = f.outputStreams
+	c.SplitMinSize = f.splitMinSize
+	c.Catalog = NewCatalog(c)
+
+	// Create the destination files
+	preSync(&(c.Devices)[0], &c.Catalog)
+
+	// Make the file read only
+	os.Chmod((c.Files)[0].DestPath, 0444)
+
+	// Attempt to sync
+	err2 := Sync(c)
+	if len(err2) == 0 {
+		t.Error("Expect: Errors  Got: No Errors")
+	}
+}
+
 func TestFileSyncPerms(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: fakeTestPath,

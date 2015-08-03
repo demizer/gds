@@ -160,7 +160,6 @@ func preSync(d *Device, c *Catalog) {
 // sync is the main file syncing function. It is big, mean, and will eat your bytes.
 func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<- bool, cerr chan<- error) {
 	Log.WithFields(logrus.Fields{"device": device.Name}).Infoln("Syncing to device")
-	preSync(device, catalog)
 	for _, cf := range (*catalog)[device.Name] {
 		if cf.err != nil {
 			// An error was generated in pre-sync, send it down the line
@@ -328,6 +327,7 @@ func Sync(c *Context) []error {
 	i := 0
 	for i < len(c.Catalog) {
 		for j := 0; j < c.OutputStreamNum; j++ {
+			preSync(&(c.Devices)[i+j], &c.Catalog)
 			go sync(&(c.Devices)[i+j], &c.Catalog, ssc, done, errorChan)
 		}
 
