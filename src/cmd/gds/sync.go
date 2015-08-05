@@ -32,19 +32,30 @@ func NewSyncCommand() cli.Command {
 }
 
 func sync(c *cli.Context) {
-	log.WithFields(logrus.Fields{"version": 1.1}).Infoln("Ghetto Device Storage")
-	c2, err := core.ContextFromPath(c.GlobalString("config"))
+	log.WithFields(logrus.Fields{"version": 0.2}).Infoln("Ghetto Device Storage")
+	cPath, err := getConfigFile(c.GlobalString("config"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.WithFields(logrus.Fields{
+		"path": cPath,
+	}).Info("Using configuration file")
+
+	c2, err := core.ContextFromPath(cPath)
 	if err != nil {
 		log.Fatalf("Error loading config: %s", err.Error())
 		os.Exit(1)
 	}
+
 	// spd.Dump(c2)
 	// os.Exit(1)
+
 	c2.Files, err = core.NewFileList(c2)
 	if err != nil {
 		log.Fatalf("Error retrieving FileList %s", err.Error())
 		os.Exit(1)
 	}
+
 	c2.Catalog = core.NewCatalog(c2)
 	errs := core.Sync(c2)
 	if len(errs) > 0 {
@@ -52,5 +63,6 @@ func sync(c *cli.Context) {
 			log.Errorf("Sync error: %s", e.Error())
 		}
 	}
+
 	log.Info("ALL DONE -- Sync complete!")
 }

@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/Sirupsen/logrus"
@@ -39,5 +38,5 @@ func TestPrintForceColored(t *testing.T) {
 		"anError": errors.New(`/foobar x, y "`),
 	}).Error("Yep")
 	// log2.Fatal("Yep") // Not sure how to test this yet
-	fmt.Println("buf:", buf.String())
+	// fmt.Println("buf:", buf.String())
 }

@@ -20,8 +20,13 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "config,c",
-			Value: "~/.config/gds/config.yml",
+			Value: "$HOME/.config/gds/config.yml",
 			Usage: "Load configuration from path",
+		},
+		cli.StringFlag{
+			Name:  "catalog,C",
+			Value: "$HOME/.config/gds/catalog.json",
+			Usage: "Use catalog file",
 		},
 	}
 	app.Commands = []cli.Command{
