@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 
@@ -9,11 +10,11 @@ import (
 
 // Context contains the application state
 type Context struct {
-	BackupPath      string `yaml:"backupPath"`
-	OutputStreamNum int    `yaml:"outputStreams"`
-	Files           FileList
-	Devices         DeviceList
-	Catalog         Catalog
+	BackupPath      string     `json:"backupPath" yaml:"backupPath"`
+	OutputStreamNum int        `json:"outputStreams" yaml:"outputStreams"`
+	Files           FileList   `json:"files"`
+	Devices         DeviceList `json:"devices" yaml:"devices"`
+	Catalog         Catalog    `json:"catalog"`
 
 	// Minimum number of bytes that must remain on the device before a file is split across devices
 	SplitMinSize uint64 `yaml:"splitMinSize"`
@@ -25,6 +26,13 @@ func NewContext(backupPath string) *Context {
 		BackupPath:      backupPath,
 		OutputStreamNum: 1,
 	}
+}
+
+func NewContextFromJSON(b []byte) (*Context, error) {
+	var err error
+	c := NewContext("")
+	err = json.Unmarshal(b, c)
+	return c, err
 }
 
 // ContextFileHasNoDevicesError is an error indicating that the configuration yaml data does not contain data for backup

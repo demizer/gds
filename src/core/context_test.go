@@ -1,7 +1,9 @@
 package core
 
 import (
+	"encoding/json"
 	"io/ioutil"
+	"reflect"
 	"testing"
 )
 
@@ -54,5 +56,58 @@ func TestContextFromPath(t *testing.T) {
 	}
 	if len(b.Devices) != 2 {
 		t.Errorf("Expect: 2 devices Got: %d", len(b.Devices))
+	}
+}
+
+func TestContextMarshalJSON(t *testing.T) {
+	f := &fileSyncTest{
+		backupPath: "../../testdata/filesync_freebooks",
+		deviceList: func() DeviceList {
+
+			return DeviceList{
+				Device{
+					Name:       "Test Device 0",
+					Size:       3499350,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+				},
+				Device{
+					Name:       "Test Device 1",
+					Size:       3499350,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1"),
+				},
+				Device{
+					Name:       "Test Device 2",
+					Size:       3499346,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2"),
+				},
+			}
+		},
+	}
+	c := NewContext(f.backupPath)
+
+	var err error
+	c.Files, err = NewFileList(c)
+	if err != nil {
+		t.Errorf("Expect: No Errors  Got: %s", err)
+	}
+
+	c.Devices = f.deviceList()
+	c.OutputStreamNum = f.outputStreams
+	c.SplitMinSize = f.splitMinSize
+	c.Catalog = NewCatalog(c)
+
+	// Turn into json
+	j, err := json.Marshal(c)
+	if err != nil {
+		t.Errorf("Expect: No Errors  Got: %s", err)
+	}
+
+	// From json to context
+	c2, err := NewContextFromJSON(j)
+	if err != nil {
+		t.Errorf("Expect: No Errors  Got: %s", err)
+	}
+	if !reflect.DeepEqual(c, c2) {
+		t.Error("Expect: Context from JSON DeepEqual = True  Got: False")
 	}
 }
