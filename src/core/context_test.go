@@ -60,7 +60,7 @@ func TestContextFromPath(t *testing.T) {
 }
 
 func TestContextMarshalJSON(t *testing.T) {
-	f := &fileSyncTest{
+	f := &syncTest{
 		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 
