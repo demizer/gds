@@ -1,7 +1,6 @@
 package core
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,16 +13,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 )
-
-func init() {
-	var debug bool
-	flag.BoolVar(&debug, "debug", false, "Enable debug output.")
-	flag.Parse()
-	if debug {
-		Log.Out = os.Stdout
-		Log.Level = logrus.DebugLevel
-	}
-}
 
 var (
 	// All tests will be saved to testTempDir instead of "/tmp". Saving test output to "/tmp" directory can cause
