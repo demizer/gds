@@ -358,12 +358,15 @@ func TestFileSyncSimpleCopyDestPathError(t *testing.T) {
 	preSync(&(c.Devices)[0], &c.Catalog)
 
 	// Make the file read only
-	os.Chmod((c.Files)[0].DestPath, 0444)
+	err := os.Chmod((c.Files)[0].DestPath, 0444)
+	if err != nil {
+		t.Error("Expect: Errors  Got: No Errors")
+	}
 
 	// Attempt to sync
 	err2 := Sync(c)
 	if len(err2) == 0 {
-		t.Error("Expect: Errors  Got: No Errors")
+		t.Errorf("Expect: Errors  Got: Errors: %s", err2)
 	}
 }
 
@@ -712,7 +715,11 @@ func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
 		t.Error(err)
 	}
 	for _, y := range files {
-		os.Remove(y)
+		err := os.Remove(y)
+		if err != nil {
+			t.Errorf("EXPECT: No errors GOT: Error: %s", err)
+		}
+
 	}
 
 	f := &fileSyncTest{

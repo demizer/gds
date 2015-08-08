@@ -62,6 +62,7 @@ type TextFormatter struct {
 
 // Format formats a log entry into pretty color output, or key=value formatted output in case of output being sent to a file.
 func (f *TextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	var err error
 	var keys []string = make([]string, 0, len(entry.Data))
 	for k := range entry.Data {
 		keys = append(keys, k)
@@ -85,18 +86,25 @@ func (f *TextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	if isColored {
 		f.printColored(b, entry, keys, timestampFormat)
 	} else {
+		var aErr, kErr error
 		if !f.DisableTimestamp {
-			f.appendKeyValue(b, "time", entry.Time.Format(timestampFormat))
+			aErr = f.appendKeyValue(b, "time", entry.Time.Format(timestampFormat))
 		}
-		f.appendKeyValue(b, "level", entry.Level.String())
-		f.appendKeyValue(b, "msg", entry.Message)
+		aErr2 := f.appendKeyValue(b, "level", entry.Level.String())
+		aErr3 := f.appendKeyValue(b, "msg", entry.Message)
 		for _, key := range keys {
-			f.appendKeyValue(b, key, entry.Data[key])
+			kErr = f.appendKeyValue(b, key, entry.Data[key])
+			if err != nil {
+				break
+			}
+		}
+		if aErr != nil || aErr2 != nil || aErr3 != nil || kErr != nil {
+			return nil, err
 		}
 	}
 
-	b.WriteByte('\n')
-	return b.Bytes(), nil
+	err = b.WriteByte('\n')
+	return b.Bytes(), err
 }
 
 func (f *TextFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry, keys []string, timestampFormat string) {
@@ -143,22 +151,34 @@ func needsQuoting(text string) bool {
 	return true
 }
 
-func (f *TextFormatter) appendKeyValue(b *bytes.Buffer, key string, value interface{}) {
+func (f *TextFormatter) appendKeyValue(b *bytes.Buffer, key string, value interface{}) error {
 
-	b.WriteString(key)
-	b.WriteByte('=')
+	_, err := b.WriteString(key)
+	if err != nil {
+		return err
+	}
+	err = b.WriteByte('=')
+	if err != nil {
+		return err
+	}
 
 	switch value := value.(type) {
 	case string:
 		if needsQuoting(value) {
-			b.WriteString(value)
+			_, err := b.WriteString(value)
+			if err != nil {
+				return err
+			}
 		} else {
 			fmt.Fprintf(b, "%q", value)
 		}
 	case error:
 		errmsg := value.Error()
 		if needsQuoting(errmsg) {
-			b.WriteString(errmsg)
+			_, err := b.WriteString(errmsg)
+			if err != nil {
+				return err
+			}
 		} else {
 			fmt.Fprintf(b, "%q", value)
 		}
@@ -166,7 +186,8 @@ func (f *TextFormatter) appendKeyValue(b *bytes.Buffer, key string, value interf
 		fmt.Fprint(b, value)
 	}
 
-	b.WriteByte(' ')
+	err = b.WriteByte(' ')
+	return err
 }
 
 // This is to not silently overwrite `time`, `msg` and `level` fields when

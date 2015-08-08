@@ -118,7 +118,7 @@ func createFile(f *File) {
 		var oFile *os.File
 		if _, lerr := os.Stat(f.DestPath); lerr != nil {
 			oFile, err = os.Create(f.DestPath)
-			oFile.Close()
+			err = oFile.Close()
 			if err == nil {
 				Log.WithFields(logrus.Fields{"path": f.DestPath}).Debugln("Created file")
 			}
@@ -198,7 +198,9 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			continue
 		}
 		// }
-		defer oFile.Close()
+		defer func() {
+			err = oFile.Close()
+		}()
 
 		var sFile *os.File
 		var syncTest bool
@@ -208,7 +210,9 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			sFile, err = os.Open("/dev/urandom")
 		} else {
 			sFile, err = os.Open(cf.Path)
-			defer sFile.Close()
+			defer func() {
+				err = sFile.Close()
+			}()
 		}
 		if err != nil {
 			cerr <- fmt.Errorf("sync sfile open: %s", err.Error())
@@ -217,7 +221,11 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 
 		// Seek to the correct position for split files
 		if cf.SplitStartByte != 0 && cf.SplitEndByte != 0 {
-			sFile.Seek(int64(cf.SplitStartByte), 0)
+			_, err = sFile.Seek(int64(cf.SplitStartByte), 0)
+			if err != nil {
+				cerr <- fmt.Errorf("sync seek: %s", err.Error())
+				continue
+			}
 		}
 
 		mIo := NewIoReaderWriter(oFile, cf.Size)
@@ -237,8 +245,8 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 				cerr <- fmt.Errorf("sync copy %s: %s", cf.DestPath, err.Error())
 				break
 			} else {
-				sFile.Close()
-				oFile.Close()
+				err = sFile.Close()
+				err = oFile.Close()
 				ls, err := os.Lstat(cf.DestPath)
 				if err == nil {
 					Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
@@ -275,8 +283,8 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			} else {
 				Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": oSize}).Debugln("File size")
 				// device.UsedSize += uint64(oSize)
-				sFile.Close()
-				oFile.Close()
+				err = sFile.Close()
+				err = oFile.Close()
 				var ls os.FileInfo
 				ls, err = os.Lstat(cf.DestPath)
 				if err == nil {
