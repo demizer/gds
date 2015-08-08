@@ -17,7 +17,7 @@ type Context struct {
 	Catalog         Catalog    `json:"catalog"`
 
 	// Minimum number of bytes that must remain on the device before a file is split across devices
-	SplitMinSize uint64 `yaml:"splitMinSize"`
+	SplitMinSize uint64 `json:"splitMinSize" yaml:"splitMinSize"`
 }
 
 // NewContext returns an app context set to the path from where the backup will be made.

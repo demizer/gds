@@ -2,6 +2,7 @@ package main
 
 import (
 	"core"
+	"encoding/json"
 	"os"
 
 	"github.com/codegangsta/cli"
@@ -41,6 +42,13 @@ func sync(c *cli.Context) {
 		"path": cPath,
 	}).Info("Using configuration file")
 
+	cf, err := os.Create(cleanPath(c.GlobalString("context-path")))
+	defer cf.Close()
+	if err != nil {
+		log.Fatalf("Could not create context JSON output file: %s", err.Error())
+		os.Exit(1)
+	}
+
 	c2, err := core.ContextFromPath(cPath)
 	if err != nil {
 		log.Fatalf("Error loading config: %s", err.Error())
@@ -62,6 +70,19 @@ func sync(c *cli.Context) {
 		for _, e := range errs {
 			log.Errorf("Sync error: %s", e.Error())
 		}
+	}
+
+	j, err := json.Marshal(c2)
+	if err == nil {
+		_, err = cf.Write(j)
+		if err != nil {
+			log.Fatal(err)
+			os.Exit(1)
+		}
+	}
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
 	}
 
 	log.Info("ALL DONE -- Sync complete!")
