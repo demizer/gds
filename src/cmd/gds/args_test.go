@@ -28,7 +28,7 @@ func TestGetConfigFileDirExists(t *testing.T) {
 	if err != nil {
 		t.Errorf("EXPECT: No errors  GOT: %s", err)
 	}
-	expect := path.Join(tmp0, "config.yml")
+	expect := path.Join(tmp0, GDS_CONFIG_NAME)
 	if p != expect {
 		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
 	}
@@ -41,12 +41,28 @@ func TestGetConfigFileDirDoesNotExist(t *testing.T) {
 	if err != nil {
 		t.Errorf("EXPECT: No errors  GOT: %s", err)
 	}
-	expect := path.Join(tmp0, "imaginary", "config.yml")
+	expect := path.Join(tmp0, "imaginary", GDS_CONFIG_NAME)
 	if p != expect {
 		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
 	}
 	if _, err := os.Lstat(p); err != nil {
-		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, "config.yml"))
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONFIG_NAME))
+	}
+}
+
+func TestGetConfigFileDirDoesNotExistDiffFileExt(t *testing.T) {
+	tmp0, _ := ioutil.TempDir(testTempDir, "get-conf-dir-test")
+	a := path.Join(tmp0, "imaginary", "config.myext")
+	p, err := getConfigFile(a)
+	if err != nil {
+		t.Errorf("EXPECT: No errors  GOT: %s", err)
+	}
+	expect := path.Join(tmp0, "imaginary", "config.myext")
+	if p != expect {
+		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
+	}
+	if _, err := os.Lstat(p); err != nil {
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", a)
 	}
 }
 
@@ -57,12 +73,12 @@ func TestGetConfigFilepathWithEnvVariable(t *testing.T) {
 	if err != nil {
 		t.Errorf("EXPECT: No errors  GOT: %s", err)
 	}
-	expect := path.Join(tmp0, os.Getenv("HOME"), "config.yml")
+	expect := path.Join(tmp0, os.Getenv("HOME"), GDS_CONFIG_NAME)
 	if p != expect {
 		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
 	}
 	if _, err := os.Lstat(p); err != nil {
-		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, "config.yml"))
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONFIG_NAME))
 	}
 }
 
@@ -73,12 +89,12 @@ func TestGetConfigFilepathWithTilde(t *testing.T) {
 	if err != nil {
 		t.Errorf("EXPECT: No errors  GOT: %s", err)
 	}
-	expect := path.Join(tmp0, "/home", "config.yml")
+	expect := path.Join(tmp0, "/home", GDS_CONFIG_NAME)
 	if p != expect {
 		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
 	}
 	if _, err := os.Lstat(p); err != nil {
-		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, "config.yml"))
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONFIG_NAME))
 	}
 }
 
@@ -89,27 +105,27 @@ func TestGetConfigFilepathWithFullTilde(t *testing.T) {
 	if err != nil {
 		t.Errorf("EXPECT: No errors  GOT: %s", err)
 	}
-	expect := path.Join(tmp0, os.Getenv("HOME"), "test", "config.yml")
+	expect := path.Join(tmp0, os.Getenv("HOME"), "test", GDS_CONFIG_NAME)
 	if p != expect {
 		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
 	}
 	if _, err := os.Lstat(p); err != nil {
-		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, "config.yml"))
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONFIG_NAME))
 	}
 }
 
 func TestGetConfigFilepathFull(t *testing.T) {
 	tmp0, _ := ioutil.TempDir(testTempDir, "get-conf-dir-test")
-	a := path.Join(tmp0, "~test", "config.yaml")
+	a := path.Join(tmp0, "~test")
 	p, err := getConfigFile(a)
 	if err != nil {
 		t.Errorf("EXPECT: No errors  GOT: %s", err)
 	}
-	expect := path.Join(tmp0, "home", "test", "config.yaml")
+	expect := path.Join(tmp0, "home", "test", GDS_CONFIG_NAME)
 	if p != expect {
 		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
 	}
 	if _, err := os.Lstat(p); err != nil {
-		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, "config.yml"))
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONFIG_NAME))
 	}
 }

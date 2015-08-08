@@ -3,6 +3,7 @@ package main
 import (
 	"core"
 	"encoding/json"
+	"io/ioutil"
 	"os"
 
 	"github.com/codegangsta/cli"
@@ -27,6 +28,11 @@ func NewSyncCommand() cli.Command {
 		Name:  "sync",
 		Usage: "Synchronize files to devices",
 		Action: func(c *cli.Context) {
+			err := checkEnvVariables(c)
+			if err != nil {
+				log.Fatalf("Could not set environment variables: %s", err)
+				os.Exit(1)
+			}
 			sync(c)
 		},
 	}
@@ -34,7 +40,8 @@ func NewSyncCommand() cli.Command {
 
 func sync(c *cli.Context) {
 	log.WithFields(logrus.Fields{"version": 0.2}).Infoln("Ghetto Device Storage")
-	cPath, err := getConfigFile(c.GlobalString("config"))
+
+	cPath, err := getConfigFile(c.GlobalString("config-file"))
 	if err != nil {
 		log.Fatal(err)
 	}

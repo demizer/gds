@@ -5,8 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	"github.com/Sirupsen/logrus"
 )
 
 var defaultConfig = `# Ghetto Device Storage Configuration File
@@ -26,9 +24,7 @@ outputStreams: 1
 `
 
 // getConfigFile ensures a config file, empty or not, is ready to use.
-func getConfigFile(path string) (string, error) {
-	var err error
-
+func getConfigFile(path string) (p string, err error) {
 	createConf := func(p string) error {
 		err := ioutil.WriteFile(p, []byte(defaultConfig), 0644)
 		if err != nil {
@@ -36,32 +32,24 @@ func getConfigFile(path string) (string, error) {
 		}
 		return nil
 	}
-
 	confPath := cleanPath(path)
-	ext := filepath.Ext(path)
-	log.WithFields(logrus.Fields{
-		"extension": ext,
-	}).Debug("Config extension")
-	if ext != ".yml" && ext != ".yaml" {
-		confPath = filepath.Join(confPath, "config.yml")
+	ext := filepath.Ext(confPath)
+	if ext == "" {
+		// confPath does not have an extenision, so maybe it is only a path
+		confPath = filepath.Join(confPath, GDS_CONFIG_NAME)
 	}
-
 	if _, err = os.Lstat(confPath); err != nil {
 		dir := filepath.Dir(confPath)
-		if _, err = os.Lstat(dir); err == nil {
-			err = createConf(confPath)
-		} else {
+		if _, err = os.Lstat(dir); err != nil {
 			err = os.MkdirAll(dir, 0755)
-			if err == nil {
-				err = createConf(confPath)
-			}
+		}
+		if err == nil {
+			err = createConf(confPath)
 		}
 	}
-
 	if err != nil {
 		err = fmt.Errorf("Error getting %q: %s", confPath, err.Error())
 		confPath = ""
 	}
-
 	return filepath.Clean(confPath), err
 }

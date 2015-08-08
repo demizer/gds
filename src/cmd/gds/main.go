@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/codegangsta/cli"
@@ -9,6 +10,11 @@ import (
 )
 
 var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
+
+var (
+	GDS_CONFIG_DIR       = "$HOME/.config/gds"
+	GDS_CONFIG_NAME      = "config.yaml"
+)
 
 func main() {
 	app := cli.NewApp()
@@ -23,9 +29,14 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "config,c",
-			Value: "$HOME/.config/gds/config.yml",
-			Usage: "Load configuration from path",
+			Name:  "config-dir,C",
+			Value: GDS_CONFIG_DIR,
+			Usage: "Change the default configuration directory.",
+		},
+		cli.StringFlag{
+			Name:  "config-file,c",
+			Value: filepath.Join("$GDS_CONFIG_DIR", GDS_CONFIG_NAME),
+			Usage: "Load configuration from path.",
 		},
 		cli.StringFlag{
 			Name:  "context-path,C",
