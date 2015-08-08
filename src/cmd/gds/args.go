@@ -53,3 +53,25 @@ func getConfigFile(path string) (p string, err error) {
 	}
 	return filepath.Clean(confPath), err
 }
+
+// getContextFile ensures a context file path exists.
+func getContextFile(path string) (p string, err error) {
+	p = cleanPath(path)
+	ext := filepath.Ext(p)
+	if ext == "" {
+		p = filepath.Join(p, GDS_CONTEXT_FILENAME)
+	}
+	if _, err = os.Lstat(p); err != nil {
+		dir := filepath.Dir(p)
+		if _, err = os.Lstat(dir); err != nil {
+			err = os.MkdirAll(dir, 0755)
+		}
+		var f *os.File
+		f, err = os.Create(p)
+		f.Close()
+	}
+	if err != nil {
+		err = fmt.Errorf("Could not get context file %q: %s", p, err.Error())
+	}
+	return
+}

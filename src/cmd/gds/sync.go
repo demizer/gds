@@ -49,8 +49,7 @@ func sync(c *cli.Context) {
 		"path": cPath,
 	}).Info("Using configuration file")
 
-	cf, err := os.Create(cleanPath(c.GlobalString("context-path")))
-	defer cf.Close()
+	cf, err := getContextFile(c.GlobalString("context-file"))
 	if err != nil {
 		log.Fatalf("Could not create context JSON output file: %s", err.Error())
 		os.Exit(1)
@@ -81,11 +80,7 @@ func sync(c *cli.Context) {
 
 	j, err := json.Marshal(c2)
 	if err == nil {
-		_, err = cf.Write(j)
-		if err != nil {
-			log.Fatal(err)
-			os.Exit(1)
-		}
+		err = ioutil.WriteFile(cf, j, 0644)
 	}
 	if err != nil {
 		log.Fatal(err)

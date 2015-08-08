@@ -32,7 +32,7 @@ func cleanPath(path string) string {
 		nPath = strings.Replace(nPath, "~", os.Getenv("HOME"), -1)
 	}
 	if strings.Contains(nPath, "~") {
-		nPath = strings.Replace(nPath, "~", "/home/", -1)
+		nPath = strings.Replace(nPath, "~", "home/", -1)
 	}
 	return nPath
 }

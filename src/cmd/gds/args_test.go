@@ -129,3 +129,52 @@ func TestGetConfigFilepathFull(t *testing.T) {
 		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONFIG_NAME))
 	}
 }
+
+func TestGetContextFilepathEnvironVariableFull(t *testing.T) {
+	tmp0, _ := ioutil.TempDir(testTempDir, "get-conf-dir-test")
+	a := path.Join(tmp0, "$GDS_CONFIG_DIR")
+	os.Setenv("GDS_CONFIG_DIR", "test")
+	p, err := getContextFile(a)
+	if err != nil {
+		t.Errorf("EXPECT: No errors  GOT: %s", err)
+	}
+	expect := path.Join(tmp0, "test", GDS_CONTEXT_FILENAME)
+	if p != expect {
+		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
+	}
+	if _, err := os.Lstat(p); err != nil {
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONTEXT_FILENAME))
+	}
+}
+
+func TestGetContextFilepathFull(t *testing.T) {
+	tmp0, _ := ioutil.TempDir(testTempDir, "get-conf-dir-test")
+	a := path.Join(tmp0, "~test")
+	p, err := getContextFile(a)
+	if err != nil {
+		t.Errorf("EXPECT: No errors  GOT: %s", err)
+	}
+	expect := path.Join(tmp0, "home", "test", GDS_CONTEXT_FILENAME)
+	if p != expect {
+		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
+	}
+	if _, err := os.Lstat(p); err != nil {
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, GDS_CONTEXT_FILENAME))
+	}
+}
+
+func TestGetContextFilepathFullDiffName(t *testing.T) {
+	tmp0, _ := ioutil.TempDir(testTempDir, "get-conf-dir-test")
+	a := path.Join(tmp0, "~test", "config.json")
+	p, err := getContextFile(a)
+	if err != nil {
+		t.Errorf("EXPECT: No errors  GOT: %s", err)
+	}
+	expect := path.Join(tmp0, "home", "test", "config.json")
+	if p != expect {
+		t.Errorf("EXPECT: %q  GOT: %s", expect, p)
+	}
+	if _, err := os.Lstat(p); err != nil {
+		t.Errorf("EXPECT: Path %q exists  GOT: Does not exist", path.Join(a, "config.json"))
+	}
+}
