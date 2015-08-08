@@ -24,8 +24,6 @@ var (
 		cdir, _ := os.Getwd()
 		return path.Clean(path.Join(cdir, "..", "..", "testdata", "temp"))
 	}()
-	// Used for tests that expect errors
-	testOutputDir string
 )
 
 func TestBadFileMetadataError(t *testing.T) {
@@ -280,10 +278,10 @@ func TestFileSyncSimpleCopy(t *testing.T) {
 }
 
 func TestFileSyncSimpleCopySourceFileError(t *testing.T) {
+	testOutputDir := NewMountPoint(t, testTempDir, "mountpoint-0-")
 	f := &fileSyncTest{
 		backupPath: "/root/",
 		fileList: func() FileList {
-			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return FileList{
 				File{
 					Name:     "file",
@@ -303,7 +301,7 @@ func TestFileSyncSimpleCopySourceFileError(t *testing.T) {
 				Device{
 					Name:       "Test Device 0",
 					Size:       42971520,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					MountPoint: testOutputDir,
 				},
 			}
 		},
@@ -321,10 +319,10 @@ func TestFileSyncSimpleCopySourceFileError(t *testing.T) {
 }
 
 func TestFileSyncSimpleCopyDestPathError(t *testing.T) {
+	testOutputDir := NewMountPoint(t, testTempDir, "mountpoint-0-")
 	f := &fileSyncTest{
 		backupPath: fakeTestPath,
 		fileList: func() FileList {
-			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return FileList{
 				File{
 					Name:     "testfile",
@@ -344,7 +342,7 @@ func TestFileSyncSimpleCopyDestPathError(t *testing.T) {
 				Device{
 					Name:       "Test Device 0",
 					Size:       42971520,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					MountPoint: testOutputDir,
 				},
 			}
 		},
@@ -370,6 +368,10 @@ func TestFileSyncSimpleCopyDestPathError(t *testing.T) {
 }
 
 func TestFileSyncPerms(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test")
+	}
+	testOutputDir := NewMountPoint(t, testTempDir, "mountpoint-0-")
 	f := &fileSyncTest{
 		backupPath: fakeTestPath,
 		fileList: func() FileList {
@@ -414,7 +416,7 @@ func TestFileSyncPerms(t *testing.T) {
 				Device{
 					Name:       "Test Device 0",
 					Size:       28173338480,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					MountPoint: testOutputDir,
 				},
 			}
 		},
@@ -479,6 +481,9 @@ func TestFileSyncSymlinks(t *testing.T) {
 }
 
 func TestFileSyncBackupathIncluded(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test")
+	}
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
@@ -530,18 +535,19 @@ func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
 }
 
 func TestFileSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test")
+	}
 	f := &fileSyncTest{
 		splitMinSize: 1000,
 		backupPath:   fakeTestPath,
 		fileList: func() FileList {
-			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return FileList{
 				File{
 					Name:     "testfile",
 					FileType: FILE,
 					Size:     41971520,
 					Path:     path.Join(fakeTestPath, "testfile"),
-					DestPath: path.Join(testOutputDir, "testfile"),
 					Mode:     0644,
 					ModTime:  time.Now(),
 					Owner:    os.Getuid(),
@@ -619,6 +625,9 @@ func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 }
 
 func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test")
+	}
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
@@ -677,6 +686,9 @@ func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
 // pointers, but since filesystems don't reclaim space, recreating these directories on the destination drive will allocate
 // the blocksize of the device--4096 bytes.
 func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test")
+	}
 	testTempDir, err := ioutil.TempDir(testTempDir, "gds-filetests-")
 	if err != nil {
 		t.Error(err)
@@ -706,12 +718,11 @@ func TestFileSyncDirsWithLotsOfFiles(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: path.Join(testTempDir, "filesync_directories"),
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       4300000,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -821,6 +832,9 @@ func TestFileSyncAcrossDevicesNoSplit(t *testing.T) {
 }
 
 func TestDestPathSha1Sum(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test")
+	}
 	expectSha1 := "08cdd7178a20032c27d152a1f440334ee5f132a0"
 
 	// Check bad dest path
