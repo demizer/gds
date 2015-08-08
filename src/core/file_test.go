@@ -224,12 +224,11 @@ func TestFileDestPathSha1sum(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_freebooks/alice/",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       669000,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
@@ -274,12 +273,11 @@ func TestFileSyncSimpleCopy(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_freebooks/",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       28173338480,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
@@ -312,12 +310,11 @@ func TestFileSyncSimpleCopySourceFileError(t *testing.T) {
 			}
 		},
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       42971520,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
@@ -354,12 +351,11 @@ func TestFileSyncSimpleCopyDestPathError(t *testing.T) {
 			}
 		},
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       42971520,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
@@ -388,7 +384,6 @@ func TestFileSyncPerms(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: fakeTestPath,
 		fileList: func() FileList {
-			testOutputDir, _ = ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return FileList{
 				File{
 					Name:     "diff_user",
@@ -430,7 +425,7 @@ func TestFileSyncPerms(t *testing.T) {
 				Device{
 					Name:       "Test Device 0",
 					Size:       28173338480,
-					MountPoint: testOutputDir,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -456,12 +451,11 @@ func TestFileSyncSubDirs(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_directories/subdirs",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       28173338480,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
@@ -478,12 +472,11 @@ func TestFileSyncSymlinks(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_symlinks/",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       28173338480,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
@@ -500,12 +493,11 @@ func TestFileSyncBackupathIncluded(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       28173338480,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
@@ -523,18 +515,16 @@ func TestFileSyncFileSplitAcrossDevices(t *testing.T) {
 		backupPath:   "../../testdata/filesync_freebooks",
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
-			tmp1, _ := ioutil.TempDir(testTempDir, "mountpoint-1-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       1493583,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				Device{
 					Name:       "Test Device 1",
 					Size:       1000000,
-					MountPoint: tmp1,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
 		},
@@ -571,18 +561,16 @@ func TestFileSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 			}
 		},
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
-			tmp1, _ := ioutil.TempDir(testTempDir, "mountpoint-1-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       31485760,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				Device{
 					Name:       "Test Device 1",
 					Size:       10485760,
-					MountPoint: tmp1,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
 		},
@@ -603,18 +591,16 @@ func TestFileSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 		backupPath:   "../../testdata/filesync_large_binary_file/",
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
-			tmp1, _ := ioutil.TempDir(testTempDir, "mountpoint-1-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       9999999,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				Device{
 					Name:       "Test Device 1",
 					Size:       850000,
-					MountPoint: tmp1,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
 		},
@@ -647,24 +633,21 @@ func TestFileSyncLargeFileAcrossThreeDevices(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
-			tmp1, _ := ioutil.TempDir(testTempDir, "mountpoint-1-")
-			tmp2, _ := ioutil.TempDir(testTempDir, "mountpoint-2-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       3499350,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				Device{
 					Name:       "Test Device 1",
 					Size:       3499350,
-					MountPoint: tmp1,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 				Device{
 					Name:       "Test Device 2",
 					Size:       3499346,
-					MountPoint: tmp2,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
 				},
 			}
 		},
@@ -756,24 +739,21 @@ func TestFileSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
-			tmp1, _ := ioutil.TempDir(testTempDir, "mountpoint-1-")
-			tmp2, _ := ioutil.TempDir(testTempDir, "mountpoint-2-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       3499350,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				Device{
 					Name:       "Test Device 1",
 					Size:       3499350,
-					MountPoint: tmp1,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 				Device{
 					Name:       "Test Device 2",
 					Size:       300000,
-					MountPoint: tmp2,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
 				},
 			}
 		},
@@ -804,12 +784,11 @@ func TestSyncDestPathPermissionDenied(t *testing.T) {
 	f := &fileSyncTest{
 		backupPath: "../../testdata/filesync_nowrite_perms/",
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       5675,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -827,18 +806,16 @@ func TestFileSyncAcrossDevicesNoSplit(t *testing.T) {
 		backupPath:   "../../testdata/filesync_freebooks",
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
-			tmp0, _ := ioutil.TempDir(testTempDir, "mountpoint-0-")
-			tmp1, _ := ioutil.TempDir(testTempDir, "mountpoint-1-")
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
 					Size:       668711 + 4096 + 4096,
-					MountPoint: tmp0,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				Device{
 					Name:       "Test Device 1",
 					Size:       1812584 + 4096 + 4096,
-					MountPoint: tmp1,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
 		},
