@@ -114,7 +114,7 @@ func saveSyncContext(c *Context, lastDevice *Device) (size int64, err error) {
 		}
 		return
 	}
-	cp := filepath.Join(lastDevice.MountPoint, "sync_context_"+c.LastSyncStartDate.Format(time.RFC3339)+".gz")
+	cp := filepath.Join(lastDevice.MountPoint, "sync_context_"+c.LastSyncStartDate.Format(time.RFC3339)+".json.gz")
 	f, err := os.Create(cp)
 	err = writeCompressedContextToFile(c, f)
 	if err != nil {
