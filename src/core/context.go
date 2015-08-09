@@ -4,17 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
 
 // Context contains the application state
 type Context struct {
-	BackupPath      string     `json:"backupPath" yaml:"backupPath"`
-	OutputStreamNum int        `json:"outputStreams" yaml:"outputStreams"`
-	Files           FileList   `json:"files"`
-	Devices         DeviceList `json:"devices" yaml:"devices"`
-	Catalog         Catalog    `json:"catalog"`
+	BackupPath        string     `json:"backupPath" yaml:"backupPath"`
+	OutputStreamNum   int        `json:"outputStreams" yaml:"outputStreams"`
+	LastSyncStartDate time.Time  `json:"lastSyncStartDate" yaml:"lastSyncStartDate"`
+	LastSyncEndDate   time.Time  `json:"lastSyncEndDate" yaml:"lastSyncEndDate"`
+	Files             FileList   `json:"files"`
+	Devices           DeviceList `json:"devices" yaml:"devices"`
+	Catalog           Catalog    `json:"catalog"`
 
 	// Minimum number of bytes that must remain on the device before a file is split across devices
 	SplitMinSize uint64 `json:"splitMinSize" yaml:"splitMinSize"`
@@ -23,8 +26,9 @@ type Context struct {
 // NewContext returns an app context set to the path from where the backup will be made.
 func NewContext(backupPath string) *Context {
 	return &Context{
-		BackupPath:      backupPath,
-		OutputStreamNum: 1,
+		BackupPath:        backupPath,
+		LastSyncStartDate: time.Now(),
+		OutputStreamNum:   1,
 	}
 }
 

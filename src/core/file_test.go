@@ -2,7 +2,6 @@ package core
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -26,20 +25,6 @@ func TestGetFileByName(t *testing.T) {
 	}
 }
 
-// checkMountpointUsage calculates the total size of files located under the mountpoint (m).
-func checkMountpointUsage(m string) (int64, error) {
-	var byts int64 = 0
-	walkFunc := func(p string, i os.FileInfo, err error) error {
-		if p == m {
-			return nil
-		}
-		byts += i.Size()
-		return nil
-	}
-	err := filepath.Walk(m, walkFunc)
-	return byts, err
-}
-
 type expectDevice struct {
 	name      string
 	usedBytes uint64
@@ -54,12 +39,22 @@ func checkDevices(t *testing.T, c *Context, e []expectDevice) {
 		}
 		return nil
 	}
+	dNum := 0
+	lastDevice := false
+	inTolerance := false
 	for _, xy := range c.Devices {
 		u, _ := c.Devices.DeviceByName(xy.Name)
-		if u.UsedSize != expectDeviceByName(xy.Name).usedBytes {
+		if dNum+1 == len(c.Devices) {
+			lastDevice = true
+			// The last device can fluctuate in size due to the sync context data file being stored on it.
+			inTolerance = (u.UsedSize < expectDeviceByName(xy.Name).usedBytes-50 &&
+				u.UsedSize > expectDeviceByName(xy.Name).usedBytes+50)
+		}
+		if (u.UsedSize != expectDeviceByName(xy.Name).usedBytes && !lastDevice) || (lastDevice && inTolerance) {
 			t.Errorf("MountPoint: %q\n\t Got Used Bytes: %d Expect: %d\n",
 				xy.MountPoint, u.UsedSize, expectDeviceByName(xy.Name).usedBytes)
 		}
+		dNum++
 	}
 }
 

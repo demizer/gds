@@ -1,13 +1,28 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/demizer/go-humanize"
 )
+
+// CatalogNotEnoughDevicePoolSpaceError is an error given when the backup size exceeds the device pool storage size.
+type CatalogNotEnoughDevicePoolSpaceError struct {
+	TotalCatalogSize    uint64
+	TotalDevicePoolSize uint64
+}
+
+// Error implements the Error interface.
+func (e CatalogNotEnoughDevicePoolSpaceError) Error() string {
+	return fmt.Sprintf("Inadequate device pool space! TotalCatalogSize: %d (%s) TotalDevicePoolSize: %d (%s)",
+		e.TotalCatalogSize, humanize.IBytes(e.TotalCatalogSize), e.TotalDevicePoolSize,
+		humanize.IBytes(e.TotalDevicePoolSize))
+}
 
 // Catalog is the data structure that indicates onto which device files in the backup will be copied to. The Catalog is also
 // saved as the record of the backup. The key is the name of the device, and the values are a list of pointers to File
@@ -45,8 +60,10 @@ func duplicateDirTree(c *Catalog, d *Device, bpath string, f *File) uint64 {
 
 // NewCatalog returns a new catalog. Files are matched to a device in order. When a catalog entry is made, the destination
 // path is also calculated. NewCatalog assumes all files will fit in the storage pool.
-func NewCatalog(c *Context) Catalog {
+func NewCatalog(c *Context) (Catalog, error) {
+	var err error
 	var dSize uint64
+	var notEnoughSpaceError bool
 	dNum := 0
 	t := make(Catalog)
 
@@ -101,13 +118,20 @@ func NewCatalog(c *Context) Catalog {
 				dSize += duplicateDirTree(&t, &d, bpath, &fNew)
 
 				Log.WithFields(logrus.Fields{
-					"file_remain_size": fNew.Size - fNew.SplitStartByte,
-					"device_usage":     dSize,
-					"device_name":      d.Name,
-					"device_size":      d.Size}).Debug("NewCatalog: File/Device state in split")
+					"fileRemainSize":     fNew.Size - fNew.SplitStartByte,
+					"fileSplitStartByte": fNew.SplitStartByte,
+					"fileSplitEndByte":   fNew.SplitEndByte,
+					"deviceUsage":        dSize,
+					"deviceName":         d.Name,
+					"deviceSize":         d.Size}).Debug("NewCatalog: File/Device state in split")
 
 				// If the file is still larger than the new divice, use all of the available space
 				if (fNew.Size - fNew.SplitStartByte) > (d.Size - dSize) {
+					// If the current device is the last device, there is no more pool space.
+					if dNum+1 == len(c.Devices) {
+						Log.Error("Total backup size is greater than device pool size!")
+						notEnoughSpaceError = true
+					}
 					fNew.SplitEndByte = fNew.SplitStartByte + (d.Size - dSize)
 				}
 
@@ -131,9 +155,18 @@ func NewCatalog(c *Context) Catalog {
 				// of file remaning. Increase the device number, we'll set it in the next loop.
 				dNum += 1
 				dSize = 0
-				if dNum == len(c.Devices) {
+				if dNum == len(c.Devices) && !notEnoughSpaceError {
 					// Out of devices
 					break
+				}
+				if notEnoughSpaceError {
+					// Add a fake device so that we can finish and report an error back with actual usage
+					// data.
+					c.Devices = append(c.Devices, Device{
+						Name:       "overrun",
+						MountPoint: "none",
+						Size:       fNew.Size, // With room to spare
+					})
 				}
 				lastf = fNew
 			}
@@ -147,5 +180,28 @@ func NewCatalog(c *Context) Catalog {
 			t[d.Name] = append(t[d.Name], f)
 		}
 	}
-	return t
+	if notEnoughSpaceError {
+		err = CatalogNotEnoughDevicePoolSpaceError{
+			TotalCatalogSize:    t.TotalCatalogSize(),
+			TotalDevicePoolSize: c.Devices.DevicePoolSize(),
+		}
+	}
+
+	return t, err
+}
+
+// TotalCatalogSize returns the real size of the backup. If files are split across devices, the parent directories of the
+// file is duplicated on successive devices. This increases the actual total size of the backup.
+func (c *Catalog) TotalCatalogSize() uint64 {
+	var total uint64
+	for _, val := range *c {
+		for _, f := range val {
+			if f.SplitEndByte != 0 {
+				total += f.SplitEndByte - f.SplitStartByte
+			} else {
+				total += f.Size
+			}
+		}
+	}
+	return total
 }

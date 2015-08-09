@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"syscall"
 	"testing"
 	"time"
@@ -38,6 +39,20 @@ type syncTest struct {
 	splitMinSize      uint64
 }
 
+// checkMountpointUsage calculates the total size of files located under the mountpoint (m).
+func checkMountpointUsage(m string) (int64, error) {
+	var byts int64 = 0
+	walkFunc := func(p string, i os.FileInfo, err error) error {
+		if p == m {
+			return nil
+		}
+		byts += i.Size()
+		return nil
+	}
+	err := filepath.Walk(m, walkFunc)
+	return byts, err
+}
+
 func runSyncTest(t *testing.T, f *syncTest) *Context {
 	c := NewContext(f.backupPath)
 	var err error
@@ -53,12 +68,15 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 	c.Devices = f.deviceList()
 	c.OutputStreamNum = f.outputStreams
 	c.SplitMinSize = f.splitMinSize
-	c.Catalog = NewCatalog(c)
+	c.Catalog, err = NewCatalog(c)
+	if err != nil {
+		t.Fatalf("EXPECT: No errors from NewCatalog() GOT: %s", err)
+	}
 	// spd.Dump(c.Catalog)
 	// os.Exit(1)
 
 	// Do the work!
-	err2 := Sync(c)
+	err2 := Sync(c, true)
 	if len(err2) != 0 {
 		found := false
 		if f.expectErrors == nil {
@@ -67,11 +85,11 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 		}
 		for _, e := range err2 {
 			for _, e2 := range f.expectErrors() {
-				if e.Error() == e2.Error() {
+				if reflect.TypeOf(e) == reflect.TypeOf(e2) {
 					found = true
 				} else {
-					t.Error(e)
-					t.Error(e2)
+					t.Errorf("EXPECT: Error TypeOf %s GOT: Error TypeOf %s",
+						reflect.TypeOf(e), reflect.TypeOf(e2))
 				}
 			}
 			if found {
@@ -136,6 +154,10 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 		if err != nil {
 			t.Error(err)
 		}
+		if uint64(ms) > dev.Size {
+			t.Errorf("Mountpoint %q usage (%d bytes) is greater than device size (%d bytes)",
+				dev.MountPoint, dev.UsedSize, dev.Size)
+		}
 		Log.WithFields(logrus.Fields{
 			"name":       dev.Name,
 			"mountPoint": dev.MountPoint,
@@ -151,7 +173,7 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 func TestSyncNoCatalog(t *testing.T) {
 	c := NewContext("../../testdata/filesync_freebooks")
 	c.Files, _ = NewFileList(c)
-	errs := Sync(c)
+	errs := Sync(c, false)
 	expectErr := "No catalog data, nothing to do."
 	var found bool
 	for _, e := range errs {
@@ -214,13 +236,17 @@ func TestSyncSimpleCopySourceFileError(t *testing.T) {
 			}
 		},
 	}
+	var err error
 	c := NewContext(f.backupPath)
 	c.Files = f.fileList()
 	c.Devices = f.deviceList()
 	c.OutputStreamNum = f.outputStreams
 	c.SplitMinSize = f.splitMinSize
-	c.Catalog = NewCatalog(c)
-	err2 := Sync(c)
+	c.Catalog, err = NewCatalog(c)
+	if err != nil {
+		t.Errorf("EXPECT: No errors from NewCatalog() GOT: %s", err)
+	}
+	err2 := Sync(c, true)
 	if len(err2) == 0 {
 		t.Error("Expect: Errors  Got: No Errors")
 	}
@@ -255,24 +281,27 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 			}
 		},
 	}
+	var err error
 	c := NewContext(f.backupPath)
 	c.Files = f.fileList()
 	c.Devices = f.deviceList()
 	c.OutputStreamNum = f.outputStreams
 	c.SplitMinSize = f.splitMinSize
-	c.Catalog = NewCatalog(c)
-
+	c.Catalog, err = NewCatalog(c)
+	if err != nil {
+		t.Errorf("EXPECT: No errors from NewCatalog() GOT: %s", err)
+	}
 	// Create the destination files
 	preSync(&(c.Devices)[0], &c.Catalog)
 
 	// Make the file read only
-	err := os.Chmod((c.Files)[0].DestPath, 0444)
+	err = os.Chmod((c.Files)[0].DestPath, 0444)
 	if err != nil {
 		t.Error("Expect: Errors  Got: No Errors")
 	}
 
 	// Attempt to sync
-	err2 := Sync(c)
+	err2 := Sync(c, true)
 	if len(err2) == 0 {
 		t.Errorf("Expect: Errors  Got: Errors: %s", err2)
 	}
@@ -428,7 +457,7 @@ func TestSyncFileSplitAcrossDevices(t *testing.T) {
 				},
 				Device{
 					Name:       "Test Device 1",
-					Size:       1000000,
+					Size:       1010000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
@@ -458,7 +487,7 @@ func TestSyncAcrossDevicesNoSplit(t *testing.T) {
 				},
 				Device{
 					Name:       "Test Device 1",
-					Size:       1812584 + 4096 + 4096,
+					Size:       1812584 + 4096 + 4096 + 1000, // 1000 sync context data
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
@@ -505,7 +534,7 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 				},
 				Device{
 					Name:       "Test Device 1",
-					Size:       10485760,
+					Size:       10495760,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
@@ -548,14 +577,14 @@ func TestSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 				},
 				expectDevice{
 					name:      "Test Device 1",
-					usedBytes: 485760,
+					usedBytes: 3500050,
 				},
 			}
 		},
 	}
 	c := runSyncTest(t, f)
-	checkDevices(t, c, f.expectDeviceUsage())
 	if c != nil {
+		checkDevices(t, c, f.expectDeviceUsage())
 		Log.WithFields(logrus.Fields{
 			"deviceName": c.Devices[0].Name,
 			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
@@ -585,7 +614,7 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 				},
 				Device{
 					Name:       "Test Device 2",
-					Size:       3499346,
+					Size:       3500346,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
 				},
 			}
@@ -602,14 +631,14 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 				},
 				expectDevice{
 					name:      "Test Device 2",
-					usedBytes: 3499346,
+					usedBytes: 3500050,
 				},
 			}
 		},
 	}
 	c := runSyncTest(t, f)
-	checkDevices(t, c, f.expectDeviceUsage())
 	if c != nil {
+		checkDevices(t, c, f.expectDeviceUsage())
 		Log.WithFields(logrus.Fields{
 			"deviceName": c.Devices[0].Name,
 			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
@@ -703,26 +732,31 @@ func TestSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 			}
 		},
 		expectErrors: func() []error {
-			return []error{
-				SyncNotEnoughDevicePoolSpace{
-					backupSize:     10489856,
-					devicePoolSize: 7298700,
-				},
-			}
+			return []error{CatalogNotEnoughDevicePoolSpaceError{}}
 		},
 	}
-	c := runSyncTest(t, f)
-	if c != nil {
-		Log.WithFields(logrus.Fields{
-			"deviceName": c.Devices[0].Name,
-			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
-		Log.WithFields(logrus.Fields{
-			"deviceName": c.Devices[1].Name,
-			"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
-		Log.WithFields(logrus.Fields{
-			"deviceName": c.Devices[2].Name,
-			"mountPoint": c.Devices[2].MountPoint}).Print("Test mountpoint")
+	c := NewContext(f.backupPath)
+	var err error
+	c.Files, err = NewFileList(c)
+	if err != nil {
+		t.Errorf("EXPECT: No errors from NewFileList() GOT: %s", err)
 	}
+	c.Devices = f.deviceList()
+	c.Catalog, err = NewCatalog(c)
+	if err == nil || reflect.TypeOf(err) != reflect.TypeOf(f.expectErrors()[0]) {
+		if err == nil {
+			t.Error("EXPECT: Error TypeOf CatalogNotEnoughDevicePoolSpaceError GOT: nil")
+		} else {
+			t.Errorf("EXPECT: Error TypeOf CatalogNotEnoughDevicePoolSpaceError GOT: %T %q", err, err)
+		}
+	}
+	Log.Error(err)
+	Log.WithFields(logrus.Fields{
+		"deviceName": c.Devices[0].Name,
+		"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+	Log.WithFields(logrus.Fields{
+		"deviceName": c.Devices[1].Name,
+		"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
 }
 
 func TestSyncDestPathPermissionDenied(t *testing.T) {
@@ -732,7 +766,7 @@ func TestSyncDestPathPermissionDenied(t *testing.T) {
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
-					Size:       5675,
+					Size:       10000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
@@ -755,22 +789,22 @@ func TestSyncDestPathSha1sum(t *testing.T) {
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
-					Size:       669000,
+					Size:       769000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
 				},
 			}
 		},
 	}
 	c := runSyncTest(t, f)
-	fn, err := c.Files.FileByName("alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm")
-	if err != nil {
-		t.Error(err)
-	}
-	hash, err := fn.DestPathSha1Sum()
-	if err != nil {
-		t.Error(err)
-	}
 	if c != nil {
+		fn, err := c.Files.FileByName("alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm")
+		if err != nil {
+			t.Error(err)
+		}
+		hash, err := fn.DestPathSha1Sum()
+		if err != nil {
+			t.Error(err)
+		}
 		Log.WithFields(logrus.Fields{
 			"srcHash":  expectHash,
 			"destHash": hash}).Infoln("sha1sum of source and dest")
@@ -780,5 +814,75 @@ func TestSyncDestPathSha1sum(t *testing.T) {
 		Log.WithFields(logrus.Fields{
 			"deviceName": c.Devices[0].Name,
 			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+	}
+}
+
+func TestSyncSaveContextLastDevice(t *testing.T) {
+	f := &syncTest{
+		backupPath:   "../../testdata/filesync_freebooks",
+		splitMinSize: 1000,
+		deviceList: func() DeviceList {
+			return DeviceList{
+				Device{
+					Name:       "Test Device 0",
+					Size:       1493583,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+				},
+				Device{
+					Name:       "Test Device 1",
+					Size:       1020000,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+				},
+			}
+		},
+	}
+	c := runSyncTest(t, f)
+	if c != nil {
+		Log.WithFields(logrus.Fields{
+			"deviceName": c.Devices[0].Name,
+			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+		Log.WithFields(logrus.Fields{
+			"deviceName": c.Devices[1].Name,
+			"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
+	}
+}
+
+func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
+	f := &syncTest{
+		backupPath:   "../../testdata/filesync_freebooks",
+		splitMinSize: 1000,
+		deviceList: func() DeviceList {
+			return DeviceList{
+				Device{
+					Name:       "Test Device 0",
+					Size:       1493583,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+				},
+				Device{
+					Name:       "Test Device 1",
+					Size:       1016382,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+				},
+			}
+		},
+		expectErrors: func() []error {
+			return []error{
+				SyncNotEnoughDeviceSpaceForSyncContextError{
+					DeviceName:      "Test Device 1",
+					DeviceUsed:      1000000,
+					DeviceSize:      1000000,
+					SyncContextSize: 890,
+				},
+			}
+		},
+	}
+	c := runSyncTest(t, f)
+	if c != nil {
+		Log.WithFields(logrus.Fields{
+			"deviceName": c.Devices[0].Name,
+			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+		Log.WithFields(logrus.Fields{
+			"deviceName": c.Devices[1].Name,
+			"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
 	}
 }

@@ -1,10 +1,15 @@
 package core
 
 import (
+	"compress/flate"
+	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -42,9 +47,6 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 			((s.io.totalBytesWritten != s.file.Size) ||
 				(s.io.totalBytesWritten != s.file.SplitEndByte-s.file.SplitStartByte)) {
 			continue
-			// } else if lp.IsZero() || s.file.SplitEndByte == 0 && s.io.totalBytesWritten < s.file.Size {
-			// showProgress()
-			// lp = time.Now()
 		} else if s.file.SplitEndByte != 0 && s.io.totalBytesWritten < s.file.SplitEndByte-s.file.SplitStartByte {
 			showProgress()
 			lp = time.Now()
@@ -56,6 +58,77 @@ func (s *syncerState) outputProgress(done chan<- bool) {
 			return
 		}
 	}
+}
+
+func writeCompressedContextToFile(c *Context, f *os.File) (err error) {
+	var jc []byte
+	if err == nil {
+		jc, err = json.Marshal(c)
+	}
+	gz, err := gzip.NewWriterLevel(f, flate.BestCompression)
+	defer gz.Close()
+	_, err = gz.Write(jc)
+	return
+}
+
+// syncContextCompressedSize returns the actual file size of the sync context compressed into a file.
+func syncContextCompressedSize(c *Context) (size int64, err error) {
+	c.LastSyncEndDate = time.Now()
+	f, err := ioutil.TempFile("", "gds-sync-context-")
+	defer f.Close()
+	if err != nil {
+		return
+	}
+	err = writeCompressedContextToFile(c, f)
+	if err != nil {
+		return
+	}
+	s, err := os.Lstat(f.Name())
+	if err == nil {
+		size = s.Size()
+	}
+	return
+}
+
+type SyncNotEnoughDeviceSpaceForSyncContextError struct {
+	DeviceName      string
+	DeviceUsed      uint64
+	DeviceSize      uint64
+	SyncContextSize uint64
+}
+
+func (e SyncNotEnoughDeviceSpaceForSyncContextError) Error() string {
+	return fmt.Sprintf("Not enough space for sync context data file! device=%q usedSize=%d size=%d syncDataSize=%d",
+		e.DeviceName, e.DeviceUsed, e.DeviceSize, e.SyncContextSize)
+}
+
+func saveSyncContext(c *Context, lastDevice *Device) (size int64, err error) {
+	c.LastSyncEndDate = time.Now()
+	sgzSize, err := syncContextCompressedSize(c)
+	if err != nil {
+		return
+	}
+	if uint64(sgzSize)+lastDevice.UsedSize > lastDevice.Size {
+		err = SyncNotEnoughDeviceSpaceForSyncContextError{
+			lastDevice.Name, lastDevice.UsedSize, lastDevice.Size, uint64(sgzSize),
+		}
+		return
+	}
+	cp := filepath.Join(lastDevice.MountPoint, "sync_context_"+c.LastSyncStartDate.Format(time.RFC3339)+".gz")
+	f, err := os.Create(cp)
+	err = writeCompressedContextToFile(c, f)
+	if err != nil {
+		return
+	}
+	s, err := os.Lstat(cp)
+	if err == nil {
+		size = s.Size()
+		Log.WithFields(logrus.Fields{
+			"sync_context_file": cp,
+			"size":              size,
+		}).Debug("Saved sync context on last device")
+	}
+	return
 }
 
 func setMetaData(f *File) error {
@@ -93,16 +166,16 @@ func (e SyncIncorrectOwnershipError) Error() string {
 	return fmt.Sprintf("Cannot copy %q (owner id: %d) as user id: %d", e.FilePath, e.OwnerId, e.UserId)
 }
 
-// SyncNotEnoughDevicePoolSpace is an error given when the backup size exceeds the device pool storage size.
-type SyncNotEnoughDevicePoolSpace struct {
-	backupSize     uint64
-	devicePoolSize uint64
+// SyncNotEnoughDevicePoolSpaceError is an error given when the backup size exceeds the device pool storage size.
+type SyncNotEnoughDevicePoolSpaceError struct {
+	BackupSize     uint64
+	DevicePoolSize uint64
 }
 
 // Error implements the Error interface.
-func (e SyncNotEnoughDevicePoolSpace) Error() string {
-	return fmt.Sprintf("Not enough device pool space! backup_size: %d (%s) device_pool_size: %d (%s)", e.backupSize,
-		humanize.IBytes(e.backupSize), e.devicePoolSize, humanize.IBytes(e.devicePoolSize))
+func (e SyncNotEnoughDevicePoolSpaceError) Error() string {
+	return fmt.Sprintf("Not enough device pool space! backup_size: %d (%s) device_pool_size: %d (%s)", e.BackupSize,
+		humanize.IBytes(e.BackupSize), e.DevicePoolSize, humanize.IBytes(e.DevicePoolSize))
 }
 
 // createFile is a helper function for creating directories, symlinks, and regular files. If it encounters errors creating
@@ -172,14 +245,14 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 			"file_size":        cf.Size,
 			"file_split_start": cf.SplitStartByte,
 			"file_split_end":   cf.SplitEndByte}).Infoln("Syncing file")
-		// if cf.Owner != os.Getuid() && os.Getuid() != 0 {
-		// cerr <- SyncIncorrectOwnershipError{cf.DestPath, cf.Owner, os.Getuid()}
-		// continue
-		// }
 
 		// We only need to check the size of the file if it is a directory or a symlink
 		if cf.FileType == DIRECTORY || cf.FileType == SYMLINK {
-			ls, _ := os.Lstat(cf.DestPath)
+			ls, err := os.Lstat(cf.DestPath)
+			if err != nil {
+				cerr <- fmt.Errorf("sync Lstat: %s", err.Error())
+				continue
+			}
 			Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
 			device.UsedSize += uint64(ls.Size())
 			continue
@@ -312,15 +385,27 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 
 // Sync synchronizes files to mounted devices on mountpoints. Sync will copy new files, delete old files, and fix or update
 // files on the destination device that do not match the source sha1 hash.
-func Sync(c *Context) []error {
+func Sync(c *Context, saveContext bool) []error {
 	var retError []error
+	var lastDevice *Device
+
+	Log.WithFields(logrus.Fields{
+		"dataSize": c.Files.TotalDataSize(),
+		"poolSize": c.Devices.DevicePoolSize(),
+	}).Info("Data vs Pool size")
+	// spd.Dump(c.Catalog)
+	// os.Exit(1)
 
 	// Make sure we can actually do something
 	if len(c.Catalog) == 0 {
 		return []error{errors.New("No catalog data, nothing to do.")}
 	} else if c.Files.TotalDataSize() > c.Devices.DevicePoolSize() {
-		return []error{SyncNotEnoughDevicePoolSpace{c.Files.TotalDataSize(), c.Devices.DevicePoolSize()}}
+		// FIXME: This does not catch increased size of TotalDataSize if files are split across devices with
+		// replicated parent directories.
+		return []error{SyncNotEnoughDevicePoolSpaceError{c.Files.TotalDataSize(), c.Devices.DevicePoolSize()}}
 	}
+
+	// Save the sync context
 
 	// channels! channels for everyone!
 	done := make(chan bool, 100)
@@ -336,6 +421,9 @@ func Sync(c *Context) []error {
 	for i < len(c.Catalog) {
 		for j := 0; j < c.OutputStreamNum; j++ {
 			preSync(&(c.Devices)[i+j], &c.Catalog)
+			if len(c.Devices) > i+j {
+				lastDevice = &(c.Devices)[i+j]
+			}
 			go sync(&(c.Devices)[i+j], &c.Catalog, ssc, done, errorChan)
 		}
 
@@ -389,6 +477,11 @@ func Sync(c *Context) []error {
 			fmt.Scanln(&input)
 		}
 	}
-
+	s, err := saveSyncContext(c, lastDevice)
+	if err != nil {
+		retError = append(retError, err)
+	} else {
+		lastDevice.UsedSize += uint64(s)
+	}
 	return retError
 }

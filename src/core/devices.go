@@ -15,6 +15,12 @@ type DeviceList []Device
 func (d *DeviceList) DevicePoolSize() uint64 {
 	var total uint64
 	for _, x := range *d {
+		if x.Name == "overrun" {
+			// NewCatalog() creates devices named "overrun", when the pool size has been exceeded when splitting
+			// a file across devices. It is necessary to create a new device so that the actual data size and
+			// device pool size can be calculated and reported to the user.
+			continue
+		}
 		total += x.Size
 	}
 	return total
