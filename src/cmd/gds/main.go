@@ -33,12 +33,12 @@ func main() {
 			Usage: "Change the default configuration directory.",
 		},
 		cli.StringFlag{
-			Name:  "config-file,c",
+			Name:  "config,c",
 			Value: filepath.Join("$GDS_CONFIG_DIR", GDS_CONFIG_NAME),
 			Usage: "Load configuration from path.",
 		},
 		cli.StringFlag{
-			Name:  "context-file,d",
+			Name:  "context,d",
 			Value: filepath.Join("$GDS_CONFIG_DIR", GDS_CONTEXT_FILENAME),
 			Usage: "the parent directory of sync context files.",
 		},
