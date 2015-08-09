@@ -384,8 +384,9 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 }
 
 // Sync synchronizes files to mounted devices on mountpoints. Sync will copy new files, delete old files, and fix or update
-// files on the destination device that do not match the source sha1 hash.
-func Sync(c *Context, saveContext bool) []error {
+// files on the destination device that do not match the source sha1 hash. If disableContextSave is true, the context file
+// will be NOT be dumped to the last devices as compressed JSON.
+func Sync(c *Context, disableContextSave bool) []error {
 	var retError []error
 	var lastDevice *Device
 
@@ -393,8 +394,6 @@ func Sync(c *Context, saveContext bool) []error {
 		"dataSize": c.Files.TotalDataSize(),
 		"poolSize": c.Devices.DevicePoolSize(),
 	}).Info("Data vs Pool size")
-	// spd.Dump(c.Catalog)
-	// os.Exit(1)
 
 	// Make sure we can actually do something
 	if len(c.Catalog) == 0 {
@@ -405,7 +404,7 @@ func Sync(c *Context, saveContext bool) []error {
 		return []error{SyncNotEnoughDevicePoolSpaceError{c.Files.TotalDataSize(), c.Devices.DevicePoolSize()}}
 	}
 
-	// Save the sync context
+	c.LastSyncStartDate = time.Now()
 
 	// channels! channels for everyone!
 	done := make(chan bool, 100)
@@ -477,11 +476,13 @@ func Sync(c *Context, saveContext bool) []error {
 			fmt.Scanln(&input)
 		}
 	}
-	s, err := saveSyncContext(c, lastDevice)
-	if err != nil {
-		retError = append(retError, err)
-	} else {
-		lastDevice.UsedSize += uint64(s)
+	if !disableContextSave {
+		s, err := saveSyncContext(c, lastDevice)
+		if err != nil {
+			retError = append(retError, err)
+		} else {
+			lastDevice.UsedSize += uint64(s)
+		}
 	}
 	return retError
 }

@@ -70,8 +70,11 @@ func sync(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	c2.Catalog = core.NewCatalog(c2)
-	errs := core.Sync(c2)
+	c2.Catalog, err = core.NewCatalog(c2)
+	if err != nil {
+		log.Fatal(err)
+	}
+	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
 	if len(errs) > 0 {
 		for _, e := range errs {
 			log.Errorf("Sync error: %s", e.Error())

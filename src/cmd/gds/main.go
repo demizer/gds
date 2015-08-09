@@ -43,8 +43,8 @@ func main() {
 			Usage: "the parent directory of sync context files.",
 		},
 		cli.BoolFlag{
-			Name:  "save-context,s",
-			Usage: "Save a compressed copy of the sync context data on every device.",
+			Name:  "no-dev-context,n",
+			Usage: "Do not save a copy of the sync context to the last device.",
 		},
 	}
 	app.Commands = []cli.Command{
