@@ -3,6 +3,7 @@ package main
 import (
 	"core"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"os"
 
@@ -11,28 +12,38 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-var log = &logrus.Logger{
-	Out:       os.Stdout,
-	Formatter: new(core.TextFormatter),
-	Hooks:     make(logrus.LevelHooks),
-	// Level:     logrus.DebugLevel,
-	Level: logrus.InfoLevel,
-}
-
-func init() {
-	core.Log = log
-}
-
 func NewSyncCommand() cli.Command {
 	return cli.Command{
 		Name:  "sync",
 		Usage: "Synchronize files to devices",
 		Action: func(c *cli.Context) {
+			if len(os.Args) == 1 {
+				cli.ShowAppHelp(c)
+				log.Formatter.(*core.TextFormatter).DisableTimestamp = true
+				log.Fatalf("No arguments specified!")
+			}
 			err := checkEnvVariables(c)
 			if err != nil {
 				log.Fatalf("Could not set environment variables: %s", err)
 				os.Exit(1)
 			}
+			if !c.GlobalBool("no-file-log") {
+				lp := cleanPath(c.GlobalString("log"))
+				lf, err := os.Create(lp)
+				if err != nil {
+					log.Fatalf("Could not create log file: %s", err)
+					os.Exit(1)
+				}
+				// log.Out = io.MultiWriter(os.Stdout, lf)
+				log.Out = io.MultiWriter(os.Stdout, lf)
+			}
+			lvl, err := logrus.ParseLevel(c.GlobalString("log-level"))
+			if err != nil {
+				cli.ShowAppHelp(c)
+				log.Formatter.(*core.TextFormatter).DisableTimestamp = true
+				log.Fatalf("Error parsing log level: %s", err)
+			}
+			log.Level = lvl
 			sync(c)
 		},
 	}
@@ -41,7 +52,7 @@ func NewSyncCommand() cli.Command {
 func sync(c *cli.Context) {
 	log.WithFields(logrus.Fields{"version": 0.2}).Infoln("Ghetto Device Storage")
 
-	cPath, err := getConfigFile(c.GlobalString("config-file"))
+	cPath, err := getConfigFile(c.GlobalString("config"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,7 +60,7 @@ func sync(c *cli.Context) {
 		"path": cPath,
 	}).Info("Using configuration file")
 
-	cf, err := getContextFile(c.GlobalString("context-file"))
+	cf, err := getContextFile(c.GlobalString("context"))
 	if err != nil {
 		log.Fatalf("Could not create context JSON output file: %s", err.Error())
 		os.Exit(1)

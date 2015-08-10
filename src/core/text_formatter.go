@@ -126,9 +126,12 @@ func (f *TextFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry, keys 
 	levelText := strings.ToUpper(entry.Level.String())
 	padd := strings.Repeat(" ", 7-len(levelText))
 
-	if !f.FullTimestamp {
+	if !f.FullTimestamp && !f.DisableTimestamp {
 		fmt.Fprintf(b, fmt.Sprintf("[%%04d] \x1b[1m\x1b[%%dm%%s\x1b[0m %s %%-24s ", padd),
 			miniTS(), levelColor, levelText, entry.Message)
+	} else if !f.FullTimestamp && f.DisableTimestamp {
+		fmt.Fprintf(b, fmt.Sprintf("\x1b[1m\x1b[%%dm%%s\x1b[0m %s %%-24s ", padd), levelColor, levelText,
+			entry.Message)
 	} else {
 		fmt.Fprintf(b, fmt.Sprintf("[%%s] \x1b[1m\x1b[%%dm%%s\x1b[0m %s %%-24s ", padd),
 			entry.Time.Format(timestampFormat), levelColor, levelText, entry.Message)

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"core"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/davecgh/go-spew/spew"
 )
@@ -14,8 +16,20 @@ var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
 var (
 	GDS_CONFIG_DIR       = "$HOME/.config/gds"
 	GDS_CONTEXT_FILENAME = "context_" + time.Now().Format(time.RFC3339) + ".json"
+	GDS_LOG_FILENAME     = "log_" + time.Now().Format(time.RFC3339) + ".log"
 	GDS_CONFIG_NAME      = "config.yaml"
 )
+
+var log = &logrus.Logger{
+	Out:       os.Stdout,
+	Formatter: &core.TextFormatter{},
+	Hooks:     make(logrus.LevelHooks),
+	Level:     logrus.InfoLevel,
+}
+
+func init() {
+	core.Log = log
+}
 
 func main() {
 	app := cli.NewApp()
@@ -45,6 +59,20 @@ func main() {
 		cli.BoolFlag{
 			Name:  "no-dev-context,n",
 			Usage: "Do not save a copy of the sync context to the last device.",
+		},
+		cli.BoolFlag{
+			Name:  "no-file-log,x",
+			Usage: "Disable file logging.",
+		},
+		cli.StringFlag{
+			Name:  "log,l",
+			Value: filepath.Join("$GDS_CONFIG_DIR", GDS_LOG_FILENAME),
+			Usage: "Save output log to file.",
+		},
+		cli.StringFlag{
+			Name:  "log-level,L",
+			Value: "LevelInfo",
+			Usage: "The level of log output. Levels: debug, info, warn, error, fatal, panic",
 		},
 	}
 	app.Commands = []cli.Command{
