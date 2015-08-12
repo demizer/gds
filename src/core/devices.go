@@ -6,6 +6,13 @@ type Device struct {
 	MountPoint string `yaml:"mountPoint"`
 	Size       uint64
 	UsedSize   uint64 `yaml:"usedSize"`
+	UUID       string
+}
+
+// IsMounted returns true if the device is mounted.
+func (d *Device) IsMounted() (b bool, err error) {
+	b, err = deviceIsMountedByUUID(d.MountPoint, d.UUID)
+	return
 }
 
 // DeviceList is a type for a list of devices.
