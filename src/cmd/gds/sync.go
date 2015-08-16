@@ -12,6 +12,10 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
+func init() {
+	defer termui.Close()
+}
+
 func NewSyncCommand() cli.Command {
 	return cli.Command{
 		Name:  "sync",
