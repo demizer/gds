@@ -34,8 +34,7 @@ func NewSyncCommand() cli.Command {
 					log.Fatalf("Could not create log file: %s", err)
 					os.Exit(1)
 				}
-				// log.Out = io.MultiWriter(os.Stdout, lf)
-				log.Out = io.MultiWriter(os.Stdout, lf)
+				log.Out = io.MultiWriter(lf)
 			}
 			lvl, err := logrus.ParseLevel(c.GlobalString("log-level"))
 			if err != nil {
