@@ -261,16 +261,11 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 		var oFile *os.File
 		var err error
 		// Open dest file for writing
-		// if device.MountPoint == "/dev/null" || strings.Contains(cf.DestPath, fakeTestPath) {
-		// // For testing
-		// oFile = ioutil.Discard.(*os.File)
-		// } else {
 		oFile, err = os.OpenFile(cf.DestPath, os.O_RDWR, cf.Mode)
 		if err != nil {
 			cerr <- fmt.Errorf("sync ofile open: %s", err.Error())
 			continue
 		}
-		// }
 		defer func() {
 			err = oFile.Close()
 		}()
@@ -383,6 +378,32 @@ func sync(device *Device, catalog *Catalog, oio chan<- *syncerState, done chan<-
 	}).Info("Sync to device complete")
 }
 
+// promptForDevice will first check if the device d is mounted. If not, then the user will be prompted to mount the device.
+func promptForDevice(d Device) error {
+	firstCheck := true
+	for {
+		m, err := d.IsMounted()
+		if err != nil {
+			return err
+		}
+		if !m {
+			if !firstCheck {
+				Log.Errorf("Device UUID=%s not found!", d.UUID)
+			}
+			Log.WithFields(logrus.Fields{
+				"deviceName":       d.Name,
+				"deviceMountPoint": d.MountPoint,
+			}).Printf("Mount %q then press the Enter key to continue...", d.Name)
+			var input string
+			fmt.Scanln(&input)
+			firstCheck = false
+		} else {
+			break
+		}
+	}
+	return nil
+}
+
 // Sync synchronizes files to mounted devices on mountpoints. Sync will copy new files, delete old files, and fix or update
 // files on the destination device that do not match the source sha1 hash. If disableContextSave is true, the context file
 // will be NOT be dumped to the last devices as compressed JSON.
@@ -419,6 +440,11 @@ func Sync(c *Context, disableContextSave bool) []error {
 	i := 0
 	for i < len(c.Catalog) {
 		for j := 0; j < c.OutputStreamNum; j++ {
+			mErr := promptForDevice((c.Devices)[i+j])
+			if mErr != nil {
+				retError = append(retError, mErr)
+				continue
+			}
 			preSync(&(c.Devices)[i+j], &c.Catalog)
 			if len(c.Devices) > i+j {
 				lastDevice = &(c.Devices)[i+j]
@@ -468,12 +494,11 @@ func Sync(c *Context, disableContextSave bool) []error {
 		// Allow the user to mount new devices
 		if len(c.Devices) > i {
 			d := (c.Devices)[i]
-			Log.WithFields(logrus.Fields{
-				"deviceName":       d.Name,
-				"deviceMountPoint": d.MountPoint,
-			}).Printf("Mount fresh device then press the Enter key to continue...")
-			var input string
-			fmt.Scanln(&input)
+			mErr := promptForDevice(d)
+			if mErr != nil {
+				retError = append(retError, mErr)
+				continue
+			}
 		}
 	}
 	if !disableContextSave {
