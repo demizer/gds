@@ -11,8 +11,8 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// File is used by FileProgressGauge to track progress.
-type File struct {
+// DeviceFile is used by DevicePanel to track progress.
+type DeviceFile struct {
 	Name      string
 	Path      string
 	SizeWritn uint64
@@ -20,31 +20,31 @@ type File struct {
 	Bps       uint64 // Write speed in bytes per second
 }
 
-// FileHistory is a helper type for tracking progress.
-type FileHistory []File
+// DeviceFileHist is a helper type for tracking progress.
+type DeviceFileHist []DeviceFile
 
-// Append is used to append a new File to the FileHistory.
-func (f *FileHistory) Append(fl File) {
+// Append is used to append a new DeviceFile to the DeviceFileHist.
+func (f *DeviceFileHist) Append(fl DeviceFile) {
 	*f = append(*f, fl)
 }
 
-// UpdateLast should be used to update the last value in the FileHistory.
-func (f *FileHistory) UpdateLast(bps uint64, sizeWritten uint64) {
+// UpdateLast should be used to update the last value in the DeviceFileHist.
+func (f *DeviceFileHist) UpdateLast(bps uint64, sizeWritten uint64) {
 
 }
 
 // The size of the box drawn around the widget
 var borderSize = 2
 
-// FileProgressGauge widget for showing file sync progress to a device.
-type FileProgressGauge struct {
-	Border              labeledBorder // Widget border dimensions
-	Label               string        // Label of the widget
-	SizeWritn           uint64        // Size of bytes written
-	SizeTotal           uint64        // Total data size of the output
-	FileHistory         FileHistory   // Log of files seen
-	FileHistoryViewable int           // Number of files to show in the history log
-	percent             int           // The calculated percentage
+// DevicePanel widget for showing file sync progress to a device.
+type DevicePanel struct {
+	Border              labeledBorder  // Widget border dimensions
+	Label               string         // Label of the widget
+	SizeWritn           uint64         // Size of bytes written
+	SizeTotal           uint64         // Total data size of the output
+	DeviceFileHist      DeviceFileHist // Log of files seen
+	FileHistoryViewable int            // Number of files to show in the history log
+	percent             int            // The calculated percentage
 
 	// Dimensions
 	x                 int
@@ -58,9 +58,9 @@ type FileProgressGauge struct {
 	progressBarHeight int // The height of the progress bar
 }
 
-// NewGauge return a new FileProgressGauge with current theme.
-func NewFileProgressGauge(label string, fileSize uint64) *FileProgressGauge {
-	g := &FileProgressGauge{
+// NewGauge return a new DevicePanel with current theme.
+func NewDevicePanel(label string, fileSize uint64) *DevicePanel {
+	g := &DevicePanel{
 		Label:               label,
 		SizeWritn:           1,
 		SizeTotal:           fileSize,
@@ -74,7 +74,7 @@ func NewFileProgressGauge(label string, fileSize uint64) *FileProgressGauge {
 }
 
 // Buffer implements Bufferer interface.
-func (g *FileProgressGauge) Buffer() []termui.Point {
+func (g *DevicePanel) Buffer() []termui.Point {
 	// update the border dimensions
 	g.Border.X = g.x
 	g.Border.Y = g.y
@@ -140,7 +140,7 @@ func (g *FileProgressGauge) Buffer() []termui.Point {
 	tw.Init(&buf, 8, 0, 1, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(tw)
 	for i := g.FileHistoryViewable - 1; i >= 0; i-- {
-		f := g.FileHistory[(len(g.FileHistory)-1)-i]
+		f := g.DeviceFileHist[(len(g.DeviceFileHist)-1)-i]
 		fmt.Fprintf(tw, "%s  \t%s/%s\t   %s\n", humanize.IBytes(f.Bps), humanize.IBytes(f.SizeWritn),
 			humanize.IBytes(f.SizeTotal), f.Path)
 	}
@@ -174,27 +174,27 @@ func (g *FileProgressGauge) Buffer() []termui.Point {
 }
 
 // GetHeight implements GridBufferer. It returns current height of the block.
-func (d FileProgressGauge) GetHeight() int {
+func (d DevicePanel) GetHeight() int {
 	return d.height
 }
 
 // SetX implements GridBufferer interface, which sets block's x position.
-func (d *FileProgressGauge) SetX(x int) {
+func (d *DevicePanel) SetX(x int) {
 	d.x = x
 }
 
 // SetY implements GridBufferer interface, it sets y position for block.
-func (d *FileProgressGauge) SetY(y int) {
+func (d *DevicePanel) SetY(y int) {
 	d.y = y
 }
 
 // SetWidth implements GridBuffer interface, it sets block's width.
-func (d *FileProgressGauge) SetWidth(w int) {
+func (d *DevicePanel) SetWidth(w int) {
 	d.width = w
 }
 
 // Removes characters that are out-of-bounds of the widget.
-func (d *FileProgressGauge) chopOverflow(ps []termui.Point) []termui.Point {
+func (d *DevicePanel) chopOverflow(ps []termui.Point) []termui.Point {
 	nps := make([]termui.Point, 0, len(ps))
 	x := d.x
 	y := d.y
