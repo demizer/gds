@@ -44,7 +44,10 @@ type DevicePanel struct {
 	SizeTotal           uint64         // Total data size of the output
 	DeviceFileHist      DeviceFileHist // Log of files seen
 	FileHistoryViewable int            // Number of files to show in the history log
-	percent             int            // The calculated percentage
+	Prompt              Prompt
+	Visible             bool
+	Selected            bool
+	percent             int // The calculated percentage
 
 	// Dimensions
 	x                 int
@@ -73,8 +76,15 @@ func NewDevicePanel(label string, fileSize uint64) *DevicePanel {
 	return g
 }
 
+func (g *DevicePanel) IsSelected() bool {
+	return g.Selected
+}
+
 // Buffer implements Bufferer interface.
 func (g *DevicePanel) Buffer() []termui.Point {
+	if !g.Visible {
+		return nil
+	}
 	// update the border dimensions
 	g.Border.X = g.x
 	g.Border.Y = g.y
@@ -82,6 +92,10 @@ func (g *DevicePanel) Buffer() []termui.Point {
 
 	g.innerX = g.x + borderSize/2
 	g.innerY = g.y + borderSize/2
+
+	if g.Selected {
+		g.Border.FgColor = termui.ColorGreen
+	}
 
 	// reset inner dims for new height
 	g.innerWidth = g.width - borderSize
@@ -140,6 +154,9 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	tw.Init(&buf, 8, 0, 1, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(tw)
 	for i := g.FileHistoryViewable - 1; i >= 0; i-- {
+		if len(g.DeviceFileHist) == 0 {
+			break
+		}
 		f := g.DeviceFileHist[(len(g.DeviceFileHist)-1)-i]
 		fmt.Fprintf(tw, "%s  \t%s/%s\t   %s\n", humanize.IBytes(f.Bps), humanize.IBytes(f.SizeWritn),
 			humanize.IBytes(f.SizeTotal), f.Path)
@@ -168,6 +185,20 @@ func (g *DevicePanel) Buffer() []termui.Point {
 		ps = append(ps, pi)
 		k++
 		j++
+	}
+
+	// Render the prompt if set
+	if len(g.Prompt.Message) > 0 {
+		rs := []rune(g.Prompt.Message)
+		for x := 0; x < len(g.Prompt.Message); x++ {
+			pt := termui.Point{}
+			pt.X = g.x + x + 2
+			pt.Y = g.y + g.Border.Height - 2
+			pt.Ch = rs[x]
+			pt.Bg = termui.ColorBlack
+			pt.Fg = termui.ColorRed
+			ps = append(ps, pt)
+		}
 	}
 
 	return g.chopOverflow(ps)

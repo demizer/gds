@@ -76,21 +76,21 @@ func NewCatalog(c *Context) (Catalog, error) {
 		split := false
 		f := &(c.Files)[fx]
 		d := c.Devices[dNum]
-		if (dSize + f.Size) <= d.Size {
+		if (dSize + f.Size) <= d.SizeTotal {
 			// Add the file to the current device
 			dSize += f.Size
-		} else if (dSize+c.SplitMinSize) <= d.Size && f.Size > d.Size-d.UsedSize {
+		} else if (dSize+c.SplitMinSize) <= d.SizeTotal && f.Size > d.SizeTotal-d.SizeWritn {
 			// Split de file, more logic to follow ...
 			split = true
 			f.SplitStartByte = 0
-			f.SplitEndByte = c.Devices[dNum].Size - dSize
+			f.SplitEndByte = c.Devices[dNum].SizeTotal - dSize
 			Log.WithFields(logrus.Fields{
 				"file_name":                  f.Name,
 				"file_size":                  f.Size,
 				"file_split_start_byte":      f.SplitStartByte,
 				"file_split_end_byte":        f.SplitEndByte,
 				"device_used_+_splitMinSize": dSize + c.SplitMinSize,
-				"device_size_bytes":          d.Size,
+				"device_size_bytes":          d.SizeTotal,
 				"device_number":              dNum,
 			}).Debugln("NewCatalog: Splitting file")
 		} else {
@@ -123,16 +123,16 @@ func NewCatalog(c *Context) (Catalog, error) {
 					"fileSplitEndByte":   fNew.SplitEndByte,
 					"deviceUsage":        dSize,
 					"deviceName":         d.Name,
-					"deviceSize":         d.Size}).Debug("NewCatalog: File/Device state in split")
+					"deviceSize":         d.SizeTotal}).Debug("NewCatalog: File/Device state in split")
 
 				// If the file is still larger than the new divice, use all of the available space
-				if (fNew.Size - fNew.SplitStartByte) > (d.Size - dSize) {
+				if (fNew.Size - fNew.SplitStartByte) > (d.SizeTotal - dSize) {
 					// If the current device is the last device, there is no more pool space.
 					if dNum+1 == len(c.Devices) {
 						Log.Error("Total backup size is greater than device pool size!")
 						notEnoughSpaceError = true
 					}
-					fNew.SplitEndByte = fNew.SplitStartByte + (d.Size - dSize)
+					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeTotal - dSize)
 				}
 
 				Log.WithFields(logrus.Fields{
@@ -141,7 +141,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 					"file_split_start_byte":      fNew.SplitStartByte,
 					"file_split_end_byte":        fNew.SplitEndByte,
 					"device_used_+_splitMinSize": dSize + c.SplitMinSize,
-					"device_size_bytes":          d.Size,
+					"device_size_bytes":          d.SizeTotal,
 					"device_number":              dNum,
 				}).Debugln("NewCatalog: Splitting file")
 
@@ -165,7 +165,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 					c.Devices = append(c.Devices, Device{
 						Name:       "overrun",
 						MountPoint: "none",
-						Size:       fNew.Size, // With room to spare
+						SizeTotal:  fNew.Size, // With room to spare
 					})
 				}
 				lastf = fNew

@@ -2,6 +2,7 @@ package core
 
 import (
 	"io/ioutil"
+	"logfmt"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/davecgh/go-spew/spew"
@@ -14,7 +15,7 @@ var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
 // level of the log output can also be set in this manner. See the documentation of the logrus package for other options.
 var Log = &logrus.Logger{
 	Out:       ioutil.Discard,
-	Formatter: new(TextFormatter),
+	Formatter: new(logfmt.TextFormatter),
 	Hooks:     make(logrus.LevelHooks),
 	Level:     logrus.InfoLevel,
 }

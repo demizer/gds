@@ -3,10 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -43,41 +40,4 @@ func LUtimesNano(path string, ts []syscall.Timespec) error {
 	}
 
 	return nil
-}
-
-func deviceIsMountedByUUID(mountPoint, uuid string) (bool, error) {
-	f, err := ioutil.ReadFile("/proc/mounts")
-	if err != nil {
-		return false, err
-	}
-	// key = mountpoint, val = deviceFile
-	devs := make(map[string]string)
-	for _, v := range strings.Split(string(f), "\n") {
-		if strings.Contains(v, mountPoint) {
-			devFile := strings.Split(v, " ")[0]
-			mnt := strings.Split(v, " ")[1]
-			devs[mnt] = devFile
-		}
-	}
-	var found bool
-	wf := func(p string, i os.FileInfo, err error) error {
-		if p == "/dev/disk/by-uuid/" {
-			return err
-		}
-		for _, y := range devs {
-			tgt, err := os.Readlink(p)
-			if err != nil {
-				return err
-			}
-			if filepath.Base(y) == filepath.Base(tgt) && i.Name() == uuid {
-				found = true
-			}
-		}
-		return err
-	}
-	err = filepath.Walk("/dev/disk/by-uuid/", wf)
-	if err != nil {
-		return false, err
-	}
-	return found, err
 }

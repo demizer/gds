@@ -4,15 +4,9 @@ package core
 type Device struct {
 	Name       string
 	MountPoint string `yaml:"mountPoint"`
-	Size       uint64
-	UsedSize   uint64 `yaml:"usedSize"`
+	SizeWritn  uint64 `yaml:"sizeWritn"`
+	SizeTotal  uint64 `yaml:"sizeTotal"`
 	UUID       string
-}
-
-// IsMounted returns true if the device is mounted.
-func (d *Device) IsMounted() (b bool, err error) {
-	b, err = deviceIsMountedByUUID(d.MountPoint, d.UUID)
-	return
 }
 
 // DeviceList is a type for a list of devices.
@@ -28,7 +22,7 @@ func (d *DeviceList) DevicePoolSize() uint64 {
 			// device pool size can be calculated and reported to the user.
 			continue
 		}
-		total += x.Size
+		total += x.SizeTotal
 	}
 	return total
 }

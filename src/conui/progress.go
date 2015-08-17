@@ -31,6 +31,10 @@ func NewProgressGauge(sizeTotal uint64) *ProgressGauge {
 	return g
 }
 
+func (g *ProgressGauge) IsSelected() bool {
+	return false
+}
+
 // Buffer implements Bufferer interface.
 func (g *ProgressGauge) Buffer() []termui.Point {
 	ps := g.Block.Buffer()

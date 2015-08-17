@@ -1,18 +1,31 @@
 package conui
 
 import (
-	"core"
+	"io/ioutil"
+	"log"
+	"logfmt"
 	"os"
-	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gizak/termui"
+	"github.com/nsf/termbox-go"
 )
 
 var (
-	Redraw  = make(chan bool)
-	Event   = termui.EventCh()
-	Widgets = make(uiWidgetsMap)
+	Redraw   = make(chan bool)
+	Event    = termui.EventCh()
+	Widgets  = make(uiWidgetsMap)
+	Selected = 1
 )
+
+// Log is the default logging object. By default, all output is discarded. Set Log.Out to std.Stdout to enable output. The
+// level of the log output can also be set in this manner. See the documentation of the logrus package for other options.
+var Log = &logrus.Logger{
+	Out:       ioutil.Discard,
+	Formatter: new(logfmt.TextFormatter),
+	Hooks:     make(logrus.LevelHooks),
+	Level:     logrus.InfoLevel,
+}
 
 // Initilizes the console GUI. termui.Close() must be called before exiting otherwise the terminal will not return to
 // original state.
@@ -22,62 +35,123 @@ func Init() {
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		for {
-			select {
-			case e := <-Event:
-				if e.Type == termui.EventKey && e.Ch == 'q' {
-					termui.Close()
-					os.Exit(0)
-				}
-				if e.Type == termui.EventResize {
-					termui.Body.Width = termui.TermWidth()
-					termui.Body.Align()
-					go func() { Redraw <- true }()
-				}
-			case <-Redraw:
-				termui.Render(termui.Body)
+}
+
+type MyGridBufferer interface {
+	termui.GridBufferer
+	IsSelected() bool
+}
+
+type uiWidgetsMap map[int]MyGridBufferer
+
+func (w *uiWidgetsMap) selected() int {
+	var x int
+	var y MyGridBufferer
+	for x, y = range *w {
+		if y.IsSelected() {
+			break
+		}
+	}
+	return x
+}
+
+func (w *uiWidgetsMap) deselectAll() {
+	for x, _ := range *w {
+		if _, ok := (*w)[x].(*DevicePanel); !ok {
+			continue
+		}
+		(*w)[x].(*DevicePanel).Selected = false
+		(*w)[x].(*DevicePanel).Border.FgColor = termui.ColorWhite
+	}
+}
+
+func (w *uiWidgetsMap) Select(index int) *DevicePanel {
+	w.deselectAll()
+	wg := (*w)[index].(*DevicePanel)
+	Selected = index
+	wg.Selected = true
+	return wg
+}
+
+func (w *uiWidgetsMap) SelectPrevious() *DevicePanel {
+	Selected = w.selected()
+	w.deselectAll()
+	for {
+		Selected--
+		if Selected == 0 {
+			Selected = len(*w) - 1
+		}
+		if (*w)[Selected].(*DevicePanel).Visible {
+			break
+		}
+	}
+	(*w)[Selected].(*DevicePanel).Selected = true
+	return (*w)[Selected].(*DevicePanel)
+}
+
+func (w *uiWidgetsMap) SelectNext() *DevicePanel {
+	Selected = w.selected()
+	w.deselectAll()
+	for {
+		Selected++
+		if Selected > len(*w)-1 {
+			Selected = 1
+		}
+		if (*w)[Selected].(*DevicePanel).Visible {
+			break
+		}
+	}
+	(*w)[Selected].(*DevicePanel).Selected = true
+	return (*w)[Selected].(*DevicePanel)
+}
+
+func (w *uiWidgetsMap) Selected() *DevicePanel {
+	i := w.selected()
+	return (*w)[i].(*DevicePanel)
+}
+
+func (w *uiWidgetsMap) MountPromptByIndex(index int) *DevicePanel {
+	wg := (*w)[index].(*DevicePanel)
+	if wg != nil {
+		Widgets.Select(index)
+		wg.Visible = true
+		wg.Prompt = Prompt{
+			Message: "Please mount device and press Enter to continue...",
+			Action: func() {
+				log.Printf("Action for %s!!", wg.Border.Label)
+			},
+		}
+	}
+	return wg
+}
+
+func (w *uiWidgetsMap) MountPromptByName(name string) (int, *DevicePanel) {
+	var index int
+	var wg *DevicePanel
+	for x, y := range *w {
+		switch dp := y.(type) {
+		case *DevicePanel:
+			if dp.Border.Label == name {
+				index = x
+				wg = (*w)[x].(*DevicePanel)
 			}
 		}
-	}()
-}
-
-type uiWidgetsMap map[string]interface{}
-
-func (w *uiWidgetsMap) widgetForDevice(d *core.Device) *DevicePanel {
-	return nil
-}
-
-func BuildConsole(c *core.Context) {
-	// Create the UI widgets
-	Widgets["main"] = NewProgressGauge(2756489454684)
-	Widgets["Test Disk 1"] = NewDevicePanel("Test Disk 1", 56548464684)
-
-	// A 12 ccolumn grid is used to take up the entire terminal window
-	termui.Body.AddRows(
-		termui.NewRow(
-			termui.NewCol(12, 0,
-				Widgets["main"].(*ProgressGauge),
-				Widgets["Test Disk 1"].(*DevicePanel),
-			),
-		),
-	)
-	termui.Body.Align()
-}
-
-func Update() {
-	for {
-		g1 := Widgets["main"].(*ProgressGauge)
-		g1.SizeWritn += 141548485689
-		g2 := Widgets["Test Disk 1"].(*DevicePanel)
-		g2.SizeWritn += 1545464454
-		Redraw <- true
-		if g1.SizeWritn+1 > g1.SizeTotal {
-			g1.SizeWritn = 1
+	}
+	if wg != nil {
+		Widgets.Select(index)
+		wg.Visible = true
+		wg.Prompt = Prompt{
+			Message: "Please mount device and press Enter to continue...",
+			Action: func() {
+				log.Printf("Action for %s!!", wg.Border.Label)
+			},
 		}
-		if g2.SizeWritn+1 > g2.SizeTotal {
-			g2.SizeWritn = 1
-		}
-		time.Sleep(time.Second / 10)
+	}
+	return index, wg
+}
+
+func Close() {
+	if termbox.IsInit {
+		termui.Close()
 	}
 }

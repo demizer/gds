@@ -16,10 +16,10 @@ outputStreams: 1
 # Device size amounts must be in bytes
 # devices:
 #   - name: "Test Drive 1"
-#     size: 4965185763
+#     sizeTotal: 4965185763
 #     mountPoint: "/mnt/backup1"
 #   - name: "Test Drive 2"
-#     size: 4965185763
+#     sizeTotal: 4965185763
 #     mountPoint: "/mnt/backup2"
 `
 
