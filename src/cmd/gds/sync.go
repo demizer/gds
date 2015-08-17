@@ -7,9 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/codegangsta/cli"
-
 	"github.com/Sirupsen/logrus"
+	"github.com/codegangsta/cli"
 )
 
 func NewSyncCommand() cli.Command {
@@ -48,9 +47,8 @@ func NewSyncCommand() cli.Command {
 	}
 }
 
-func sync(c *cli.Context) {
-	log.WithFields(logrus.Fields{"version": 0.2}).Infoln("Ghetto Device Storage")
-
+// loadInitialState prepares the applicaton for usage
+func loadInitialState(c *cli.Context) *core.Context {
 	cPath, err := getConfigFile(c.GlobalString("config"))
 	if err != nil {
 		log.Fatal(err)
@@ -59,20 +57,11 @@ func sync(c *cli.Context) {
 		"path": cPath,
 	}).Info("Using configuration file")
 
-	cf, err := getContextFile(c.GlobalString("context"))
-	if err != nil {
-		log.Fatalf("Could not create context JSON output file: %s", err.Error())
-		os.Exit(1)
-	}
-
 	c2, err := core.ContextFromPath(cPath)
 	if err != nil {
 		log.Fatalf("Error loading config: %s", err.Error())
 		os.Exit(1)
 	}
-
-	// spd.Dump(c2)
-	// os.Exit(1)
 
 	c2.Files, err = core.NewFileList(c2)
 	if err != nil {
@@ -84,13 +73,18 @@ func sync(c *cli.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
-	if len(errs) > 0 {
-		for _, e := range errs {
-			log.Errorf("Sync error: %s", e.Error())
-		}
-	}
 
+	return c2
+	// spd.Dump(c2)
+	// os.Exit(1)
+}
+
+func dumpContextToFile(c *cli.Context, c2 *core.Context) {
+	cf, err := getContextFile(c.GlobalString("context"))
+	if err != nil {
+		log.Fatalf("Could not create context JSON output file: %s", err.Error())
+		os.Exit(1)
+	}
 	j, err := json.Marshal(c2)
 	if err == nil {
 		err = ioutil.WriteFile(cf, j, 0644)
