@@ -9,6 +9,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/gizak/termui"
 )
 
 var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
@@ -29,6 +30,15 @@ var log = &logrus.Logger{
 
 func init() {
 	core.Log = log
+}
+
+// handleFatal closes the termui sessions before dumping the panic info to stdout
+func handleFatal() {
+	if err := recover(); err != nil {
+		termui.Close()
+		log.Out = os.Stdout
+		panic(err)
+	}
 }
 
 func main() {
@@ -78,5 +88,7 @@ func main() {
 	app.Commands = []cli.Command{
 		NewSyncCommand(),
 	}
+	// If a panic occurrs while termui session is active, the panic output is unreadable.
+	defer handleFatal()
 	app.Run(os.Args)
 }
