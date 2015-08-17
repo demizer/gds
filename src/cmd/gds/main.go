@@ -1,6 +1,7 @@
 package main
 
 import (
+	"conui"
 	"core"
 	"os"
 	"path/filepath"
@@ -30,6 +31,7 @@ var log = &logrus.Logger{
 
 func init() {
 	core.Log = log
+	conui.Init()
 }
 
 // handleFatal closes the termui sessions before dumping the panic info to stdout
