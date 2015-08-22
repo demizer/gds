@@ -95,9 +95,20 @@ func NewCatalog(c *Context) (Catalog, error) {
 			}).Debugln("NewCatalog: Splitting file")
 		} else {
 			// Out of device space, get the next device
-			dNum += 1
-			d = c.Devices[dNum]
-			dSize = 0
+			if dNum+1 == len(c.Devices) {
+				Log.Error("Total backup size is greater than device pool size!")
+				notEnoughSpaceError = true
+				c.Devices = append(c.Devices, Device{
+					Name:       "overrun",
+					MountPoint: "none",
+					SizeTotal:  d.SizeTotal,
+				})
+			} else {
+				dNum += 1
+				Log.Debugln("Setting next device number", dNum)
+				d = c.Devices[dNum]
+				dSize = 0
+			}
 		}
 
 		f.DestPath = filepath.Join(d.MountPoint, f.Path[len(bpath):])
