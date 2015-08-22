@@ -171,7 +171,10 @@ func update(c *core.Context) {
 					// log.Println("YO:", spd.Sdump(p))
 					prg := conui.Widgets.ProgressGauge()
 					prg.SizeWritn = p.ProgressSizeWritn
-				case <-c.SyncFileProgress[index]:
+					dw := conui.Widgets.DevicePanelByIndex(index)
+					dw.SizeWritn = p.DeviceSizeWritn
+				case fp := <-c.SyncFileProgress[index]:
+					log.Debugln(spd.Sdump(fp))
 				}
 			}
 		}(x)

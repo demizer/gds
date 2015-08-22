@@ -112,6 +112,10 @@ func (w *uiWidgetsMap) Selected() *DevicePanel {
 	return (*w)[i].(*DevicePanel)
 }
 
+func (w *uiWidgetsMap) DevicePanelByIndex(index int) *DevicePanel {
+	return (*w)[index].(*DevicePanel)
+}
+
 func (w *uiWidgetsMap) MountPromptByIndex(index int) *DevicePanel {
 	wg := (*w)[index].(*DevicePanel)
 	if wg != nil {
