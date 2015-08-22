@@ -100,12 +100,11 @@ func BuildConsole(c *core.Context) {
 			visible--
 		}
 	}
-	conui.Widgets[len(c.Devices)] = conui.NewProgressGauge(c.Devices.DevicePoolSize())
+	conui.Widgets[len(c.Devices)] = conui.NewProgressGauge(c.Catalog.TotalSize())
 	rows = append(rows, conui.Widgets[len(c.Devices)])
 	for x, _ := range c.Devices {
 		rows = append(rows, conui.Widgets[x].(*conui.DevicePanel))
 	}
-	// log.Debugln(spd.Sdump(rows))
 	termui.Body.AddRows(
 		termui.NewRow(
 			termui.NewCol(12, 0, rows...),
@@ -168,7 +167,10 @@ func update(c *core.Context) {
 			// defer cleanupAtExit()
 			for {
 				select {
-				case <-c.SyncProgress[index]:
+				case p := <-c.SyncProgress[index]:
+					// log.Println("YO:", spd.Sdump(p))
+					prg := conui.Widgets.ProgressGauge()
+					prg.SizeWritn = p.ProgressSizeWritn
 				case <-c.SyncFileProgress[index]:
 				}
 			}

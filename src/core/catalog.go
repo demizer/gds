@@ -182,17 +182,17 @@ func NewCatalog(c *Context) (Catalog, error) {
 	}
 	if notEnoughSpaceError {
 		err = CatalogNotEnoughDevicePoolSpaceError{
-			TotalCatalogSize:    t.TotalCatalogSize(),
-			TotalDevicePoolSize: c.Devices.DevicePoolSize(),
+			TotalCatalogSize:    t.TotalSize(),
+			TotalDevicePoolSize: c.Devices.TotalSize(),
 		}
 	}
 
 	return t, err
 }
 
-// TotalCatalogSize returns the real size of the backup. If files are split across devices, the parent directories of the
+// TotalSize returns the real size of the backup. If files are split across devices, the parent directories of the
 // file is duplicated on successive devices. This increases the actual total size of the backup.
-func (c *Catalog) TotalCatalogSize() uint64 {
+func (c *Catalog) TotalSize() uint64 {
 	var total uint64
 	for _, val := range *c {
 		for _, f := range val {

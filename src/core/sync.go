@@ -18,17 +18,23 @@ import (
 	"github.com/demizer/go-humanize"
 )
 
-// Used for testing
-var fakeTestPath string = "/fake/path/" // If the trailing slash is removed, tests will break.
+var (
+	// Used for testing
+	fakeTestPath          string = "/fake/path/" // If the trailing slash is removed, tests will break.
+	totalSyncBytesWritten uint64
+	totalSyncSize         uint64
+)
 
 // SyncProgress details information of the overall sync progress.
 type SyncProgress struct {
-	DeviceName     string
-	MountPoint     string
-	SizeWritn      uint64
-	SizeTotal      uint64
-	BytesPerSecond uint64
-	ETA            time.Time
+	DeviceName             string
+	DeviceMountPoint       string
+	DeviceSizeWritn        uint64
+	DeviceSizeTotal        uint64
+	ProgressBytesPerSecond uint64
+	ProgressSizeWritn      uint64
+	ProgressSizeTotal      uint64
+	ETA                    time.Time
 }
 
 // SyncFileProgress details sync progress of an individual file.
@@ -47,7 +53,7 @@ type tracker struct {
 	closed bool
 }
 
-func (s *tracker) report(sp chan<- SyncProgress, sfp chan<- SyncFileProgress) {
+func (s *tracker) report(devices DeviceList, sp chan<- SyncProgress, sfp chan<- SyncFileProgress) {
 	for {
 		if s.closed {
 			break
@@ -64,11 +70,16 @@ func (s *tracker) report(sp chan<- SyncProgress, sfp chan<- SyncFileProgress) {
 			Log.WithFields(logrus.Fields{
 				"destPath":       s.file.DestPath,
 				"bytesPerSecond": humanize.IBytes(s.io.WriteBytesPerSecond())}).Print("Copy complete")
+			totalSyncBytesWritten = devices.TotalSizeWritten()
+			Log.Debugln("totalSyncBytesWritten:", totalSyncBytesWritten)
+			Log.Debugln("totalSyncSize:", totalSyncSize)
 			sp <- SyncProgress{
-				DeviceName: s.device.Name,
-				MountPoint: s.device.MountPoint,
-				SizeWritn:  s.device.SizeWritn,
-				SizeTotal:  s.device.SizeTotal,
+				DeviceName:        s.device.Name,
+				DeviceMountPoint:  s.device.MountPoint,
+				DeviceSizeWritn:   s.device.SizeWritn,
+				DeviceSizeTotal:   s.device.SizeTotal,
+				ProgressSizeWritn: totalSyncBytesWritten,
+				ProgressSizeTotal: totalSyncSize,
 			}
 			break
 		}
@@ -396,9 +407,10 @@ func Sync(c *Context, disableContextSave bool) []error {
 	var lastDevice *Device
 	var wg sync.WaitGroup
 
+	totalSyncSize = c.Catalog.TotalSize()
 	Log.WithFields(logrus.Fields{
-		"dataSize": c.Files.TotalDataSize(),
-		"poolSize": c.Devices.DevicePoolSize(),
+		"dataSize": totalSyncSize,
+		"poolSize": c.Devices.TotalSize(),
 	}).Info("Data vs Pool size")
 
 	c.LastSyncStartDate = time.Now()
@@ -459,7 +471,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 					}
 					Log.Debugln("TIME AFTER TRACKER RECEIVE:", time.Since(ns))
 					ns = time.Now()
-					progress.report(c.SyncProgress[index], c.SyncFileProgress[index])
+					progress.report(c.Devices, c.SyncProgress[index], c.SyncFileProgress[index])
 					Log.Debugln("TIME AFTER TRACKER REPORT:", time.Since(ns))
 				}
 			}(x, y, len(f))

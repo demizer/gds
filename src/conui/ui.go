@@ -152,6 +152,11 @@ func (w *uiWidgetsMap) MountPromptByName(name string) (int, *DevicePanel) {
 	return index, wg
 }
 
+// ProgressGauge returns the overall progress gauge from the widget list.
+func (u *uiWidgetsMap) ProgressGauge() *ProgressGauge {
+	return (*u)[len(*u)-1].(*ProgressGauge)
+}
+
 func Close() {
 	if termbox.IsInit {
 		termui.Close()

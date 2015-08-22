@@ -12,8 +12,8 @@ type Device struct {
 // DeviceList is a type for a list of devices.
 type DeviceList []Device
 
-// DevicePoolSize returns the total size in bytes of the device pool.
-func (d *DeviceList) DevicePoolSize() uint64 {
+// TotalSize returns the total size in bytes of the device pool.
+func (d *DeviceList) TotalSize() uint64 {
 	var total uint64
 	for _, x := range *d {
 		if x.Name == "overrun" {
@@ -23,6 +23,19 @@ func (d *DeviceList) DevicePoolSize() uint64 {
 			continue
 		}
 		total += x.SizeTotal
+	}
+	return total
+}
+
+// TotalSizeWritten returns the total bytes written to the device pool.
+func (d *DeviceList) TotalSizeWritten() uint64 {
+	var total uint64
+	for _, x := range *d {
+		if x.Name == "overrun" {
+			// See comment in d.TotalSize()
+			continue
+		}
+		total += x.SizeWritn
 	}
 	return total
 }
