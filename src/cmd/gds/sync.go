@@ -119,22 +119,19 @@ func eventListener(c *core.Context) {
 	for {
 		select {
 		case e := <-conui.Event:
+			if e.Type == termui.EventKey && e.Ch == 'j' {
+				conui.Widgets.SelectNext()
+			}
+			if e.Type == termui.EventKey && e.Ch == 'k' {
+				conui.Widgets.SelectPrevious()
+			}
+			if e.Type == termui.EventKey && e.Key == termui.KeyEnter {
+				conui.Widgets.Selected().Prompt = conui.Prompt{}
+			}
 			if e.Type == termui.EventKey && e.Ch == 'q' {
 				conui.Close()
 				os.Exit(0)
 			}
-			if e.Type == termui.EventKey && e.Ch == 'j' {
-				conui.Widgets.SelectPrevious()
-			}
-			if e.Type == termui.EventKey && e.Ch == 'k' {
-				conui.Widgets.SelectNext()
-			}
-			if e.Type == termui.EventKey && e.Key == termui.KeyEnter {
-				conui.Widgets[conui.Selected].(*conui.DevicePanel).Prompt = conui.Prompt{}
-			}
-			// if e.Type == termui.EventKey && e.Key == termui.KeyF11 {
-			// conui.Widgets.MountPromptByName("Test Device 2")
-			// }
 			if e.Type == termui.EventResize {
 				termui.Body.Width = termui.TermWidth()
 				termui.Body.Align()

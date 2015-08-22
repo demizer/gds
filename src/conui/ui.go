@@ -78,9 +78,10 @@ func (w *uiWidgetsMap) SelectPrevious() *DevicePanel {
 	w.deselectAll()
 	for {
 		Selected--
-		if Selected == 0 {
-			Selected = len(*w) - 1
+		if Selected < 0 {
+			Selected = len(*w) - 2
 		}
+		Log.Debugln("SELECTED previous:", Selected)
 		if (*w)[Selected].(*DevicePanel).Visible {
 			break
 		}
@@ -94,9 +95,10 @@ func (w *uiWidgetsMap) SelectNext() *DevicePanel {
 	w.deselectAll()
 	for {
 		Selected++
-		if Selected > len(*w)-1 {
-			Selected = 1
+		if Selected == len(*w)-1 || Selected > len(*w)-1 {
+			Selected = 0
 		}
+		Log.Debugln("SELECTED next:", Selected)
 		if (*w)[Selected].(*DevicePanel).Visible {
 			break
 		}
