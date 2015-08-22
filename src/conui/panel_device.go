@@ -3,6 +3,7 @@ package conui
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"strconv"
 	"text/tabwriter"
 
@@ -105,7 +106,7 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	ps := g.Border.Buffer()
 
 	// Render the progress bar
-	g.percent = int(float32(g.SizeWritn) / float32(g.SizeTotal) * float32(100))
+	g.percent = int(math.Ceil(float64(g.SizeWritn) / float64(g.SizeTotal) * float64(100)))
 	w := g.percent * g.width / 100
 	for i := 0; i < g.progressBarHeight; i++ {
 		for j := 0; j < w; j++ {

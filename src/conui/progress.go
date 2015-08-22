@@ -2,6 +2,7 @@ package conui
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/demizer/go-humanize"
@@ -39,7 +40,7 @@ func (g *ProgressGauge) IsSelected() bool {
 func (g *ProgressGauge) Buffer() []termui.Point {
 	ps := g.Block.Buffer()
 	innerX, innerY, innerWidth, innerHeight := g.Block.InnerBounds()
-	g.percent = int(float32(g.SizeWritn) / float32(g.SizeTotal) * float32(100))
+	g.percent = int(math.Ceil(float64(g.SizeWritn) / float64(g.SizeTotal) * float64(100)))
 
 	// plot bar
 	w := g.percent * innerWidth / 100
