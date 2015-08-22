@@ -259,6 +259,7 @@ func preSync(d *Device, c *Catalog) {
 // sync2dev is the main file syncing function. It is big, mean, and will eat your bytes.
 func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<- error) {
 	Log.WithFields(logrus.Fields{"device": device.Name}).Infoln("Syncing to device")
+	syncErrCtx := fmt.Sprintf("sync Device[%q]:", device.Name)
 	for _, cf := range (*catalog)[device.Name] {
 		if cf.err != nil {
 			// An error was generated in pre-sync, send it down the line
@@ -276,7 +277,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 		if cf.FileType == DIRECTORY || cf.FileType == SYMLINK {
 			ls, err := os.Lstat(cf.DestPath)
 			if err != nil {
-				cerr <- fmt.Errorf("sync Lstat: %s", err.Error())
+				cerr <- fmt.Errorf("%s Lstat: %s", syncErrCtx, err.Error())
 				continue
 			}
 			Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
@@ -289,7 +290,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 		// Open dest file for writing
 		oFile, err = os.OpenFile(cf.DestPath, os.O_RDWR, cf.Mode)
 		if err != nil {
-			cerr <- fmt.Errorf("sync ofile open: %s", err.Error())
+			cerr <- fmt.Errorf("%s ofile open: %s", syncErrCtx, err.Error())
 			continue
 		}
 		defer oFile.Close()
@@ -305,7 +306,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			defer sFile.Close()
 		}
 		if err != nil {
-			cerr <- fmt.Errorf("sync sfile open: %s", err.Error())
+			cerr <- fmt.Errorf("%s sfile open: %s", syncErrCtx, err.Error())
 			continue
 		}
 
@@ -313,7 +314,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 		if cf.SplitStartByte != 0 && cf.SplitEndByte != 0 {
 			_, err = sFile.Seek(int64(cf.SplitStartByte), 0)
 			if err != nil {
-				cerr <- fmt.Errorf("sync seek: %s", err.Error())
+				cerr <- fmt.Errorf("%s seek: %s", syncErrCtx, err.Error())
 				continue
 			}
 		}
@@ -335,7 +336,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 					"deviceUsage": device.SizeWritn,
 					"deviceSize":  device.SizeTotal,
 				}).Error("Error copying file!")
-				cerr <- fmt.Errorf("sync copy %s: %s", cf.DestPath, err.Error())
+				cerr <- fmt.Errorf("%s copy %s: %s", syncErrCtx, cf.DestPath, err.Error())
 				break
 			} else {
 				err = sFile.Close()
@@ -367,7 +368,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			if oSize, err := io.CopyN(nIo, sFile, int64(cb)); err != nil {
 				// code smell ...
 				newTracker.closed = true
-				cerr <- fmt.Errorf("sync copyn: %s", err.Error())
+				cerr <- fmt.Errorf("%s copyn: %s", syncErrCtx, err.Error())
 				break
 			} else {
 				Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": oSize}).Debugln("File size")
@@ -387,7 +388,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			err = setMetaData(cf)
 		}
 		if err != nil {
-			cerr <- fmt.Errorf("sync: %s", err.Error())
+			cerr <- fmt.Errorf("%s %s", syncErrCtx, err.Error())
 			break
 		}
 	}
@@ -421,6 +422,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 		for {
 			select {
 			case err := <-errorChan:
+				Log.Error(err)
 				retError = append(retError, err)
 			case <-wgFin:
 				Log.Debugln("Breaking error reporting loop!")
@@ -440,7 +442,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 			Log.Debugln("Sending SyncDeviceMount channel request to index", i+j)
 			c.SyncDeviceMount[i+j] <- true
 			<-c.SyncDeviceMount[i+j]
-			Log.Debugln("Received response from SyncDeviceMount channel request")
+			Log.Debugf("Received response from SyncDeviceMount[%d] channel request", i+j)
 			preSync(d, &c.Catalog)
 			if len(c.Devices) > i+j {
 				lastDevice = d
@@ -476,9 +478,9 @@ func Sync(c *Context, disableContextSave bool) []error {
 				}
 			}(x, y, len(f))
 		}
-		Log.Debugln("Waiting for goroutines to end in main loop...")
+		Log.Debugln("Sync: At wg.Wait()...")
 		wg.Wait()
-		Log.Debugln("Sync() iteration", i, "finished!")
+		Log.Debugln("Sync: iteration", i, "finished!")
 		i++
 	}
 	if !disableContextSave {
