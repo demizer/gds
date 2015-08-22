@@ -92,14 +92,18 @@ func cleanupAtExit() {
 		case fatalShowHelp:
 			cli.HelpPrinter(os.Stdout, cli.AppHelpTemplate, GDS_CLI_APP)
 			log.Fatal(err)
+		case core.CatalogNotEnoughDevicePoolSpaceError:
+			v = err.(core.CatalogNotEnoughDevicePoolSpaceError).Error()
+			log.Fatal(v)
 		default:
 			v = fmt.Sprint(err)
 		}
+		log.Out = os.Stdout
 		log.Errorf("Unexpected failure! See %q for details...", GDS_LOG_FD.Name())
+		logOutReset()
 		GDS_LOG_FD.WriteString(fmt.Sprintf("\nFATAL ERROR: %s\n\n%s\n", v, string(stack[:size])))
 		os.Exit(1)
 	}
-	// panic("SHOW ME THE STACKS!")
 }
 
 func main() {

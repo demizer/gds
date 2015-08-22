@@ -65,7 +65,8 @@ func loadInitialState(c *cli.Context) *core.Context {
 
 	c2.Catalog, err = core.NewCatalog(c2)
 	if err != nil {
-		panic(fatal{err})
+		// Not wrapped in fatal here because NewCatalog returns custom error types
+		panic(err)
 	}
 
 	return c2
