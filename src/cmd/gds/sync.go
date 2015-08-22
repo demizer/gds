@@ -85,14 +85,18 @@ func dumpContextToFile(c *cli.Context, c2 *core.Context) {
 	}
 }
 
+// BuildConsole creates the UI widgets First is the main progress guage for the overall progress Widgets are then created for
+// each of the devices, but are hidden initially.
 func BuildConsole(c *core.Context) {
-	// Create the UI widgets
 	var rows []termui.GridBufferer
 	visible := c.OutputStreamNum
 	for x, y := range c.Devices {
 		conui.Widgets[x] = conui.NewDevicePanel(y.Name, y.SizeTotal)
 		if visible > 0 {
 			conui.Widgets[x].(*conui.DevicePanel).Visible = true
+			if x == 0 {
+				conui.Widgets[x].(*conui.DevicePanel).Selected = true
+			}
 			visible--
 		}
 	}
