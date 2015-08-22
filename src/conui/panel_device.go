@@ -107,6 +107,9 @@ func (g *DevicePanel) Buffer() []termui.Point {
 
 	// Render the progress bar
 	g.percent = int(math.Ceil(float64(g.SizeWritn) / float64(g.SizeTotal) * float64(100)))
+	if g.SizeWritn < 100 {
+		g.percent = 0
+	}
 	w := g.percent * g.innerWidth / 100
 	for i := 0; i < g.progressBarHeight; i++ {
 		for j := 0; j < w; j++ {

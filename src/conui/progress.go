@@ -41,7 +41,9 @@ func (g *ProgressGauge) Buffer() []termui.Point {
 	ps := g.Block.Buffer()
 	innerX, innerY, innerWidth, innerHeight := g.Block.InnerBounds()
 	g.percent = int(math.Ceil(float64(g.SizeWritn) / float64(g.SizeTotal) * float64(100)))
-
+	if g.SizeWritn < 100 {
+		g.percent = 0
+	}
 	// plot bar
 	w := g.percent * innerWidth / 100
 	for i := 0; i < innerHeight; i++ {
