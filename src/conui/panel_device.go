@@ -45,10 +45,11 @@ type DevicePanel struct {
 	SizeTotal           uint64         // Total data size of the output
 	DeviceFileHist      DeviceFileHist // Log of files seen
 	FileHistoryViewable int            // Number of files to show in the history log
-	Prompt              Prompt
-	Visible             bool
-	Selected            bool
-	percent             int // The calculated percentage
+
+	// private
+	visible  bool
+	percent  int // The calculated percentage
+	selected bool
 
 	// Dimensions
 	x                 int
@@ -60,6 +61,9 @@ type DevicePanel struct {
 	innerWidth        int
 	innerHeight       int
 	progressBarHeight int // The height of the progress bar
+
+	// Prompt user to do things
+	prompt *PromptAction
 }
 
 // NewGauge return a new DevicePanel with current theme.
@@ -78,12 +82,32 @@ func NewDevicePanel(label string, fileSize uint64) *DevicePanel {
 }
 
 func (g *DevicePanel) IsSelected() bool {
-	return g.Selected
+	return g.selected
+}
+
+func (g *DevicePanel) SetSelected(b bool) {
+	g.selected = b
+}
+
+func (g *DevicePanel) SetPrompt(p *PromptAction) {
+	g.prompt = p
+}
+
+func (g *DevicePanel) IsVisible() bool {
+	return g.visible
+}
+
+func (g *DevicePanel) SetVisible(b bool) {
+	g.visible = b
+}
+
+func (g *DevicePanel) Prompt() *PromptAction {
+	return g.prompt
 }
 
 // Buffer implements Bufferer interface.
 func (g *DevicePanel) Buffer() []termui.Point {
-	if !g.Visible {
+	if !g.visible {
 		return nil
 	}
 	// update the border dimensions
@@ -94,7 +118,7 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	g.innerX = g.x + borderSize/2
 	g.innerY = g.y + borderSize/2
 
-	if g.Selected {
+	if g.selected {
 		g.Border.FgColor = termui.ColorGreen
 	}
 
@@ -192,9 +216,9 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	}
 
 	// Render the prompt if set
-	if len(g.Prompt.Message) > 0 {
-		rs := []rune(g.Prompt.Message)
-		for x := 0; x < len(g.Prompt.Message); x++ {
+	if g.prompt != nil && len(g.prompt.Message) > 0 {
+		rs := []rune(g.prompt.Message)
+		for x := 0; x < len(g.prompt.Message); x++ {
 			pt := termui.Point{}
 			pt.X = g.x + x + 2
 			pt.Y = g.y + g.Border.Height - 2

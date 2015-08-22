@@ -2,6 +2,7 @@ package main
 
 import (
 	"core"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -76,28 +77,47 @@ func deviceIsMountedByUUID(mountPoint, uuid string) (bool, error) {
 	return found, err
 }
 
-// ensureDeviceIsMounted will first check if the device d is mounted. If not, then the user will be prompted to mount the device.
-func ensureDeviceIsMounted(d core.Device) error {
-	firstCheck := true
-	for {
-		m, err := deviceIsMountedByUUID(d.MountPoint, d.UUID)
-		if err != nil {
-			return err
-		}
-		if !m {
-			if !firstCheck {
-				log.Errorf("Device UUID=%s not found!", d.UUID)
-			}
-			// log.WithFields(logrus.Fields{
-			// "deviceName":       d.Name,
-			// "deviceMountPoint": d.MountPoint,
-			// }).Printf("Mount %q then press the Enter key to continue...", d.Name)
-			// var input string
-			// fmt.Scanln(&input)
-			firstCheck = false
-		} else {
-			break
-		}
+type deviceTestPermissionDeniedError struct {
+	deviceName string
+}
+
+func (e deviceTestPermissionDeniedError) Error() string {
+	return fmt.Sprintf("Could not write to device %q, Permission Denied!", e.deviceName)
+}
+
+type deviceNotFoundByUUIDError struct {
+	deviceName string
+	uuid       string
+}
+
+func (e deviceNotFoundByUUIDError) Error() string {
+	return fmt.Sprintf("Device %q with UUID %s not mounted!", e.deviceName, e.uuid)
+}
+
+// ensureDeviceIsReady checks if the device d is mounted. If the d is mounted, then a test file is written to it to check
+// write permissions.
+func ensureDeviceIsReady(d core.Device) error {
+	m, err := deviceIsMountedByUUID(d.MountPoint, d.UUID)
+	if err != nil {
+		log.Errorf("ensureDeviceIsReady: deviceIsMountedByUUID returned error: %s", err)
+		return err
 	}
-	return nil
+	log.Debugf("ensureDeviceIsReady: deviceIsMountedByUUID returned %t", m)
+	if m {
+		// Make sure it is writable
+		tFile := filepath.Join(d.MountPoint, "test")
+		_, err = os.Create(tFile)
+		if err != nil {
+			log.Errorf("ensureDeviceIsReady: Could not create test file, got: %s", err)
+			err = deviceTestPermissionDeniedError{d.Name}
+		} else {
+			err = os.Remove(tFile)
+			if err != nil {
+				err = fmt.Errorf("Could not remove test file, got: %s", err)
+			}
+		}
+	} else {
+		err = deviceNotFoundByUUIDError{d.Name, d.UUID}
+	}
+	return err
 }

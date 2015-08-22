@@ -1,6 +1,6 @@
 package conui
 
-type Prompt struct {
+type PromptAction struct {
 	Message string
 	Action  func()
 }

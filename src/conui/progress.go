@@ -12,11 +12,16 @@ import (
 
 // ProgressGauge shows the total device sync progress
 type ProgressGauge struct {
-	termui.Block
 	SizeWritn uint64 // Number of bytes written
 	SizeTotal uint64 // The total size of the operation.
 	FilePath  string
-	percent   int
+
+	selected bool
+	visible  bool
+	percent  int
+	prompt   *PromptAction
+
+	termui.Block
 }
 
 // NewProgressGauge returns an new ProgressGauge.
@@ -33,7 +38,27 @@ func NewProgressGauge(sizeTotal uint64) *ProgressGauge {
 }
 
 func (g *ProgressGauge) IsSelected() bool {
-	return false
+	return g.selected
+}
+
+func (g *ProgressGauge) SetSelected(b bool) {
+	g.selected = b
+}
+
+func (g *ProgressGauge) IsVisible() bool {
+	return g.visible
+}
+
+func (g *ProgressGauge) SetVisible(b bool) {
+	g.visible = b
+}
+
+func (g *ProgressGauge) SetPrompt(p *PromptAction) {
+	g.prompt = p
+}
+
+func (g *ProgressGauge) Prompt() *PromptAction {
+	return g.prompt
 }
 
 // Buffer implements Bufferer interface.

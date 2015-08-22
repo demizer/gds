@@ -2,7 +2,6 @@ package conui
 
 import (
 	"io/ioutil"
-	"log"
 	"logfmt"
 	"os"
 
@@ -37,16 +36,21 @@ func Init() {
 	}
 }
 
-type MyGridBufferer interface {
+type ConuiGridBufferer interface {
 	termui.GridBufferer
 	IsSelected() bool
+	SetSelected(bool)
+	IsVisible() bool
+	SetVisible(bool)
+	Prompt() *PromptAction
+	SetPrompt(*PromptAction)
 }
 
-type uiWidgetsMap map[int]MyGridBufferer
+type uiWidgetsMap map[int]ConuiGridBufferer
 
 func (w *uiWidgetsMap) selected() int {
 	var x int
-	var y MyGridBufferer
+	var y ConuiGridBufferer
 	for x, y = range *w {
 		if y.IsSelected() {
 			break
@@ -60,7 +64,7 @@ func (w *uiWidgetsMap) deselectAll() {
 		if _, ok := (*w)[x].(*DevicePanel); !ok {
 			continue
 		}
-		(*w)[x].(*DevicePanel).Selected = false
+		(*w)[x].(*DevicePanel).SetSelected(false)
 		(*w)[x].(*DevicePanel).Border.FgColor = termui.ColorWhite
 	}
 }
@@ -69,42 +73,53 @@ func (w *uiWidgetsMap) Select(index int) *DevicePanel {
 	w.deselectAll()
 	wg := (*w)[index].(*DevicePanel)
 	Selected = index
-	wg.Selected = true
+	wg.SetSelected(true)
+	wg.SetVisible(true)
 	return wg
 }
 
 func (w *uiWidgetsMap) SelectPrevious() *DevicePanel {
 	Selected = w.selected()
 	w.deselectAll()
+	var wg *DevicePanel
+	var ok bool
 	for {
 		Selected--
 		if Selected < 0 {
-			Selected = len(*w) - 2
+			Selected = len(*w) - 1
 		}
-		Log.Debugln("SELECTED previous:", Selected)
-		if (*w)[Selected].(*DevicePanel).Visible {
-			break
+		if wg, ok = (*w)[Selected].(*DevicePanel); ok {
+			visible := wg.IsVisible()
+			Log.Debugf("SELECTED previous Widget[%d].Visible = %t", Selected, visible)
+			if visible {
+				break
+			}
 		}
 	}
-	(*w)[Selected].(*DevicePanel).Selected = true
-	return (*w)[Selected].(*DevicePanel)
+	wg.SetSelected(true)
+	return wg
 }
 
 func (w *uiWidgetsMap) SelectNext() *DevicePanel {
 	Selected = w.selected()
 	w.deselectAll()
+	var wg *DevicePanel
+	var ok bool
 	for {
 		Selected++
-		if Selected == len(*w)-1 || Selected > len(*w)-1 {
+		if Selected > len(*w)-1 {
 			Selected = 0
 		}
-		Log.Debugln("SELECTED next:", Selected)
-		if (*w)[Selected].(*DevicePanel).Visible {
-			break
+		if wg, ok = (*w)[Selected].(*DevicePanel); ok {
+			visible := wg.IsVisible()
+			Log.Debugf("SELECTED next Widget[%d].Visible = %t", Selected, visible)
+			if visible {
+				break
+			}
 		}
 	}
-	(*w)[Selected].(*DevicePanel).Selected = true
-	return (*w)[Selected].(*DevicePanel)
+	wg.SetSelected(true)
+	return wg
 }
 
 func (w *uiWidgetsMap) Selected() *DevicePanel {
@@ -116,44 +131,13 @@ func (w *uiWidgetsMap) DevicePanelByIndex(index int) *DevicePanel {
 	return (*w)[index].(*DevicePanel)
 }
 
-func (w *uiWidgetsMap) MountPromptByIndex(index int) *DevicePanel {
+func (w *uiWidgetsMap) PromptByIndex(index int, prompt PromptAction) *DevicePanel {
 	wg := (*w)[index].(*DevicePanel)
 	if wg != nil {
 		Widgets.Select(index)
-		wg.Visible = true
-		wg.Prompt = Prompt{
-			Message: "Please mount device and press Enter to continue...",
-			Action: func() {
-				log.Printf("Action for %s!!", wg.Border.Label)
-			},
-		}
+		wg.SetVisible(true)
 	}
 	return wg
-}
-
-func (w *uiWidgetsMap) MountPromptByName(name string) (int, *DevicePanel) {
-	var index int
-	var wg *DevicePanel
-	for x, y := range *w {
-		switch dp := y.(type) {
-		case *DevicePanel:
-			if dp.Border.Label == name {
-				index = x
-				wg = (*w)[x].(*DevicePanel)
-			}
-		}
-	}
-	if wg != nil {
-		Widgets.Select(index)
-		wg.Visible = true
-		wg.Prompt = Prompt{
-			Message: "Please mount device and press Enter to continue...",
-			Action: func() {
-				log.Printf("Action for %s!!", wg.Border.Label)
-			},
-		}
-	}
-	return index, wg
 }
 
 // ProgressGauge returns the overall progress gauge from the widget list.

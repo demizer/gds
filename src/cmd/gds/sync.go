@@ -94,9 +94,10 @@ func BuildConsole(c *core.Context) {
 	for x, y := range c.Devices {
 		conui.Widgets[x] = conui.NewDevicePanel(y.Name, y.SizeTotal)
 		if visible > 0 {
-			conui.Widgets[x].(*conui.DevicePanel).Visible = true
+			log.Debugln("Making device", x, "visible")
+			conui.Widgets[x].SetVisible(true)
 			if x == 0 {
-				conui.Widgets[x].(*conui.DevicePanel).Selected = true
+				conui.Widgets[x].SetSelected(true)
 			}
 			visible--
 		}
@@ -126,7 +127,10 @@ func eventListener(c *core.Context) {
 				conui.Widgets.SelectPrevious()
 			}
 			if e.Type == termui.EventKey && e.Key == termui.KeyEnter {
-				conui.Widgets.Selected().Prompt = conui.Prompt{}
+				p := conui.Widgets.Selected().Prompt()
+				if p != nil {
+					p.Action()
+				}
 			}
 			if e.Type == termui.EventKey && e.Ch == 'q' {
 				conui.Close()
@@ -143,25 +147,78 @@ func eventListener(c *core.Context) {
 	}
 }
 
+// deviceMountHandler checks to see if the device is mounted and writable. Meant to be run as a goroutine.
+func deviceMountHandler(c *core.Context, deviceIndex int) {
+	// Listen on the channel for a mount request
+	ns := time.Now()
+	log.Debugf("Waiting for receive on SyncDeviceMount[%d]", deviceIndex)
+	<-c.SyncDeviceMount[deviceIndex]
+	log.Debugf("Receive from SyncDeviceMount[%d] after wait of %s", deviceIndex, time.Since(ns))
+
+	// Get the panel widget so we can write messages for the user to it
+	wg := conui.Widgets.Select(deviceIndex)
+	d, err := c.Devices.DeviceByName(wg.Border.Label)
+	if err != nil {
+		log.Error(err)
+	}
+
+	deviceIsReady := false
+	checkDevice := func(p *conui.PromptAction) error {
+		// The actual checking
+		err := ensureDeviceIsReady(*d)
+		if err != nil {
+			log.Errorf("checkDevice error: %s", err)
+			switch err.(type) {
+
+			case deviceTestPermissionDeniedError:
+				p.Message = "Device is mounted but not writable... " +
+					"Please fix write permissions then press Enter to continue."
+			case deviceNotFoundByUUIDError:
+				p.Message = "Please mount device and press Enter to continue..."
+			}
+			return err
+		}
+		deviceIsReady = true
+		return err
+	}
+
+	// The prompt that will be displayed in the device panel
+	var pAction func()
+	prompt := &conui.PromptAction{}
+	// Allow the user to press enter on the device panel to force a device check
+	pAction = func() {
+		// With the device selected in the panel, the user has pressed the enter key.
+		log.Printf("Action for panel %q!", wg.Border.Label)
+		checkDevice(prompt)
+	}
+	prompt.Action = pAction
+
+	// Finally, set the prompt for the device in the panel
+	wg.SetPrompt(prompt)
+
+	// Check device automatically periodically
+	for {
+		if deviceIsReady {
+			break
+		}
+		// Rate limit
+		err = checkDevice(prompt)
+		if err != nil {
+			time.Sleep(time.Second * 15)
+			continue
+		}
+		break
+
+	}
+	// The prompt is not needed anymore
+	wg.SetPrompt(nil)
+	c.SyncDeviceMount[deviceIndex] <- true
+}
+
 func update(c *core.Context) {
 	for x := 0; x < len(c.Devices); x++ {
+		go deviceMountHandler(c, x)
 		c.SyncDeviceMount[x] = make(chan bool)
-		go func(index int) {
-			ns := time.Now()
-			log.Debugln("Waiting for receive on SyncDeviceMount")
-			<-c.SyncDeviceMount[index]
-			log.Debugf("Receive from SyncDeviceMount after wait of %s", time.Since(ns))
-			wg := conui.Widgets.MountPromptByIndex(index)
-			d, err := c.Devices.DeviceByName(wg.Border.Label)
-			if err != nil {
-				log.Error(err)
-			}
-			err = ensureDeviceIsMounted(*d)
-			if err != nil {
-				log.Error(err)
-			}
-			c.SyncDeviceMount[index] <- true
-		}(x)
 		c.SyncProgress[x] = make(chan core.SyncProgress, 100)
 		c.SyncFileProgress[x] = make(chan core.SyncFileProgress, 100)
 		go func(index int) {

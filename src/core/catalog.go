@@ -105,7 +105,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 				})
 			} else {
 				dNum += 1
-				Log.Debugln("Setting next device number", dNum)
+				Log.Debugf("NewCatalog: Using c.Devices[%d]", dNum)
 				d = c.Devices[dNum]
 				dSize = 0
 			}
