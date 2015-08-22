@@ -147,7 +147,10 @@ func update(c *core.Context) {
 	for x := 0; x < len(c.Devices); x++ {
 		c.SyncDeviceMount[x] = make(chan bool)
 		go func(index int) {
+			ns := time.Now()
+			log.Debugln("Waiting for receive on SyncDeviceMount")
 			<-c.SyncDeviceMount[index]
+			log.Debugf("Receive from SyncDeviceMount after wait of %s", time.Since(ns))
 			wg := conui.Widgets.MountPromptByIndex(index)
 			d, err := c.Devices.DeviceByName(wg.Border.Label)
 			if err != nil {
@@ -171,10 +174,15 @@ func update(c *core.Context) {
 			}
 		}(x)
 	}
-	for {
-		conui.Redraw <- true
-		time.Sleep(time.Second / 5)
-	}
+	go func() {
+		for {
+			if !termbox.IsInit {
+				break
+			}
+			conui.Redraw <- true
+			time.Sleep(time.Second / 5)
+		}
+	}()
 }
 
 func syncStart(c *cli.Context) {
@@ -189,7 +197,8 @@ func syncStart(c *cli.Context) {
 	conui.Init()
 	BuildConsole(c2)
 	go eventListener(c2)
-	go update(c2)
+	update(c2)
+
 	// Sync the things
 	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
 	if len(errs) > 0 {
