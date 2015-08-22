@@ -111,14 +111,7 @@ func BuildConsole(c *core.Context) {
 }
 
 func eventListener(c *core.Context) {
-	defer func() {
-		if err := recover(); err != nil {
-			// Caught a panic, log it
-			if termbox.IsInit {
-				conui.Close()
-			}
-		}
-	}()
+	defer cleanupAtExit()
 	for {
 		select {
 		case e := <-conui.Event:
@@ -153,15 +146,6 @@ func update(c *core.Context) {
 	for x := 0; x < len(c.Devices); x++ {
 		c.SyncDeviceMount[x] = make(chan bool)
 		go func(index int) {
-			defer func() {
-				if err := recover(); err != nil {
-					if termbox.IsInit {
-						conui.Close()
-					}
-					panic(err)
-					os.Exit(1)
-				}
-			}()
 			<-c.SyncDeviceMount[index]
 			wg := conui.Widgets.MountPromptByIndex(index)
 			d, err := c.Devices.DeviceByName(wg.Border.Label)
@@ -177,15 +161,7 @@ func update(c *core.Context) {
 		c.SyncProgress[x] = make(chan core.SyncProgress, 100)
 		c.SyncFileProgress[x] = make(chan core.SyncFileProgress, 100)
 		go func(index int) {
-			defer func() {
-				if err := recover(); err != nil {
-					if termbox.IsInit {
-						conui.Close()
-					}
-					panic(err)
-					os.Exit(1)
-				}
-			}()
+			// defer cleanupAtExit()
 			for {
 				select {
 				case <-c.SyncProgress[index]:
@@ -201,19 +177,13 @@ func update(c *core.Context) {
 }
 
 func syncStart(c *cli.Context) {
-	defer func() {
-		if termbox.IsInit {
-			conui.Close()
-		}
-		// if err := recover(); err != nil {
-		// panic(err)
-		// }
-	}()
+	defer cleanupAtExit()
 	log.WithFields(logrus.Fields{
 		"version": 0.2,
 		"date":    time.Now().Format(time.RFC3339),
 	}).Infoln("Ghetto Device Storage")
 	c2 := loadInitialState(c)
+
 	// CONSOLE UI FROM THE 1980s
 	conui.Init()
 	BuildConsole(c2)
@@ -226,6 +196,7 @@ func syncStart(c *cli.Context) {
 			log.Errorf("Sync error: %s", e.Error())
 		}
 	}
+
 	// Fin
 	dumpContextToFile(c, c2)
 	log.Info("ALL DONE -- Sync complete!")

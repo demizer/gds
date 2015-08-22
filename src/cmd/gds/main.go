@@ -25,6 +25,7 @@ var (
 	GDS_CONTEXT_FILENAME = "context_" + time.Now().Format(time.RFC3339) + ".json"
 	GDS_LOG_FILENAME     = "log_" + time.Now().Format(time.RFC3339) + ".log"
 	GDS_CONFIG_NAME      = "config.yaml"
+	GDS_CLI_APP          *cli.App
 )
 
 var log = &logrus.Logger{
@@ -69,7 +70,7 @@ func (f fatalShowHelp) Error() (s string) {
 }
 
 // cleanupAtExit performs some cleanup operations before exiting.
-func cleanupAtExit(c *cli.App) {
+func cleanupAtExit() {
 	if termbox.IsInit {
 		conui.Close()
 	}
@@ -89,13 +90,14 @@ func cleanupAtExit(c *cli.App) {
 		case fatal:
 			v = err.(fatal).Error()
 		case fatalShowHelp:
-			cli.HelpPrinter(os.Stdout, cli.AppHelpTemplate, c)
+			cli.HelpPrinter(os.Stdout, cli.AppHelpTemplate, GDS_CLI_APP)
 			log.Fatal(err)
 		default:
 			v = fmt.Sprint(err)
 		}
 		log.Errorf("Unexpected failure! See %q for details...", GDS_LOG_FD.Name())
 		GDS_LOG_FD.WriteString(fmt.Sprintf("\nFATAL ERROR: %s\n\n%s\n", v, string(stack[:size])))
+		os.Exit(1)
 	}
 	// panic("SHOW ME THE STACKS!")
 }
@@ -147,7 +149,8 @@ func main() {
 		NewSyncCommand(),
 	}
 	// If a panic occurrs while termui session is active, the panic output is unreadable.
-	defer cleanupAtExit(app)
+	GDS_CLI_APP = app
+	defer cleanupAtExit()
 	if len(os.Args) == 1 {
 		panic(fatalShowHelp{"No arguments specified!"})
 	}
