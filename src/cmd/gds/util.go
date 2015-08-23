@@ -117,6 +117,7 @@ func ensureDeviceIsReady(d core.Device) error {
 			}
 		}
 	} else {
+		log.Errorf("ensureDeviceIsReady: Check for device %q mounted at %q != UUID=%s", d.Name, d.MountPoint, d.UUID)
 		err = deviceNotFoundByUUIDError{d.Name, d.UUID}
 	}
 	return err
