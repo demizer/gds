@@ -222,11 +222,9 @@ func update(c *core.Context) {
 		c.SyncProgress[x] = make(chan core.SyncProgress, 100)
 		c.SyncFileProgress[x] = make(chan core.SyncFileProgress, 100)
 		go func(index int) {
-			// defer cleanupAtExit()
 			for {
 				select {
 				case p := <-c.SyncProgress[index]:
-					// log.Println("YO:", spd.Sdump(p))
 					prg := conui.Widgets.ProgressGauge()
 					prg.SizeWritn = p.ProgressSizeWritn
 					dw := conui.Widgets.DevicePanelByIndex(index)

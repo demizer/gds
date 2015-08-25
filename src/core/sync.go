@@ -398,6 +398,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 		"mountPoint": device.MountPoint,
 	}).Info("Sync to device complete")
 	close(trakc)
+	close(cerr)
 }
 
 // Sync synchronizes files to mounted devices on mountpoints. Sync will copy new files, delete old files, and fix or update
@@ -416,25 +417,27 @@ func Sync(c *Context, disableContextSave bool) []error {
 
 	c.LastSyncStartDate = time.Now()
 
-	wgFin := make(chan bool)
-	errorChan := make(chan error, 100)
-	go func() {
-		for {
-			select {
-			case err := <-errorChan:
-				Log.Error(err)
-				retError = append(retError, err)
-			case <-wgFin:
-				Log.Debugln("Breaking error reporting loop!")
-				return
+	errCollector := func(errs *[]error, eChan chan error) {
+		defer func() {
+			wg.Done()
+			Log.Debugln("ERROR COLLECTOR DEFER WG.DONE()")
+		}()
+		select {
+		case err, ok := <-eChan:
+			if !ok {
+				break
 			}
+			Log.Error(err)
+			*errs = append(*errs, err)
 		}
-	}()
+		Log.Debugln("Breaking error reporting loop!")
+	}
 
 	i := 0
 	for i < len(c.Catalog) {
 		Log.Debugln("Starting Sync() iteration", i)
 		trackers := make(map[int]chan tracker) // Channel for communicating progress trackers
+		errorChan := make(chan error, 10)
 		for j := 0; j < c.OutputStreamNum; j++ {
 			d := &(c.Devices)[i+j]
 			// ENSURE DEVICE IS MOUNTED
@@ -448,6 +451,10 @@ func Sync(c *Context, disableContextSave bool) []error {
 				lastDevice = d
 			}
 			trackers[i+j] = make(chan tracker, 100)
+
+			wg.Add(1)
+			go errCollector(&retError, errorChan)
+
 			wg.Add(1)
 			go func(index int, dev *Device) {
 				defer func() {
@@ -491,6 +498,5 @@ func Sync(c *Context, disableContextSave bool) []error {
 			lastDevice.SizeWritn += uint64(s)
 		}
 	}
-	close(wgFin)
 	return retError
 }

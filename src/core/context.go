@@ -107,7 +107,7 @@ func ContextFromBytes(config []byte) (*Context, error) {
 			return nil, ContextFileDeviceHasNoMountPoint{x.Name}
 		}
 		if len(x.UUID) == 0 {
-			return nil, ContextFileDeviceHasNoMountPoint{x.Name}
+			return nil, ContextFileDeviceHasNoUUID{x.Name}
 		}
 	}
 	return c, nil

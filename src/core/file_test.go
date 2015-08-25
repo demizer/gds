@@ -47,12 +47,12 @@ func checkDevices(t *testing.T, c *Context, e []expectDevice) {
 		if dNum+1 == len(c.Devices) {
 			lastDevice = true
 			// The last device can fluctuate in size due to the sync context data file being stored on it.
-			inTolerance = (u.UsedSize < expectDeviceByName(xy.Name).usedBytes-50 &&
-				u.UsedSize > expectDeviceByName(xy.Name).usedBytes+50)
+			inTolerance = (u.SizeWritn < expectDeviceByName(xy.Name).usedBytes-50 &&
+				u.SizeWritn > expectDeviceByName(xy.Name).usedBytes+50)
 		}
-		if (u.UsedSize != expectDeviceByName(xy.Name).usedBytes && !lastDevice) || (lastDevice && inTolerance) {
+		if (u.SizeWritn != expectDeviceByName(xy.Name).usedBytes && !lastDevice) || (lastDevice && inTolerance) {
 			t.Errorf("MountPoint: %q\n\t Got Used Bytes: %d Expect: %d\n",
-				xy.MountPoint, u.UsedSize, expectDeviceByName(xy.Name).usedBytes)
+				xy.MountPoint, u.SizeWritn, expectDeviceByName(xy.Name).usedBytes)
 		}
 		dNum++
 	}
@@ -107,7 +107,8 @@ func TestDestPathSha1Sum(t *testing.T) {
 }
 
 func TestNewFileList(t *testing.T) {
-	c := NewContext("/root")
+	c := NewContext()
+	c.BackupPath = "/root"
 	_, err := NewFileList(c)
 	if err == nil {
 		t.Error("Expect: Error  Got: No errors")

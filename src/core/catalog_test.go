@@ -18,12 +18,12 @@ func TestCatalogFileSplitAcrossDevicesNotEnoughSpace(t *testing.T) {
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
-					Size:       1493583,
+					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				Device{
 					Name:       "Test Device 1",
-					Size:       1001000, // Needs 1009173 (including 891 bytes for the context file)
+					SizeTotal:  1001000, // Needs 1009173 (including 891 bytes for the context file)
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
@@ -32,7 +32,8 @@ func TestCatalogFileSplitAcrossDevicesNotEnoughSpace(t *testing.T) {
 			return []error{CatalogNotEnoughDevicePoolSpaceError{}}
 		},
 	}
-	c := NewContext(f.backupPath)
+	c := NewContext()
+	c.BackupPath = f.backupPath
 	var err error
 	c.Files, err = NewFileList(c)
 	if err != nil {

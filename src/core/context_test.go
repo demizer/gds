@@ -65,13 +65,14 @@ func TestContextMarshalJSON(t *testing.T) {
 			return DeviceList{
 				Device{
 					Name:       "Test Device 0",
-					Size:       3499350,
+					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
 	}
-	c := NewContext(f.backupPath)
+	c := NewContext()
+	c.BackupPath = f.backupPath
 
 	var err error
 	c.Files, err = NewFileList(c)

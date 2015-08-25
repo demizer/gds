@@ -4,8 +4,10 @@ backupPath: "/home/demizer/documents"
 outputStreams: 1
 devices:
   - name: "Test Drive 1"
-    size: 4965185763
+    sizeTotal: 4965185763
     mountPoint: "/mnt/backup1"
+    uuid: "de305d54-75b4-431b-adb2-eb6b9e546014"
   - name: "Test Drive 2"
-    size: 4965185763
+    sizeTotal: 4965185763
     mountPoint: "/mnt/backup2"
+    uuid: "de305d54-75b4-431b-adb2-eb6b9e546014"
