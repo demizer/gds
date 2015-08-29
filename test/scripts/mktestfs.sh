@@ -24,7 +24,10 @@
 DEVICE_DESTPATH="/home/demizer/.config/gds/test"
 
 # Manual test using my emulator directory
-EMU_NUM_DEVICES=9
+# 57489123330 is the catalog size of the backup, extra is added for FS
+# overhead
+EMU_DATASIZE_BYTES=65489123330
+EMU_NUM_DEVICES=8
 EMU_DEVICE_NAME_PREFIX="gds-emu-test"
 EMU_DEV_UUID[0]="51f5a503-f670-46a5-8098-59fa69af6fed"
 EMU_DEV_UUID[1]="40b46262-96dc-4fb2-a765-a0c948794305"
@@ -34,7 +37,6 @@ EMU_DEV_UUID[4]="beb2cd83-72e3-40d9-ae7f-d73f3897366a"
 EMU_DEV_UUID[5]="2a52ef55-be52-4e40-803b-39f0a350695e"
 EMU_DEV_UUID[6]="5a6cfaa6-7827-4222-b6e7-a29c38e5ebe9"
 EMU_DEV_UUID[7]="808312f2-e11d-49e5-a46f-d4dd18f6514e"
-EMU_DEV_UUID[8]="a0dd44a5-6e98-4ede-9336-4ef91a8d1f53"
 
 #
 # END CONFIG SECTION
@@ -271,9 +273,7 @@ function wipe_devices() {
 
 if [[ "$MKT_EMU_TEST" == 1 ]]; then
     if [[ "$MKT_MAKE" == 1 ]]; then
-        # 57489121872 is the size of /mnt/data/files/games/emulation
-        DATASIZE_BYTES=58489121872
-        DISKSIZE=$(($DATASIZE_BYTES/$EMU_NUM_DEVICES))
+        DISKSIZE=$(($EMU_DATASIZE_BYTES/$EMU_NUM_DEVICES))
         DISKSIZE_IN_BLOCKS=$(($DISKSIZE/4096))
         msg "Creating $EMU_NUM_DEVICES devices!"
         make_devices $EMU_NUM_DEVICES $DEVICE_DESTPATH $EMU_DEVICE_NAME_PREFIX $DISKSIZE_IN_BLOCKS "4k" $DISKSIZE
@@ -290,7 +290,8 @@ if [[ "$MKT_EMU_TEST" == 1 ]]; then
     elif [[ "$MKT_UMOUNT" == 1 ]]; then
         msg "Un-mounting emulation backup devices"
         umount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
-    elif [[ "$MKT_WIPE" == 1 ]]; then
+    fi
+    if [[ "$MKT_WIPE" == 1 ]]; then
         wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
     fi
 fi
