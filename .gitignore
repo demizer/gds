@@ -6,3 +6,4 @@ testdata/temp/
 coverage.out
 *_output*
 c.out
+test/log
