@@ -6,6 +6,7 @@ type Device struct {
 	MountPoint string `yaml:"mountPoint"`
 	SizeWritn  uint64 `yaml:"sizeWritn"`
 	SizeTotal  uint64 `yaml:"sizeTotal"`
+	BlockSize  uint64 `yaml:"blockSize"`
 	UUID       string
 }
 

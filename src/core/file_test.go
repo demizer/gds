@@ -44,13 +44,13 @@ func checkDevices(t *testing.T, c *Context, e []expectDevice) {
 	inTolerance := false
 	for _, xy := range c.Devices {
 		u, _ := c.Devices.DeviceByName(xy.Name)
-		if dNum+1 == len(c.Devices) {
+		if dNum == len(c.Devices)-1 {
 			lastDevice = true
 			// The last device can fluctuate in size due to the sync context data file being stored on it.
-			inTolerance = (u.SizeWritn < expectDeviceByName(xy.Name).usedBytes-50 &&
-				u.SizeWritn > expectDeviceByName(xy.Name).usedBytes+50)
+			inTolerance = (u.SizeWritn > expectDeviceByName(xy.Name).usedBytes-50 &&
+				u.SizeWritn < expectDeviceByName(xy.Name).usedBytes+50)
 		}
-		if (u.SizeWritn != expectDeviceByName(xy.Name).usedBytes && !lastDevice) || (lastDevice && inTolerance) {
+		if (u.SizeWritn != expectDeviceByName(xy.Name).usedBytes) || (lastDevice && !inTolerance) {
 			t.Errorf("MountPoint: %q\n\t Got Used Bytes: %d Expect: %d\n",
 				xy.MountPoint, u.SizeWritn, expectDeviceByName(xy.Name).usedBytes)
 		}

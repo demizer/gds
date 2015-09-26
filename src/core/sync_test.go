@@ -166,9 +166,9 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 			if err != nil {
 				t.Errorf("Could not stat %q, %s", cvf.DestPath, err.Error())
 			}
-			if cvf.SplitEndByte == 0 && uint64(ls.Size()) != cvf.Size {
+			if cvf.SplitEndByte == 0 && uint64(ls.Size()) != cvf.SourceSize {
 				t.Errorf("File: %q\n\t  Got Size: %d Expect: %d\n",
-					cvf.DestPath, ls.Size, cvf.Size)
+					cvf.DestPath, ls.Size, cvf.SourceSize)
 			} else if cvf.SplitEndByte != 0 && uint64(ls.Size()) != cvf.SplitEndByte-cvf.SplitStartByte {
 				t.Errorf("File: %q\n\t  Got Size: %d Expect: %d\n",
 					cvf.DestPath, ls.Size, cvf.SplitEndByte-cvf.SplitStartByte)
@@ -183,13 +183,15 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 		}
 		if uint64(ms) > dev.SizeTotal {
 			t.Errorf("Mountpoint %q usage (%d bytes) is greater than device size (%d bytes)",
-				dev.MountPoint, dev.SizeTotal, dev.SizeTotal)
+				dev.MountPoint, ms, dev.SizeTotal)
 		}
 		Log.WithFields(logrus.Fields{
-			"name":       dev.Name,
-			"mountPoint": dev.MountPoint,
-			"size":       ms,
-			"usedSize":   dev.SizeTotal}).Info("Mountpoint usage info")
+			"1-name":        dev.Name,
+			"2-mountPoint":  dev.MountPoint,
+			"3-SizeOnDisk":  ms,
+			"4-d.SizeWritn": dev.SizeWritn,
+			"5-d.SizeTotal": dev.SizeTotal,
+		}).Info("Mountpoint usage info")
 		if uint64(ms) != dev.SizeWritn {
 			t.Errorf("MountPoint: %q\n\t  Got Size: %d Expect: %d\n", dev.MountPoint, ms, dev.SizeTotal)
 		}
@@ -206,6 +208,7 @@ func TestSyncSimpleCopy(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -225,15 +228,16 @@ func TestSyncSimpleCopySourceFileError(t *testing.T) {
 		fileList: func() FileList {
 			return FileList{
 				File{
-					Name:     "file",
-					FileType: FILE,
-					Size:     1024,
-					Path:     "/root/file",
-					DestPath: path.Join(testOutputDir, "file"),
-					Mode:     0644,
-					ModTime:  time.Now(),
-					Owner:    os.Getuid(),
-					Group:    os.Getgid(),
+					Name:       "file",
+					FileType:   FILE,
+					SourceSize: 1024,
+					DestSize:   1024,
+					Path:       "/root/file",
+					DestPath:   path.Join(testOutputDir, "file"),
+					Mode:       0644,
+					ModTime:    time.Now(),
+					Owner:      os.Getuid(),
+					Group:      os.Getgid(),
 				},
 			}
 		},
@@ -243,6 +247,7 @@ func TestSyncSimpleCopySourceFileError(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  42971520,
 					MountPoint: testOutputDir,
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -272,15 +277,15 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 		fileList: func() FileList {
 			return FileList{
 				File{
-					Name:     "testfile",
-					FileType: FILE,
-					Size:     41971520,
-					Path:     path.Join(fakeTestPath, "testfile"),
-					DestPath: path.Join(testOutputDir, "testfile"),
-					Mode:     0444,
-					ModTime:  time.Now(),
-					Owner:    os.Getuid(),
-					Group:    os.Getgid(),
+					Name:       "testfile",
+					FileType:   FILE,
+					SourceSize: 41971520,
+					Path:       path.Join(fakeTestPath, "testfile"),
+					DestPath:   path.Join(testOutputDir, "testfile"),
+					Mode:       0444,
+					ModTime:    time.Now(),
+					Owner:      os.Getuid(),
+					Group:      os.Getgid(),
 				},
 			}
 		},
@@ -290,6 +295,7 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  42971520,
 					MountPoint: testOutputDir,
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -333,37 +339,37 @@ func TestSyncPerms(t *testing.T) {
 		fileList: func() FileList {
 			return FileList{
 				File{
-					Name:     "diff_user",
-					FileType: FILE,
-					Size:     1024,
-					Path:     path.Join(fakeTestPath, "diff_user"),
-					DestPath: path.Join(testOutputDir, "diff_user"),
-					Mode:     0640,
-					ModTime:  time.Now(),
-					Owner:    55000,
-					Group:    55000,
+					Name:       "diff_user",
+					FileType:   FILE,
+					SourceSize: 1024,
+					Path:       path.Join(fakeTestPath, "diff_user"),
+					DestPath:   path.Join(testOutputDir, "diff_user"),
+					Mode:       0640,
+					ModTime:    time.Now(),
+					Owner:      55000,
+					Group:      55000,
 				},
 				File{
-					Name:     "script.sh",
-					FileType: FILE,
-					Size:     1024,
-					Path:     path.Join(fakeTestPath, "script.sh"),
-					DestPath: path.Join(testOutputDir, "script.sh"),
-					Mode:     0777,
-					ModTime:  time.Now(),
-					Owner:    os.Getuid(),
-					Group:    os.Getgid(),
+					Name:       "script.sh",
+					FileType:   FILE,
+					SourceSize: 1024,
+					Path:       path.Join(fakeTestPath, "script.sh"),
+					DestPath:   path.Join(testOutputDir, "script.sh"),
+					Mode:       0777,
+					ModTime:    time.Now(),
+					Owner:      os.Getuid(),
+					Group:      os.Getgid(),
 				},
 				File{
-					Name:     "some_dir",
-					Path:     path.Join(fakeTestPath, "some_dir"),
-					FileType: DIRECTORY,
-					Size:     4096,
-					DestPath: path.Join(testOutputDir, "some_dir"),
-					Mode:     0755,
-					ModTime:  time.Now(),
-					Owner:    os.Getuid(),
-					Group:    55000,
+					Name:       "some_dir",
+					Path:       path.Join(fakeTestPath, "some_dir"),
+					FileType:   DIRECTORY,
+					SourceSize: 4096,
+					DestPath:   path.Join(testOutputDir, "some_dir"),
+					Mode:       0755,
+					ModTime:    time.Now(),
+					Owner:      os.Getuid(),
+					Group:      55000,
 				},
 			}
 		},
@@ -373,6 +379,7 @@ func TestSyncPerms(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: testOutputDir,
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -403,6 +410,7 @@ func TestSyncSubDirs(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -424,6 +432,7 @@ func TestSyncSymlinks(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -448,6 +457,7 @@ func TestSyncBackupathIncluded(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -470,11 +480,13 @@ func TestSyncFileSplitAcrossDevices(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1010000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -500,11 +512,13 @@ func TestSyncAcrossDevicesNoSplit(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  668711 + 4096 + 4096,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1812584 + 4096 + 4096 + 1000, // 1000 sync context data
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -530,14 +544,14 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 		fileList: func() FileList {
 			return FileList{
 				File{
-					Name:     "testfile",
-					FileType: FILE,
-					Size:     41971520,
-					Path:     path.Join(fakeTestPath, "testfile"),
-					Mode:     0644,
-					ModTime:  time.Now(),
-					Owner:    os.Getuid(),
-					Group:    os.Getgid(),
+					Name:       "testfile",
+					FileType:   FILE,
+					SourceSize: 41971520,
+					Path:       path.Join(fakeTestPath, "testfile"),
+					Mode:       0644,
+					ModTime:    time.Now(),
+					Owner:      os.Getuid(),
+					Group:      os.Getgid(),
 				},
 			}
 		},
@@ -547,11 +561,13 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  31485760,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  10495760,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -577,11 +593,13 @@ func TestSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  9999999,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  850000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -622,16 +640,19 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 2",
 					SizeTotal:  3500346,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -655,15 +676,15 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 	c := runSyncTest(t, f)
 	if c != nil {
 		checkDevices(t, c, f.expectDeviceUsage())
-		Log.WithFields(logrus.Fields{
-			"deviceName": c.Devices[0].Name,
-			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
-		Log.WithFields(logrus.Fields{
-			"deviceName": c.Devices[1].Name,
-			"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
-		Log.WithFields(logrus.Fields{
-			"deviceName": c.Devices[2].Name,
-			"mountPoint": c.Devices[2].MountPoint}).Print("Test mountpoint")
+		// Log.WithFields(logrus.Fields{
+		// "deviceName": c.Devices[0].Name,
+		// "mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+		// Log.WithFields(logrus.Fields{
+		// "deviceName": c.Devices[1].Name,
+		// "mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
+		// Log.WithFields(logrus.Fields{
+		// "deviceName": c.Devices[2].Name,
+		// "mountPoint": c.Devices[2].MountPoint}).Print("Test mountpoint")
 	}
 }
 
@@ -713,12 +734,22 @@ func TestSyncDirsWithLotsOfFiles(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  4300000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
+				},
+			}
+		},
+		expectDeviceUsage: func() []expectDevice {
+			return []expectDevice{
+				expectDevice{
+					name:      "Test Device 0",
+					usedBytes: 4182016,
 				},
 			}
 		},
 	}
 	c := runSyncTest(t, f)
 	if c != nil {
+		checkDevices(t, c, f.expectDeviceUsage())
 		Log.WithFields(logrus.Fields{
 			"deviceName": c.Devices[0].Name,
 			"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
@@ -734,16 +765,19 @@ func TestSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 2",
 					SizeTotal:  300000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -767,13 +801,13 @@ func TestSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 			t.Errorf("EXPECT: Error TypeOf CatalogNotEnoughDevicePoolSpaceError GOT: %T %q", err, err)
 		}
 	}
-	Log.Error(err)
-	Log.WithFields(logrus.Fields{
-		"deviceName": c.Devices[0].Name,
-		"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
-	Log.WithFields(logrus.Fields{
-		"deviceName": c.Devices[1].Name,
-		"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
+	// Log.Error(err)
+	// Log.WithFields(logrus.Fields{
+	// "deviceName": c.Devices[0].Name,
+	// "mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")
+	// Log.WithFields(logrus.Fields{
+	// "deviceName": c.Devices[1].Name,
+	// "mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
 }
 
 func TestSyncDestPathPermissionDenied(t *testing.T) {
@@ -785,6 +819,7 @@ func TestSyncDestPathPermissionDenied(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  10000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -808,6 +843,7 @@ func TestSyncDestPathSha1sum(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  769000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -844,11 +880,13 @@ func TestSyncSaveContextLastDevice(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1020000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -874,11 +912,13 @@ func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1016382,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
 				},
 			}
 		},
@@ -902,4 +942,46 @@ func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 			"deviceName": c.Devices[1].Name,
 			"mountPoint": c.Devices[1].MountPoint}).Print("Test mountpoint")
 	}
+}
+
+// TestSyncFromTempDirectory copies the testdata to the temp directory. This has the effect of reducing file sizes to their
+// actual size. Once this is done, a sync is made to a real file system which creates small files using 1 block size.
+func TestSyncFromTempDirectory(t *testing.T) {
+	p, err := ioutil.TempDir("", "gds-freebooks-")
+	if err != nil {
+		t.Fatalf("EXPECT: path to temp mount GOT: %s", err)
+	}
+	Log.WithFields(logrus.Fields{"path": p}).Print("filesync_freebooks temporary path")
+	cmd := exec.Command("/usr/bin/cp", "-R", "../../testdata/filesync_freebooks", p)
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("EXPECT: No copy errors GOT: %s", err)
+	}
+	f := &syncTest{
+		backupPath:   p,
+		splitMinSize: 1000,
+		deviceList: func() DeviceList {
+			return DeviceList{
+				Device{
+					Name:       "Test Device 0",
+					SizeTotal:  1000000,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+					BlockSize:  4096,
+				},
+				Device{
+					Name:       "Test Device 1",
+					SizeTotal:  1000000,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+					BlockSize:  4096,
+				},
+				Device{
+					Name:       "Test Device 2",
+					SizeTotal:  1000000,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
+					BlockSize:  4096,
+				},
+			}
+		},
+	}
+	runSyncTest(t, f)
 }

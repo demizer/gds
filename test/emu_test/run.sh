@@ -5,12 +5,12 @@ if [[ "$(basename $PWD)" != "gds" ]]; then
     exit 1;
 fi
 
-lp="test/log/$(date --iso-8601=seconds).log"
+# lp="test/log/$(date --iso-8601=seconds).log"
+lp="test/log/output.log"
 ctxl="test/log/$(date --iso-8601=seconds)_context.json"
 conf="test/emu_test/config.yml"
 
 # Prepare the mount points
-./test/scripts/mktestfs.sh umount emu_test
 ./test/scripts/mktestfs.sh wipe emu_test
 ./test/scripts/mktestfs.sh mount emu_test
 

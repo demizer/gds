@@ -41,8 +41,9 @@ type File struct {
 	Name           string      `json:"name"`
 	Path           string      `json:"path"`
 	FileType       FileType    `json:"fileType"`
-	DestPath       string      `json:"destPath"`
-	Size           uint64      `json:"size"`
+	SourceSize     uint64      `json:"sourceSize"` // The actual file size
+	DestPath       string      `json:"destPath"`   // The file size at the destination
+	DestSize       uint64      `json:"destSize"`
 	Mode           os.FileMode `json:"mode"`
 	ModTime        time.Time   `json:"modTime"`
 	AccTime        time.Time   `json:"accessTime"`
@@ -89,15 +90,15 @@ func NewFileList(c *Context) (FileList, error) {
 			return nil
 		}
 		f := File{
-			Name:    info.Name(),
-			Path:    p,
-			Size:    uint64(info.Size()),
-			Mode:    info.Mode(),
-			ModTime: info.ModTime(),
-			AccTime: time.Unix(info.Sys().(*syscall.Stat_t).Atim.Unix()),
-			ChgTime: time.Unix(info.Sys().(*syscall.Stat_t).Ctim.Unix()),
-			Owner:   int(info.Sys().(*syscall.Stat_t).Uid),
-			Group:   int(info.Sys().(*syscall.Stat_t).Gid),
+			Name:       info.Name(),
+			Path:       p,
+			SourceSize: uint64(info.Size()),
+			Mode:       info.Mode(),
+			ModTime:    info.ModTime(),
+			AccTime:    time.Unix(info.Sys().(*syscall.Stat_t).Atim.Unix()),
+			ChgTime:    time.Unix(info.Sys().(*syscall.Stat_t).Ctim.Unix()),
+			Owner:      int(info.Sys().(*syscall.Stat_t).Uid),
+			Group:      int(info.Sys().(*syscall.Stat_t).Gid),
 		}
 		if info.IsDir() {
 			f.FileType = DIRECTORY
@@ -120,7 +121,7 @@ func NewFileList(c *Context) (FileList, error) {
 func (f *FileList) TotalDataSize() uint64 {
 	var totalDataSize uint64
 	for _, x := range *f {
-		totalDataSize += x.Size
+		totalDataSize += x.DestSize
 	}
 	return totalDataSize
 }

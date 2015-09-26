@@ -63,7 +63,7 @@ func (s *tracker) report(devices DeviceList, sp chan<- SyncProgress, sfp chan<- 
 				FileName:       s.file.Name,
 				FilePath:       s.file.DestPath,
 				SizeWritn:      s.io.totalBytesWritten,
-				SizeTotal:      s.file.Size,
+				SizeTotal:      s.file.DestSize,
 				BytesPerSecond: s.io.WriteBytesPerSecond(),
 			}
 		} else {
@@ -150,8 +150,8 @@ func saveSyncContext(c *Context, lastDevice *Device) (size int64, err error) {
 	if err == nil {
 		size = s.Size()
 		Log.WithFields(logrus.Fields{
-			"sync_context_file": cp,
-			"size":              size,
+			"syncContextFile": cp,
+			"size":            size,
 		}).Debug("Saved sync context on last device")
 	}
 	return
@@ -210,6 +210,7 @@ func createFile(f *File) {
 	var err error
 	if f.Owner != os.Getuid() && os.Getuid() != 0 {
 		f.err = SyncIncorrectOwnershipError{f.DestPath, f.Owner, os.Getuid()}
+		Log.Errorf("createFile: %s", f.err)
 		return
 	}
 	switch f.FileType {
@@ -267,11 +268,12 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			continue
 		}
 		Log.WithFields(logrus.Fields{
-			"file_name":        cf.Name,
-			"device":           device.Name,
-			"file_size":        cf.Size,
-			"file_split_start": cf.SplitStartByte,
-			"file_split_end":   cf.SplitEndByte}).Infoln("Syncing file")
+			"fileName":       cf.Name,
+			"device":         device.Name,
+			"fileSourceSize": cf.SourceSize,
+			"fileDestSize":   cf.DestSize,
+			"fileSplitStart": cf.SplitStartByte,
+			"fileSplitEnd":   cf.SplitEndByte}).Infoln("Syncing file")
 
 		// We only need to check the size of the file if it is a directory or a symlink
 		if cf.FileType == DIRECTORY || cf.FileType == SYMLINK {
@@ -280,7 +282,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 				cerr <- fmt.Errorf("%s Lstat: %s", syncErrCtx, err.Error())
 				continue
 			}
-			Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
+			Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size(), "destSize": cf.DestSize}).Debugln("File size")
 			device.SizeWritn += uint64(ls.Size())
 			continue
 		}
@@ -319,7 +321,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			}
 		}
 
-		mIo := NewIoReaderWriter(oFile, cf.Size)
+		mIo := NewIoReaderWriter(oFile, cf.DestSize)
 		nIo := mIo.MultiWriter()
 
 		ns := time.Now()
@@ -331,10 +333,11 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 				// code smell ...
 				newTracker.closed = true
 				Log.WithFields(logrus.Fields{
-					"filePath":    cf.Path,
-					"fileSize":    cf.Size,
-					"deviceUsage": device.SizeWritn,
-					"deviceSize":  device.SizeTotal,
+					"filePath":       cf.Path,
+					"fileSourceSize": cf.SourceSize,
+					"fileDestSize":   cf.DestSize,
+					"deviceUsage":    device.SizeWritn,
+					"deviceSize":     device.SizeTotal,
 				}).Error("Error copying file!")
 				cerr <- fmt.Errorf("%s copy %s: %s", syncErrCtx, cf.DestPath, err.Error())
 				break
@@ -343,7 +346,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 				err = oFile.Close()
 				ls, err := os.Lstat(cf.DestPath)
 				if err == nil {
-					Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
+					Log.WithFields(logrus.Fields{"file": cf.Name, "size": ls.Size(), "destSize": cf.DestSize}).Debugln("File size")
 					device.SizeWritn += uint64(ls.Size())
 					// Set mode after file is copied to prevent no write perms from causing trouble
 					err = os.Chmod(cf.DestPath, cf.Mode)
@@ -356,18 +359,18 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 				}
 			}
 		} else {
-			var cb uint64
-			if syncTest && cf.SplitEndByte == 0 {
-				cb = cf.Size
-			} else {
-				cb = cf.SplitEndByte - cf.SplitStartByte
-				if cf.SplitStartByte == 0 {
-					cb = cf.SplitEndByte
-				}
-			}
-			if oSize, err := io.CopyN(nIo, sFile, int64(cb)); err != nil {
-				// code smell ...
+			if oSize, err := io.CopyN(nIo, sFile, int64(cf.DestSize)); err != nil {
 				newTracker.closed = true
+				Log.WithFields(logrus.Fields{
+					"oSize":           oSize,
+					"cf.Path":         cf.Path,
+					"cf.SourceSize":   cf.SourceSize,
+					"cf.DestSize":     cf.DestSize,
+					"d.SizeTotal":     device.SizeTotal,
+					"d.SizeWritn":     device.SizeWritn,
+					"expectAvailable": device.SizeTotal - device.SizeWritn,
+				}).Error("Error copying file!")
+				Log.WithFields(logrus.Fields{"file": cf.Name, "size": oSize, "destSize": cf.DestSize}).Debugln("File size")
 				cerr <- fmt.Errorf("%s copyn: %s", syncErrCtx, err.Error())
 				break
 			} else {
@@ -377,7 +380,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 				var ls os.FileInfo
 				ls, err = os.Lstat(cf.DestPath)
 				if err == nil {
-					Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size()}).Debugln("File size")
+					Log.WithFields(logrus.Fields{"file": cf.Name, "size": ls.Size(), "destSize": cf.DestSize}).Debugln("File size")
 					device.SizeWritn += uint64(ls.Size())
 				}
 			}

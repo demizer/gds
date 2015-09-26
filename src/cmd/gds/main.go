@@ -29,8 +29,9 @@ var (
 )
 
 var log = &logrus.Logger{
-	Out:       os.Stdout,
-	Formatter: new(logfmt.TextFormatter),
+	Out: os.Stdout,
+	// Formatter: &logfmt.TextFormatter{DisableColors: true},
+	Formatter: &logfmt.TextFormatter{},
 	Hooks:     make(logrus.LevelHooks),
 	Level:     logrus.InfoLevel,
 }

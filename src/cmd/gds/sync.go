@@ -222,6 +222,7 @@ func update(c *core.Context) {
 		c.SyncProgress[x] = make(chan core.SyncProgress, 100)
 		c.SyncFileProgress[x] = make(chan core.SyncFileProgress, 100)
 		go func(index int) {
+			lTime := time.Now()
 			for {
 				select {
 				case p := <-c.SyncProgress[index]:
@@ -230,7 +231,15 @@ func update(c *core.Context) {
 					dw := conui.Widgets.DevicePanelByIndex(index)
 					dw.SizeWritn = p.DeviceSizeWritn
 				case fp := <-c.SyncFileProgress[index]:
-					log.Debugln(spd.Sdump(fp))
+					if time.Since(lTime) > time.Second {
+						log.WithFields(logrus.Fields{
+							"file_name":  fp.FileName,
+							"file_size":  fp.SizeTotal,
+							"file_writn": fp.SizeWritn,
+							"bps":        fp.BytesPerSecond,
+						}).Debugln("Sync file progress")
+						lTime = time.Now()
+					}
 				}
 			}
 		}(x)
@@ -253,6 +262,19 @@ func syncStart(c *cli.Context) {
 		"date":    time.Now().Format(time.RFC3339),
 	}).Infoln("Ghetto Device Storage")
 	c2 := loadInitialState(c)
+
+	var tSize uint64
+	for _, x := range c2.Catalog["Test Device 1"] {
+		if x.SplitEndByte != 0 {
+			// spd.Dump(j)
+			tSize += x.DestSize
+			continue
+		}
+		fmt.Printf("%d\t%s\n", x.DestSize, x.Path)
+		tSize += x.DestSize
+	}
+	// fmt.Println("test device 1 size:", c2.Devices[0].SizeTotal, humanize.IBytes(c2.Devices[0].SizeTotal), "backupSize:", tSize, humanize.IBytes(tSize))
+	return
 
 	// CONSOLE UI FROM THE 1980s
 	conui.Init()

@@ -222,10 +222,8 @@ function make_devices() {
 function mount_devices() {
     # $1 - Number of devices
     # $2 - Device name prefix
-
     # Clear out old symlinks
     run_cmd "find $DEVICE_DESTPATH -iname 'gds-test-dev*' -type l -exec rm {} \;"
-
     for (( x = 0; x < $1; x++)); do
         symName="gds-test-dev-$x"
         msg2 "Creating symlink for $symName"
@@ -287,11 +285,11 @@ if [[ "$MKT_EMU_TEST" == 1 ]]; then
             msg "Setting write permissions"
             make_devices_writable $EMU_NUM_DEVICES
         fi
-    elif [[ "$MKT_UMOUNT" == 1 ]]; then
+    elif [[ "$MKT_UMOUNT" == 1 || "$MKT_WIPE" == 1 ]]; then
         msg "Un-mounting emulation backup devices"
         umount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
-    fi
-    if [[ "$MKT_WIPE" == 1 ]]; then
-        wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
+        if [[ "$MKT_WIPE" == 1 ]]; then
+            wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
+        fi
     fi
 fi
