@@ -266,19 +266,6 @@ func syncStart(c *cli.Context) {
 	}).Infoln("Ghetto Device Storage")
 	c2 := loadInitialState(c)
 
-	var tSize uint64
-	for _, x := range c2.Catalog["Test Device 1"] {
-		if x.SplitEndByte != 0 {
-			// spd.Dump(j)
-			tSize += x.DestSize
-			continue
-		}
-		fmt.Printf("%d\t%s\n", x.DestSize, x.Path)
-		tSize += x.DestSize
-	}
-	// fmt.Println("test device 1 size:", c2.Devices[0].SizeTotal, humanize.IBytes(c2.Devices[0].SizeTotal), "backupSize:", tSize, humanize.IBytes(tSize))
-	return
-
 	// CONSOLE UI FROM THE 1980s
 	conui.Init()
 	BuildConsole(c2)
