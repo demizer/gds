@@ -109,9 +109,16 @@ func NewCatalog(c *Context) (Catalog, error) {
 		} else if (dSize+c.SplitMinSize) <= d.SizeTotal && f.SourceSize > d.SizeTotal-dSize {
 			Log.Debugln("Splitting file!")
 			// Split de file, more logic to follow ...
+			Log.Debugln("Splitting file!")
 			split = true
 			f.SplitStartByte = 0
-			f.SplitEndByte = c.Devices[dNum].SizeTotal - dSize
+			// Subtract an extra 2 tenths of a percent of the total device size to insure no out-of-space errors
+			// will occurr. As named files are added to the mounted device, the size of directory increases due
+			// to the information the directory file must contain (pointers to inodes, names, etc). This is not
+			// easily calculated for the multitude of filesystems available, so it's just easier to leave an
+			// extra 2 tenths of a percent for this information.
+			buf := uint64(float64(c.Devices[dNum].SizeTotal) * 0.002)
+			f.SplitEndByte = (c.Devices[dNum].SizeTotal - dSize) - buf
 			f.DestSize = f.SplitEndByte - f.SplitStartByte
 		} else {
 			// Out of device space, get the next device
