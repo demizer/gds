@@ -231,13 +231,16 @@ func update(c *core.Context) {
 					dw := conui.Widgets.DevicePanelByIndex(index)
 					dw.SizeWritn = p.DeviceSizeWritn
 				case fp := <-c.SyncFileProgress[index]:
-					if time.Since(lTime) > time.Second {
+					if time.Since(lTime) > (time.Second / 5) {
 						log.WithFields(logrus.Fields{
-							"file_name":  fp.FileName,
-							"file_size":  fp.SizeTotal,
-							"file_writn": fp.SizeWritn,
-							"bps":        fp.BytesPerSecond,
+							"fp.FileName":     fp.FileName,
+							"fp.SizeTotal":    fp.SizeTotal,
+							"fp.FileWritn":    fp.SizeWritn,
+							"fp.SizeWritnInc": fp.SizeWritnInc,
+							"bps":             fp.BytesPerSecond,
 						}).Debugln("Sync file progress")
+						dw := conui.Widgets.DevicePanelByIndex(index)
+						dw.SizeWritn += fp.SizeWritnInc
 						lTime = time.Now()
 					}
 				}

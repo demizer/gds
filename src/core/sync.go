@@ -41,6 +41,7 @@ type SyncProgress struct {
 type SyncFileProgress struct {
 	FileName       string
 	FilePath       string
+	SizeWritnInc   uint64 // Used to track bytes written since last report
 	SizeWritn      uint64
 	SizeTotal      uint64
 	BytesPerSecond uint64
@@ -54,18 +55,22 @@ type tracker struct {
 }
 
 func (s *tracker) report(devices DeviceList, sp chan<- SyncProgress, sfp chan<- SyncFileProgress) {
+	var lastSizeWritn uint64
 	for {
 		if s.closed {
 			break
 		}
-		if s.file.SplitEndByte != 0 && s.io.totalBytesWritten < s.file.SplitEndByte-s.file.SplitStartByte {
+		if (s.file.SplitEndByte == 0 && s.io.totalBytesWritten < s.file.SourceSize) ||
+			(s.file.SplitEndByte != 0 && s.io.totalBytesWritten < s.file.SplitEndByte-s.file.SplitStartByte) {
 			sfp <- SyncFileProgress{
 				FileName:       s.file.Name,
 				FilePath:       s.file.DestPath,
 				SizeWritn:      s.io.totalBytesWritten,
+				SizeWritnInc:   s.io.totalBytesWritten - lastSizeWritn,
 				SizeTotal:      s.file.DestSize,
 				BytesPerSecond: s.io.WriteBytesPerSecond(),
 			}
+			lastSizeWritn = s.io.totalBytesWritten
 		} else {
 			Log.WithFields(logrus.Fields{
 				"destPath":       s.file.DestPath,
@@ -83,6 +88,7 @@ func (s *tracker) report(devices DeviceList, sp chan<- SyncProgress, sfp chan<- 
 			}
 			break
 		}
+		time.Sleep(time.Second / 10)
 	}
 }
 
