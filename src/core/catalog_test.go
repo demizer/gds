@@ -20,13 +20,11 @@ func TestCatalogFileSplitAcrossDevicesNotEnoughSpace(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  970000, // Needs 1009173 (including 891 bytes for the context file)
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 			}
 		},

@@ -208,7 +208,6 @@ func TestSyncSimpleCopy(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -247,7 +246,6 @@ func TestSyncSimpleCopySourceFileError(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  42971520,
 					MountPoint: testOutputDir,
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -295,7 +293,6 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  42971520,
 					MountPoint: testOutputDir,
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -379,7 +376,6 @@ func TestSyncPerms(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: testOutputDir,
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -410,7 +406,6 @@ func TestSyncSubDirs(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -432,7 +427,6 @@ func TestSyncSymlinks(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -457,7 +451,6 @@ func TestSyncBackupathIncluded(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -480,13 +473,11 @@ func TestSyncFileSplitAcrossDevices(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1010000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -512,13 +503,11 @@ func TestSyncAcrossDevicesNoSplit(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  668711 + 4096 + 4096,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1812584 + 4096 + 4096 + 1000, // 1000 sync context data
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -561,13 +550,11 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  31485760,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  10495760,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -593,13 +580,11 @@ func TestSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  9999999,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  850000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -640,19 +625,16 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 2",
 					SizeTotal:  3500346,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -690,8 +672,8 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 
 // TestSyncDirsWithLotsOfFiles checks syncing directories with thousands of files and directories that _had_ thousands of
 // files. Directories that had thousands of files are still allocated in the filesystem as containing thousands of file
-// pointers, but since filesystems don't reclaim space, recreating these directories on the destination drive will allocate
-// the blocksize of the device--4096 bytes.
+// pointers, but since filesystems don't reclaim space for deleted directories, recreating these directories on the
+// destination drive will allocate the blocksize of the device (4096 bytes for EXT4).
 func TestSyncDirsWithLotsOfFiles(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test")
@@ -734,7 +716,6 @@ func TestSyncDirsWithLotsOfFiles(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  4300000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -765,19 +746,16 @@ func TestSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 2",
 					SizeTotal:  300000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -819,7 +797,6 @@ func TestSyncDestPathPermissionDenied(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  10000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -843,7 +820,6 @@ func TestSyncDestPathSha1sum(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  769000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -880,13 +856,11 @@ func TestSyncSaveContextLastDevice(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1020000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -912,13 +886,11 @@ func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1016382,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 			}
 		},
@@ -966,19 +938,16 @@ func TestSyncFromTempDirectory(t *testing.T) {
 					Name:       "Test Device 0",
 					SizeTotal:  1000000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1000000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
-					BlockSize:  4096,
 				},
 				Device{
 					Name:       "Test Device 2",
 					SizeTotal:  1000000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
-					BlockSize:  4096,
 				},
 			}
 		},
