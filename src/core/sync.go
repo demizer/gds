@@ -124,14 +124,15 @@ func syncContextCompressedSize(c *Context) (size int64, err error) {
 
 type SyncNotEnoughDeviceSpaceForSyncContextError struct {
 	DeviceName      string
-	DeviceUsed      uint64
-	DeviceSize      uint64
+	DeviceSizeWritn uint64
+	DeviceSizeTotal uint64
 	SyncContextSize uint64
 }
 
 func (e SyncNotEnoughDeviceSpaceForSyncContextError) Error() string {
-	return fmt.Sprintf("Not enough space for sync context data file! device=%q usedSize=%d size=%d syncDataSize=%d",
-		e.DeviceName, e.DeviceUsed, e.DeviceSize, e.SyncContextSize)
+	return fmt.Sprintf("Not enough space for sync context data file!"+
+		"DeviceName=%q DeviceSizeWritn=%d DeviceSizeTotal=%d SyncContextSize=%d",
+		e.DeviceName, e.DeviceSizeWritn, e.DeviceSizeTotal, e.SyncContextSize)
 }
 
 func saveSyncContext(c *Context, lastDevice *Device) (size int64, err error) {
@@ -140,9 +141,9 @@ func saveSyncContext(c *Context, lastDevice *Device) (size int64, err error) {
 	if err != nil {
 		return
 	}
-	if uint64(sgzSize)+lastDevice.SizeWritn > lastDevice.SizeWritn {
+	if uint64(sgzSize)+lastDevice.SizeWritn > lastDevice.SizeTotal {
 		err = SyncNotEnoughDeviceSpaceForSyncContextError{
-			lastDevice.Name, lastDevice.SizeWritn, lastDevice.SizeWritn, uint64(sgzSize),
+			lastDevice.Name, lastDevice.SizeWritn, lastDevice.SizeTotal, uint64(sgzSize),
 		}
 		return
 	}
@@ -500,11 +501,9 @@ func Sync(c *Context, disableContextSave bool) []error {
 		i++
 	}
 	if !disableContextSave {
-		s, err := saveSyncContext(c, lastDevice)
+		_, err := saveSyncContext(c, lastDevice)
 		if err != nil {
 			retError = append(retError, err)
-		} else {
-			lastDevice.SizeWritn += uint64(s)
 		}
 	}
 	return retError
