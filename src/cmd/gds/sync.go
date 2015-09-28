@@ -11,7 +11,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/gizak/termui"
 	"github.com/nsf/termbox-go"
 )
 
@@ -89,7 +88,7 @@ func dumpContextToFile(c *cli.Context, c2 *core.Context) {
 // BuildConsole creates the UI widgets First is the main progress guage for the overall progress Widgets are then created for
 // each of the devices, but are hidden initially.
 func BuildConsole(c *core.Context) {
-	var rows []termui.GridBufferer
+	var rows []conui.GridBufferer
 	visible := c.OutputStreamNum
 	for x, y := range c.Devices {
 		conui.Widgets[x] = conui.NewDevicePanel(y.Name, y.SizeTotal)
@@ -107,42 +106,42 @@ func BuildConsole(c *core.Context) {
 	for x, _ := range c.Devices {
 		rows = append(rows, conui.Widgets[x].(*conui.DevicePanel))
 	}
-	termui.Body.AddRows(
-		termui.NewRow(
-			termui.NewCol(12, 0, rows...),
+	conui.Body.AddRows(
+		conui.NewRow(
+			conui.NewCol(12, 0, rows...),
 		),
 	)
-	termui.Body.Align()
+	conui.Body.Align()
 }
 
 func eventListener(c *core.Context) {
 	defer cleanupAtExit()
 	for {
 		select {
-		case e := <-conui.Event:
-			if e.Type == termui.EventKey && e.Ch == 'j' {
+		case e := <-conui.Events:
+			if e.Type == conui.EventKey && e.Ch == 'j' {
 				conui.Widgets.SelectNext()
 			}
-			if e.Type == termui.EventKey && e.Ch == 'k' {
+			if e.Type == conui.EventKey && e.Ch == 'k' {
 				conui.Widgets.SelectPrevious()
 			}
-			if e.Type == termui.EventKey && e.Key == termui.KeyEnter {
+			if e.Type == conui.EventKey && e.Key == conui.KeyEnter {
 				p := conui.Widgets.Selected().Prompt()
 				if p != nil {
 					p.Action()
 				}
 			}
-			if e.Type == termui.EventKey && e.Ch == 'q' {
+			if e.Type == conui.EventKey && e.Ch == 'q' {
 				conui.Close()
 				os.Exit(0)
 			}
-			if e.Type == termui.EventResize {
-				termui.Body.Width = termui.TermWidth()
-				termui.Body.Align()
+			if e.Type == conui.EventResize {
+				conui.Body.Width = conui.TermWidth()
+				conui.Body.Align()
 				go func() { conui.Redraw <- true }()
 			}
 		case <-conui.Redraw:
-			termui.Render(termui.Body)
+			conui.Render(conui.Body)
 		}
 	}
 }

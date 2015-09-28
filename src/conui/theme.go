@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT license that can
 // be found in the LICENSE file.
 
-package termui
+package conui
 
 // A ColorScheme represents the current look-and-feel of the dashboard.
 type ColorScheme struct {

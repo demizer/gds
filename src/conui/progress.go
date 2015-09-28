@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/demizer/go-humanize"
-	"github.com/gizak/termui"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -21,13 +20,13 @@ type ProgressGauge struct {
 	percent  int
 	prompt   *PromptAction
 
-	termui.Block
+	Block
 }
 
 // NewProgressGauge returns an new ProgressGauge.
 func NewProgressGauge(sizeTotal uint64) *ProgressGauge {
 	g := &ProgressGauge{
-		Block:     *termui.NewBlock(),
+		Block:     *NewBlock(),
 		SizeWritn: 1,
 		SizeTotal: sizeTotal,
 	}
@@ -62,7 +61,7 @@ func (g *ProgressGauge) Prompt() *PromptAction {
 }
 
 // Buffer implements Bufferer interface.
-func (g *ProgressGauge) Buffer() []termui.Point {
+func (g *ProgressGauge) Buffer() []Point {
 	ps := g.Block.Buffer()
 	innerX, innerY, innerWidth, innerHeight := g.Block.InnerBounds()
 	g.percent = int(math.Ceil(float64(g.SizeWritn) / float64(g.SizeTotal) * float64(100)))
@@ -73,13 +72,13 @@ func (g *ProgressGauge) Buffer() []termui.Point {
 	w := g.percent * innerWidth / 100
 	for i := 0; i < innerHeight; i++ {
 		for j := 0; j < w; j++ {
-			p := termui.Point{}
+			p := Point{}
 			p.X = innerX + j
 			p.Y = innerY + i
 			p.Ch = ' '
-			p.Bg = termui.ColorCyan
-			if p.Bg == termui.ColorDefault {
-				p.Bg |= termui.AttrReverse
+			p.Bg = ColorCyan
+			if p.Bg == ColorDefault {
+				p.Bg |= AttrReverse
 			}
 			ps = append(ps, p)
 		}
@@ -92,15 +91,15 @@ func (g *ProgressGauge) Buffer() []termui.Point {
 	pos := (innerWidth - runewidth.StringWidth(s)) / 2
 
 	for i, v := range rs {
-		p := termui.Point{}
+		p := Point{}
 		p.X = pos + i
 		p.Y = pry
 		p.Ch = v
-		p.Fg = termui.ColorWhite
+		p.Fg = ColorWhite
 		if w+innerX > pos+i {
-			p.Bg = termui.ColorCyan
-			if p.Bg == termui.ColorDefault {
-				p.Bg |= termui.AttrReverse
+			p.Bg = ColorCyan
+			if p.Bg == ColorDefault {
+				p.Bg |= AttrReverse
 			}
 		} else {
 			p.Bg = g.Block.BgColor

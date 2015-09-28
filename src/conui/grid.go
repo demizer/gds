@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT license that can
 // be found in the LICENSE file.
 
-package termui
+package conui
 
 // GridBufferer introduces a Bufferer that can be manipulated by Grid.
 type GridBufferer interface {

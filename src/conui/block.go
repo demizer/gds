@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT license that can
 // be found in the LICENSE file.
 
-package termui
+package conui
 
 // Block is a base struct for all other upper level widgets,
 // consider it as css: display:block.

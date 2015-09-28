@@ -6,13 +6,12 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/gizak/termui"
 	"github.com/nsf/termbox-go"
 )
 
 var (
 	Redraw   = make(chan bool)
-	Event    = termui.EventCh()
+	Events   = EventCh()
 	Widgets  = make(uiWidgetsMap)
 	Selected = 1
 )
@@ -28,16 +27,31 @@ var Log = &logrus.Logger{
 
 // Initilizes the console GUI. termui.Close() must be called before exiting otherwise the terminal will not return to
 // original state.
-func Init() {
+//
+// Init initializes termui library. This function should be called before any others.
+// After initialization, the library must be finalized by 'Close' function.
+func Init() error {
+	// func Init() error {
 	os.Setenv("TERM", "xterm")
-	err := termui.Init()
-	if err != nil {
-		panic(err)
-	}
+	Body = NewGrid()
+	Body.X = 0
+	Body.Y = 0
+	Body.BgColor = theme.BodyBg
+	defer func() {
+		w, _ := termbox.Size()
+		Body.Width = w
+		evtListen()
+	}()
+	return termbox.Init()
+	// }
+	// err := termui.Init()
+	// if err != nil {
+	// panic(err)
+	// }
 }
 
 type ConuiGridBufferer interface {
-	termui.GridBufferer
+	GridBufferer
 	IsSelected() bool
 	SetSelected(bool)
 	IsVisible() bool
@@ -65,7 +79,7 @@ func (w *uiWidgetsMap) deselectAll() {
 			continue
 		}
 		(*w)[x].(*DevicePanel).SetSelected(false)
-		(*w)[x].(*DevicePanel).Border.FgColor = termui.ColorWhite
+		(*w)[x].(*DevicePanel).Border.FgColor = ColorWhite
 	}
 }
 
@@ -147,6 +161,6 @@ func (u *uiWidgetsMap) ProgressGauge() *ProgressGauge {
 
 func Close() {
 	if termbox.IsInit {
-		termui.Close()
+		termbox.Close()
 	}
 }

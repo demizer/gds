@@ -51,12 +51,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/gizak/termui",
-			"repository": "https://github.com/gizak/termui",
-			"revision": "f9b03512858269e8bfc1c57b12113673ef213dc3",
-			"branch": "master"
-		},
-		{
 			"importpath": "github.com/mattn/go-colorable",
 			"repository": "https://github.com/mattn/go-colorable",
 			"revision": "40e4aedc8fabf8c23e040057540867186712faa5",

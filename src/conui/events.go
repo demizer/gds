@@ -6,7 +6,7 @@
 // by [authors](https://github.com/nsf/termbox-go/blob/master/AUTHORS)
 // under [license](https://github.com/nsf/termbox-go/blob/master/LICENSE)
 
-package termui
+package conui
 
 import "github.com/nsf/termbox-go"
 

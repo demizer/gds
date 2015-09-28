@@ -8,7 +8,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/demizer/go-humanize"
-	"github.com/gizak/termui"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -106,7 +105,7 @@ func (g *DevicePanel) Prompt() *PromptAction {
 }
 
 // Buffer implements Bufferer interface.
-func (g *DevicePanel) Buffer() []termui.Point {
+func (g *DevicePanel) Buffer() []Point {
 	if !g.visible {
 		return nil
 	}
@@ -119,7 +118,7 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	g.innerY = g.y + borderSize/2
 
 	if g.selected {
-		g.Border.FgColor = termui.ColorGreen
+		g.Border.FgColor = ColorGreen
 	}
 
 	// reset inner dims for new height
@@ -137,13 +136,13 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	w := g.percent * g.innerWidth / 100
 	for i := 0; i < g.progressBarHeight; i++ {
 		for j := 0; j < w; j++ {
-			p := termui.Point{}
+			p := Point{}
 			p.X = g.innerX + j
 			p.Y = g.innerY + i
 			p.Ch = ' '
-			p.Bg = termui.ColorCyan
-			if p.Bg == termui.ColorDefault {
-				p.Bg |= termui.AttrReverse
+			p.Bg = ColorCyan
+			if p.Bg == ColorDefault {
+				p.Bg |= AttrReverse
 			}
 			ps = append(ps, p)
 		}
@@ -156,19 +155,19 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	pos := (g.width - runewidth.StringWidth(s)) / 2
 
 	for i, v := range rs {
-		p := termui.Point{}
+		p := Point{}
 		p.X = pos + i
 		p.Y = pry
 		p.Ch = v
-		p.Fg = termui.ColorWhite
+		p.Fg = ColorWhite
 		if w+g.x+1 > pos+i {
-			p.Bg = termui.ColorCyan
-			if p.Bg == termui.ColorDefault {
-				p.Bg |= termui.AttrReverse
+			p.Bg = ColorCyan
+			if p.Bg == ColorDefault {
+				p.Bg |= AttrReverse
 			}
 
 		} else {
-			p.Bg = termui.ColorBlack
+			p.Bg = ColorBlack
 		}
 		ps = append(ps, p)
 	}
@@ -201,14 +200,14 @@ func (g *DevicePanel) Buffer() []termui.Point {
 			k++
 			continue
 		}
-		pi := termui.Point{}
+		pi := Point{}
 		pi.X = g.innerX + j
 		pi.Y = g.innerY + i
 		pi.Ch = rs[k]
-		pi.Bg = termui.ColorBlack
-		pi.Fg = termui.ColorWhite
+		pi.Bg = ColorBlack
+		pi.Fg = ColorWhite
 		if i == g.FileHistoryViewable {
-			pi.Fg = termui.ColorGreen
+			pi.Fg = ColorGreen
 		}
 		ps = append(ps, pi)
 		k++
@@ -219,12 +218,12 @@ func (g *DevicePanel) Buffer() []termui.Point {
 	if g.prompt != nil && len(g.prompt.Message) > 0 {
 		rs := []rune(g.prompt.Message)
 		for x := 0; x < len(g.prompt.Message); x++ {
-			pt := termui.Point{}
+			pt := Point{}
 			pt.X = g.x + x + 2
 			pt.Y = g.y + g.Border.Height - 2
 			pt.Ch = rs[x]
-			pt.Bg = termui.ColorBlack
-			pt.Fg = termui.ColorRed
+			pt.Bg = ColorBlack
+			pt.Fg = ColorRed
 			ps = append(ps, pt)
 		}
 	}
@@ -253,8 +252,8 @@ func (d *DevicePanel) SetWidth(w int) {
 }
 
 // Removes characters that are out-of-bounds of the widget.
-func (d *DevicePanel) chopOverflow(ps []termui.Point) []termui.Point {
-	nps := make([]termui.Point, 0, len(ps))
+func (d *DevicePanel) chopOverflow(ps []Point) []Point {
+	nps := make([]Point, 0, len(ps))
 	x := d.x
 	y := d.y
 	w := d.width
