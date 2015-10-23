@@ -1,279 +1,198 @@
 // Copyright 2015 Zack Guo <gizak@icloud.com>. All rights reserved.
+// Copyright 2015 Jesus Alvarez <jeezusjr@gmail.com>. All rights reserved.
 // Use of this source code is governed by a MIT license that can
 // be found in the LICENSE file.
 
 package conui
 
-// GridBufferer introduces a Bufferer that can be manipulated by Grid.
-type GridBufferer interface {
-	Bufferer
-	GetHeight() int
-	SetWidth(int)
-	SetX(int)
-	SetY(int)
-}
+import "math"
 
-// Row builds a layout tree
-type Row struct {
-	Cols   []*Row       //children
-	Widget GridBufferer // root
-	X      int
-	Y      int
-	Width  int
-	Height int
-	Span   int
-	Offset int
-}
-
-// calculate and set the underlying layout tree's x, y, height and width.
-func (r *Row) calcLayout() {
-	r.assignWidth(r.Width)
-	r.Height = r.solveHeight()
-	r.assignX(r.X)
-	r.assignY(r.Y)
-}
-
-// tell if the node is leaf in the tree.
-func (r *Row) isLeaf() bool {
-	return r.Cols == nil || len(r.Cols) == 0
-}
-
-func (r *Row) isRenderableLeaf() bool {
-	return r.isLeaf() && r.Widget != nil
-}
-
-// assign widgets' (and their parent rows') width recursively.
-func (r *Row) assignWidth(w int) {
-	r.SetWidth(w)
-
-	accW := 0                            // acc span and offset
-	calcW := make([]int, len(r.Cols))    // calculated width
-	calcOftX := make([]int, len(r.Cols)) // computated start position of x
-
-	for i, c := range r.Cols {
-		accW += c.Span + c.Offset
-		cw := int(float64(c.Span*r.Width) / 12.0)
-
-		if i >= 1 {
-			calcOftX[i] = calcOftX[i-1] +
-				calcW[i-1] +
-				int(float64(r.Cols[i-1].Offset*r.Width)/12.0)
-		}
-
-		// use up the space if it is the last col
-		if i == len(r.Cols)-1 && accW == 12 {
-			cw = r.Width - calcOftX[i]
-		}
-		calcW[i] = cw
-		r.Cols[i].assignWidth(cw)
-	}
-}
-
-// bottom up calc and set rows' (and their widgets') height,
-// return r's total height.
-func (r *Row) solveHeight() int {
-	if r.isRenderableLeaf() {
-		r.Height = r.Widget.GetHeight()
-		return r.Widget.GetHeight()
-	}
-
-	maxh := 0
-	if !r.isLeaf() {
-		for _, c := range r.Cols {
-			nh := c.solveHeight()
-			// when embed rows in Cols, row widgets stack up
-			if r.Widget != nil {
-				nh += r.Widget.GetHeight()
-			}
-			if nh > maxh {
-				maxh = nh
-			}
-		}
-	}
-
-	r.Height = maxh
-	return maxh
-}
-
-// recursively assign x position for r tree.
-func (r *Row) assignX(x int) {
-	r.SetX(x)
-
-	if !r.isLeaf() {
-		acc := 0
-		for i, c := range r.Cols {
-			if c.Offset != 0 {
-				acc += int(float64(c.Offset*r.Width) / 12.0)
-			}
-			r.Cols[i].assignX(x + acc)
-			acc += c.Width
-		}
-	}
-}
-
-// recursively assign y position to r.
-func (r *Row) assignY(y int) {
-	r.SetY(y)
-
-	if r.isLeaf() {
-		return
-	}
-
-	for i := range r.Cols {
-		acc := 0
-		if r.Widget != nil {
-			acc = r.Widget.GetHeight()
-		}
-		r.Cols[i].assignY(y + acc)
-	}
-
-}
-
-// GetHeight implements GridBufferer interface.
-func (r Row) GetHeight() int {
-	return r.Height
-}
-
-// SetX implements GridBufferer interface.
-func (r *Row) SetX(x int) {
-	r.X = x
-	if r.Widget != nil {
-		r.Widget.SetX(x)
-	}
-}
-
-// SetY implements GridBufferer interface.
-func (r *Row) SetY(y int) {
-	r.Y = y
-	if r.Widget != nil {
-		r.Widget.SetY(y)
-	}
-}
-
-// SetWidth implements GridBufferer interface.
-func (r *Row) SetWidth(w int) {
-	r.Width = w
-	if r.Widget != nil {
-		r.Widget.SetWidth(w)
-	}
-}
-
-// Buffer implements Bufferer interface,
-// recursively merge all widgets buffer
-func (r *Row) Buffer() []Point {
-	merged := []Point{}
-
-	if r.isRenderableLeaf() {
-		return r.Widget.Buffer()
-	}
-
-	// for those are not leaves but have a renderable widget
-	if r.Widget != nil {
-		merged = append(merged, r.Widget.Buffer()...)
-	}
-
-	// collect buffer from children
-	if !r.isLeaf() {
-		for _, c := range r.Cols {
-			merged = append(merged, c.Buffer()...)
-		}
-	}
-
-	return merged
-}
-
-// Grid implements 12 columns system.
-// A simple example:
-/*
-   import ui "github.com/gizak/termui"
-   // init and create widgets...
-
-   // build
-   ui.Body.AddRows(
-       ui.NewRow(
-           ui.NewCol(6, 0, widget0),
-           ui.NewCol(6, 0, widget1)),
-       ui.NewRow(
-           ui.NewCol(3, 0, widget2),
-           ui.NewCol(3, 0, widget30, widget31, widget32),
-           ui.NewCol(6, 0, widget4)))
-
-   // calculate layout
-   ui.Body.Align()
-
-   ui.Render(ui.Body)
-*/
 type Grid struct {
-	Rows    []*Row
-	Width   int
-	X       int
-	Y       int
-	BgColor Attribute
+	Rows        []Widget
+	Width       int
+	X           int
+	Y           int
+	BgColor     Attribute
+	SelectedRow int
+}
+
+func (g *Grid) selected() int {
+	var x int
+	var y Widget
+	for x, y = range g.Rows {
+		if y.IsSelected() {
+			break
+		}
+	}
+	return x
+}
+
+func (g *Grid) deselectAll() {
+	for x, _ := range g.Rows {
+		if _, ok := g.Rows[x].(*DevicePanel); !ok {
+			continue
+		}
+		g.Rows[x].SetSelected(false)
+		g.Rows[x].(*DevicePanel).Border.FgColor = ColorWhite
+	}
+}
+
+func (g *Grid) NumVisible() int {
+	num := 0
+	for x := 1; x < len(g.Rows)-1; x++ {
+		if g.Rows[x].(*DevicePanel).IsVisible() {
+			num += 1
+		}
+	}
+	return num
+}
+
+func (g *Grid) Select(index int) *DevicePanel {
+	g.deselectAll()
+	wg := g.Rows[index].(*DevicePanel)
+	g.SelectedRow = index
+	wg.SetSelected(true)
+	wg.SetVisible(true)
+	return wg
+}
+
+func (g *Grid) SelectPrevious() *DevicePanel {
+	g.SelectedRow = g.selected()
+	g.deselectAll()
+	var wg *DevicePanel
+	var ok bool
+	for {
+		g.SelectedRow--
+		if g.SelectedRow < 0 {
+			g.SelectedRow = len(g.Rows) - 1
+		}
+		if wg, ok = g.Rows[g.SelectedRow].(*DevicePanel); ok {
+			visible := wg.IsVisible()
+			Log.Debugf("SELECTED previous Widget[%d].Visible = %t", g.SelectedRow, visible)
+			if visible {
+				if (g.NumVisible() * g.Rows[1].Height()) >= TermHeight() {
+					g.scrollVisible()
+				}
+				break
+			}
+		}
+	}
+	wg.SetSelected(true)
+	return wg
+}
+
+func (g *Grid) scrollVisible() {
+	visibleArea := TermHeight() //- progressHeight
+
+	// calculate number of widgets before and after selected widget that should render or have parts rendered
+	deviceWidgetHeight := g.Rows[1].Height()
+	renderableWidgets := int(math.Ceil(float64(visibleArea / deviceWidgetHeight)))
+
+	// The y position of the selected widget
+	Log.Debugf("numWidgets: %d g.SelectedRow: %d renderableWidgets: %d visibleArea: %d", len(g.Rows), g.SelectedRow,
+		renderableWidgets, visibleArea)
+	Log.Debugf("renderableWidgets/2: %d", renderableWidgets/2)
+
+	// Set the position of the remaining visible widgets, skipping the selected widget
+	yPos := 0
+	firstVisible := g.SelectedRow - (renderableWidgets / 2)
+	if firstVisible == 0 {
+		firstVisible = 1
+	}
+	lastVisible := g.SelectedRow + (renderableWidgets / 2)
+
+	for x := 1; x <= len(g.Rows)-1; x++ {
+		Log.Debugf("x: %d firstVisible: %d lastVisible: %d", x, firstVisible, lastVisible)
+		if g.SelectedRow == 1 && x == 1 {
+			// Reset view
+			yPos = g.Rows[0].Height()
+		} else if x >= firstVisible && x <= lastVisible {
+			if x == firstVisible {
+				yPos = 0
+			}
+			Log.Debugln("IN HERE X:", x-firstVisible, "yPos:", yPos)
+			yPos += (x - firstVisible) * deviceWidgetHeight
+			Log.Debugln("yPos:", yPos)
+		} else {
+			// Throw the panel off screen
+			yPos = TermHeight() + 1000
+		}
+		if wg, ok := g.Rows[x].(*DevicePanel); ok {
+			Log.Debugf("x: %d y: %d", x, yPos)
+			wg.SetY(yPos)
+		}
+	}
+}
+
+func (g *Grid) SelectNext() *DevicePanel {
+	g.SelectedRow = g.selected()
+	g.deselectAll()
+	var wg *DevicePanel
+	var ok bool
+	for {
+		g.SelectedRow++
+		if g.SelectedRow > len(g.Rows)-1 {
+			g.SelectedRow = 0
+		}
+		if wg, ok = g.Rows[g.SelectedRow].(*DevicePanel); ok {
+			visible := wg.IsVisible()
+			Log.Debugf("SELECTED next Widget[%d].Visible = %t", g.SelectedRow, visible)
+			// Log.Debugf("%s", spd.Sdump(wg.Border))
+			// Log.Debugln("TermHeight:", TermHeight(), "widget y:", wg.Border.Y, "widget height:", wg.Border.Height)
+			if visible {
+				Log.Debugf("termHeight: %d wg.Y: %d wg.Height: %d", TermHeight(), wg.Y(), wg.Height())
+				// if (TermHeight()-wg.Y()) < wg.Height() || wg.Y() == 0 {
+				if (g.NumVisible() * g.Rows[1].Height()) >= TermHeight() {
+					g.scrollVisible()
+				}
+				break
+			}
+		}
+	}
+	wg.SetSelected(true)
+	return wg
+}
+
+func (g *Grid) Selected() *DevicePanel {
+	return g.Rows[g.SelectedRow].(*DevicePanel)
+}
+
+func (g *Grid) DevicePanelByIndex(index int) *DevicePanel {
+	return g.Rows[index].(*DevicePanel)
+}
+
+func (g *Grid) PromptByIndex(index int, prompt PromptAction) *DevicePanel {
+	wg := g.Rows[index].(*DevicePanel)
+	if wg != nil {
+		g.Select(index)
+		wg.SetVisible(true)
+	}
+	return wg
+}
+
+// ProgressGauge returns the overall progress gauge from the widget list.
+func (g *Grid) ProgressGauge() *ProgressGauge {
+	return g.Rows[len(g.Rows)-1].(*ProgressGauge)
 }
 
 // NewGrid returns *Grid with given rows.
-func NewGrid(rows ...*Row) *Grid {
+func NewGrid(rows ...Widget) *Grid {
 	return &Grid{Rows: rows}
 }
 
 // AddRows appends given rows to Grid.
-func (g *Grid) AddRows(rs ...*Row) {
-	g.Rows = append(g.Rows, rs...)
-}
-
-// NewRow creates a new row out of given columns.
-func NewRow(cols ...*Row) *Row {
-	rs := &Row{Span: 12, Cols: cols}
-	return rs
-}
-
-// NewCol accepts: widgets are LayoutBufferer or widgets is A NewRow.
-// Note that if multiple widgets are provided, they will stack up in the col.
-func NewCol(span, offset int, widgets ...GridBufferer) *Row {
-	r := &Row{Span: span, Offset: offset}
-
-	if widgets != nil && len(widgets) == 1 {
-		wgt := widgets[0]
-		nw, isRow := wgt.(*Row)
-		if isRow {
-			r.Cols = nw.Cols
-		} else {
-			r.Widget = wgt
-		}
-		return r
-	}
-
-	r.Cols = []*Row{}
-	ir := r
-	for _, w := range widgets {
-		nr := &Row{Span: 12, Widget: w}
-		ir.Cols = []*Row{nr}
-		ir = nr
-	}
-
-	return r
-}
-
-// Align calculate each rows' layout.
-func (g *Grid) Align() {
-	h := 0
-	for _, r := range g.Rows {
-		r.SetWidth(g.Width)
-		r.SetX(g.X)
-		r.SetY(g.Y + h)
-		r.calcLayout()
-		h += r.GetHeight()
+func (g *Grid) AddRows(rs ...Widget) {
+	for _, y := range rs {
+		g.Rows = append(g.Rows, y)
 	}
 }
 
 // Buffer implments Bufferer interface.
 func (g Grid) Buffer() []Point {
 	ps := []Point{}
-	for _, r := range g.Rows {
-		ps = append(ps, r.Buffer()...)
+	// LIFO with the rows... row 0 has the highest priority, meaning the codes in row 0 cannot be overwritten.
+	for x := len(g.Rows) - 1; x >= 0; x-- {
+		ps = append(ps, g.Rows[x].Buffer()...)
 	}
 	return ps
 }
-
-// Body corresponds to the entire terminal display region.
-var Body *Grid

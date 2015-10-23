@@ -64,9 +64,6 @@ func (f *File) DestPathSha1Sum() (string, error) {
 	var s = sha1.New()
 	if len(f.Name) > 0 {
 		dFile, err = os.Open(f.DestPath)
-		defer func() {
-			err = dFile.Close()
-		}()
 		if err != nil {
 			return "", err
 		}

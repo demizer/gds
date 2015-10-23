@@ -150,12 +150,12 @@ func main() {
 			Usage: "The level of log output. Levels: debug, info, warn, error, fatal, panic",
 		},
 	}
+	defer cleanupAtExit()
 	app.Commands = []cli.Command{
 		NewSyncCommand(),
 	}
 	// If a panic occurrs while termui session is active, the panic output is unreadable.
 	GDS_CLI_APP = app
-	defer cleanupAtExit()
 	if len(os.Args) == 1 {
 		panic(fatalShowHelp{"No arguments specified!"})
 	}

@@ -71,6 +71,7 @@ func (b border) Buffer() []Point {
 	if b.Width < 2 || b.Height < 2 {
 		return nil
 	}
+
 	pts := make([]Point, 2*b.Width+2*b.Height-4)
 
 	pts[0].X = b.X

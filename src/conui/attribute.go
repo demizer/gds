@@ -4,9 +4,6 @@
 
 package conui
 
-// import tm "github.com/nsf/termbox-go"
-// import rw "github.com/mattn/go-runewidth"
-
 /* ---------------Port from termbox-go --------------------- */
 
 // Attribute is printable cell's color and style.

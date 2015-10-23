@@ -25,8 +25,6 @@ func TermHeight() int {
 	return h
 }
 
-// Render renders all Bufferer in the given order from left to right,
-// right could overlap on left ones.
 func Render(rs ...Bufferer) {
 	termbox.Clear(termbox.ColorDefault, termbox.Attribute(theme.BodyBg))
 	for _, r := range rs {

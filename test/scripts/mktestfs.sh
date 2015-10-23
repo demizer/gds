@@ -113,6 +113,7 @@ run_cmd() {
 cleanup() {
 	# [[ -n $WORKDIR ]] && rm -rf "$WORKDIR"
 	[[ $1 ]] && exit $1
+    exit 0
 }
 
 abort() {
@@ -238,8 +239,10 @@ function umount_devices() {
     # $1 - Number of devices
     for (( x = 0; x < $1; x++)); do
         mnt="gds-test-$x"
-        msg2 "Un-mounting $mnt"
-        run_cmd "umount /mnt/$mnt"
+        if [[ "$(mountpoint /mnt/$mnt; echo $?)" == 0 ]]; then
+            msg2 "Un-mounting $mnt"
+            run_cmd "umount /mnt/$mnt"
+        fi
     done
     # Clear out old symlinks
     run_cmd "find $DEVICE_DESTPATH -iname 'gds-test-dev*' -type l -exec rm {} \;"

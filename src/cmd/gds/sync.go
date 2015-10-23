@@ -88,30 +88,26 @@ func dumpContextToFile(c *cli.Context, c2 *core.Context) {
 // BuildConsole creates the UI widgets First is the main progress guage for the overall progress Widgets are then created for
 // each of the devices, but are hidden initially.
 func BuildConsole(c *core.Context) {
-	var rows []conui.GridBufferer
 	visible := c.OutputStreamNum
+	var panel []conui.Widget
 	for x, y := range c.Devices {
-		conui.Widgets[x] = conui.NewDevicePanel(y.Name, y.SizeTotal)
+		panel = append(panel, conui.NewDevicePanel(y.Name, y.SizeTotal))
 		if visible > 0 {
 			log.Debugln("Making device", x, "visible")
-			conui.Widgets[x].SetVisible(true)
+			panel[x].SetVisible(true)
 			if x == 0 {
-				conui.Widgets[x].SetSelected(true)
+				panel[x].SetSelected(true)
 			}
 			visible--
 		}
 	}
-	conui.Widgets[len(c.Devices)] = conui.NewProgressGauge(c.Catalog.TotalSize())
-	rows = append(rows, conui.Widgets[len(c.Devices)])
+	panel[len(c.Devices)-1] = conui.NewProgressGauge(c.Catalog.TotalSize())
+	panel[len(c.Devices)-1].SetVisible(true)
+	conui.Body.AddRows(panel[len(c.Devices)-1])
 	for x, _ := range c.Devices {
-		rows = append(rows, conui.Widgets[x].(*conui.DevicePanel))
+		conui.Body.AddRows(panel[x])
 	}
-	conui.Body.AddRows(
-		conui.NewRow(
-			conui.NewCol(12, 0, rows...),
-		),
-	)
-	conui.Body.Align()
+	conui.Layout()
 }
 
 func eventListener(c *core.Context) {
@@ -120,13 +116,21 @@ func eventListener(c *core.Context) {
 		select {
 		case e := <-conui.Events:
 			if e.Type == conui.EventKey && e.Ch == 'j' {
-				conui.Widgets.SelectNext()
+				conui.Body.SelectNext()
 			}
 			if e.Type == conui.EventKey && e.Ch == 'k' {
-				conui.Widgets.SelectPrevious()
+				conui.Body.SelectPrevious()
+			}
+			if e.Type == conui.EventKey && e.Ch == 'd' {
+				p := conui.Body.Selected()
+				p.SetVisible(false)
+			}
+			if e.Type == conui.EventKey && e.Ch == 's' {
+				p := conui.Body.Selected()
+				p.SetVisible(true)
 			}
 			if e.Type == conui.EventKey && e.Key == conui.KeyEnter {
-				p := conui.Widgets.Selected().Prompt()
+				p := conui.Body.Selected().Prompt()
 				if p != nil {
 					p.Action()
 				}
@@ -136,8 +140,8 @@ func eventListener(c *core.Context) {
 				os.Exit(0)
 			}
 			if e.Type == conui.EventResize {
-				conui.Body.Width = conui.TermWidth()
-				conui.Body.Align()
+				// conui.Body.Width = conui.TermWidth()
+				conui.Layout()
 				go func() { conui.Redraw <- true }()
 			}
 		case <-conui.Redraw:
@@ -155,7 +159,7 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 	log.Debugf("Receive from SyncDeviceMount[%d] after wait of %s", deviceIndex, time.Since(ns))
 
 	// Get the panel widget so we can write messages for the user to it
-	wg := conui.Widgets.Select(deviceIndex)
+	wg := conui.Body.Select(deviceIndex)
 	d, err := c.Devices.DeviceByName(wg.Border.Label)
 	if err != nil {
 		log.Error(err)
@@ -207,7 +211,6 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 			continue
 		}
 		break
-
 	}
 	// The prompt is not needed anymore
 	wg.SetPrompt(nil)
@@ -225,9 +228,9 @@ func update(c *core.Context) {
 			for {
 				select {
 				case p := <-c.SyncProgress[index]:
-					prg := conui.Widgets.ProgressGauge()
+					prg := conui.Body.ProgressGauge()
 					prg.SizeWritn = p.ProgressSizeWritn
-					dw := conui.Widgets.DevicePanelByIndex(index)
+					dw := conui.Body.DevicePanelByIndex(index)
 					dw.SizeWritn = p.DeviceSizeWritn
 				case fp := <-c.SyncFileProgress[index]:
 					if time.Since(lTime) > (time.Second / 5) {
@@ -238,7 +241,7 @@ func update(c *core.Context) {
 							"fp.SizeWritnInc": fp.SizeWritnInc,
 							"bps":             fp.BytesPerSecond,
 						}).Debugln("Sync file progress")
-						dw := conui.Widgets.DevicePanelByIndex(index)
+						dw := conui.Body.DevicePanelByIndex(index)
 						dw.SizeWritn += fp.SizeWritnInc
 						lTime = time.Now()
 					}
@@ -265,23 +268,22 @@ func syncStart(c *cli.Context) {
 	}).Infoln("Ghetto Device Storage")
 	c2 := loadInitialState(c)
 
-	// CONSOLE UI FROM THE 1980s
 	conui.Init()
 	BuildConsole(c2)
 	go eventListener(c2)
 	update(c2)
 
 	// Sync the things
-	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
-	if len(errs) > 0 {
-		for _, e := range errs {
-			log.Errorf("Sync error: %s", e.Error())
-		}
-	}
+	// errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
+	// if len(errs) > 0 {
+	// for _, e := range errs {
+	// log.Errorf("Sync error: %s", e.Error())
+	// }
+	// }
 
-	// Fin
-	dumpContextToFile(c, c2)
-	log.Info("ALL DONE -- Sync complete!")
+	// // Fin
+	// dumpContextToFile(c, c2)
+	// log.Info("ALL DONE -- Sync complete!")
 
 	// Keep the UI going so the user can see the greatness of their efforts
 	for {

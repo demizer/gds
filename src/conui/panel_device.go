@@ -74,6 +74,7 @@ func NewDevicePanel(label string, fileSize uint64) *DevicePanel {
 		FileHistoryViewable: 5,
 		progressBarHeight:   2,
 	}
+	g.width = TermWidth()
 	g.height = borderSize + g.progressBarHeight + g.FileHistoryViewable + 1
 	g.Border.Height = g.height
 	g.Border.Label = label
@@ -103,6 +104,22 @@ func (g *DevicePanel) SetVisible(b bool) {
 func (g *DevicePanel) Prompt() *PromptAction {
 	return g.prompt
 }
+
+func (g *DevicePanel) Width() int { return g.width }
+
+func (g *DevicePanel) SetWidth(w int) { g.width = w }
+
+func (g *DevicePanel) Height() int { return g.height }
+
+func (g *DevicePanel) SetHeight(h int) { g.height = h }
+
+func (g *DevicePanel) X() int { return g.x }
+
+func (g *DevicePanel) SetX(x int) { g.x = x }
+
+func (g *DevicePanel) Y() int { return g.y }
+
+func (g *DevicePanel) SetY(y int) { g.y = y }
 
 // Buffer implements Bufferer interface.
 func (g *DevicePanel) Buffer() []Point {
@@ -234,21 +251,6 @@ func (g *DevicePanel) Buffer() []Point {
 // GetHeight implements GridBufferer. It returns current height of the block.
 func (d DevicePanel) GetHeight() int {
 	return d.height
-}
-
-// SetX implements GridBufferer interface, which sets block's x position.
-func (d *DevicePanel) SetX(x int) {
-	d.x = x
-}
-
-// SetY implements GridBufferer interface, it sets y position for block.
-func (d *DevicePanel) SetY(y int) {
-	d.y = y
-}
-
-// SetWidth implements GridBuffer interface, it sets block's width.
-func (d *DevicePanel) SetWidth(w int) {
-	d.width = w
 }
 
 // Removes characters that are out-of-bounds of the widget.

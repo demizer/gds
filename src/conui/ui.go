@@ -6,14 +6,16 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/nsf/termbox-go"
 )
 
+var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
+
 var (
-	Redraw   = make(chan bool)
-	Events   = EventCh()
-	Widgets  = make(uiWidgetsMap)
-	Selected = 1
+	Body   *Grid
+	Redraw = make(chan bool)
+	Events = EventCh()
 )
 
 // Log is the default logging object. By default, all output is discarded. Set Log.Out to std.Stdout to enable output. The
@@ -31,136 +33,36 @@ var Log = &logrus.Logger{
 // Init initializes termui library. This function should be called before any others.
 // After initialization, the library must be finalized by 'Close' function.
 func Init() error {
-	// func Init() error {
 	os.Setenv("TERM", "xterm")
 	Body = NewGrid()
 	Body.X = 0
 	Body.Y = 0
 	Body.BgColor = theme.BodyBg
-	defer func() {
-		w, _ := termbox.Size()
-		Body.Width = w
-		evtListen()
-	}()
-	return termbox.Init()
-	// }
-	// err := termui.Init()
-	// if err != nil {
-	// panic(err)
-	// }
-}
 
-type ConuiGridBufferer interface {
-	GridBufferer
-	IsSelected() bool
-	SetSelected(bool)
-	IsVisible() bool
-	SetVisible(bool)
-	Prompt() *PromptAction
-	SetPrompt(*PromptAction)
-}
-
-type uiWidgetsMap map[int]ConuiGridBufferer
-
-func (w *uiWidgetsMap) selected() int {
-	var x int
-	var y ConuiGridBufferer
-	for x, y = range *w {
-		if y.IsSelected() {
-			break
-		}
-	}
-	return x
-}
-
-func (w *uiWidgetsMap) deselectAll() {
-	for x, _ := range *w {
-		if _, ok := (*w)[x].(*DevicePanel); !ok {
-			continue
-		}
-		(*w)[x].(*DevicePanel).SetSelected(false)
-		(*w)[x].(*DevicePanel).Border.FgColor = ColorWhite
-	}
-}
-
-func (w *uiWidgetsMap) Select(index int) *DevicePanel {
-	w.deselectAll()
-	wg := (*w)[index].(*DevicePanel)
-	Selected = index
-	wg.SetSelected(true)
-	wg.SetVisible(true)
-	return wg
-}
-
-func (w *uiWidgetsMap) SelectPrevious() *DevicePanel {
-	Selected = w.selected()
-	w.deselectAll()
-	var wg *DevicePanel
-	var ok bool
-	for {
-		Selected--
-		if Selected < 0 {
-			Selected = len(*w) - 1
-		}
-		if wg, ok = (*w)[Selected].(*DevicePanel); ok {
-			visible := wg.IsVisible()
-			Log.Debugf("SELECTED previous Widget[%d].Visible = %t", Selected, visible)
-			if visible {
-				break
-			}
-		}
-	}
-	wg.SetSelected(true)
-	return wg
-}
-
-func (w *uiWidgetsMap) SelectNext() *DevicePanel {
-	Selected = w.selected()
-	w.deselectAll()
-	var wg *DevicePanel
-	var ok bool
-	for {
-		Selected++
-		if Selected > len(*w)-1 {
-			Selected = 0
-		}
-		if wg, ok = (*w)[Selected].(*DevicePanel); ok {
-			visible := wg.IsVisible()
-			Log.Debugf("SELECTED next Widget[%d].Visible = %t", Selected, visible)
-			if visible {
-				break
-			}
-		}
-	}
-	wg.SetSelected(true)
-	return wg
-}
-
-func (w *uiWidgetsMap) Selected() *DevicePanel {
-	i := w.selected()
-	return (*w)[i].(*DevicePanel)
-}
-
-func (w *uiWidgetsMap) DevicePanelByIndex(index int) *DevicePanel {
-	return (*w)[index].(*DevicePanel)
-}
-
-func (w *uiWidgetsMap) PromptByIndex(index int, prompt PromptAction) *DevicePanel {
-	wg := (*w)[index].(*DevicePanel)
-	if wg != nil {
-		Widgets.Select(index)
-		wg.SetVisible(true)
-	}
-	return wg
-}
-
-// ProgressGauge returns the overall progress gauge from the widget list.
-func (u *uiWidgetsMap) ProgressGauge() *ProgressGauge {
-	return (*u)[len(*u)-1].(*ProgressGauge)
+	err := termbox.Init()
+	w, _ := termbox.Size()
+	Body.Width = w
+	evtListen()
+	return err
 }
 
 func Close() {
 	if termbox.IsInit {
 		termbox.Close()
+	}
+}
+
+func Layout() {
+	yPos := 0
+	for x := 0; x < len(Body.Rows); x++ {
+		row := Body.Rows[x]
+		yHeight := row.Height()
+		if x == len(Body.Rows)-1 {
+			// Rows[0] is the overall progress row...
+			row.SetY(0)
+		} else {
+			row.SetY(yPos)
+		}
+		yPos += yHeight
 	}
 }
