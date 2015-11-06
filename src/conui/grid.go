@@ -5,6 +5,8 @@
 
 package conui
 
+import "math"
+
 type Grid struct {
 	Rows        []Widget
 	Width       int
@@ -80,20 +82,30 @@ func (g *Grid) SelectPrevious() *DevicePanel {
 }
 
 func (g *Grid) scrollVisible() {
-	deviceWidgetHeight := float64(g.Rows[1].Height())
+	visibleArea := TermHeight()
+	deviceWidgetHeight := g.Rows[1].Height()
+	renderableWidgets := int(math.Floor(float64(visibleArea/deviceWidgetHeight) + 0.5))
+	Log.Debugf("numWidgets: %d g.SelectedRow: %d renderableWidgets: %d visibleArea: %d", len(g.Rows), g.SelectedRow,
+		renderableWidgets, visibleArea)
 	yPos := 0
-	for x := 0; x < len(g.Rows); x++ {
-		if !g.Rows[x].IsVisible() {
-			continue
-		}
-		if g.SelectedRow == x {
+	nRow := g.SelectedRow
+	for x := 0; x < renderableWidgets; x++ {
+		if x == 0 {
 			// Reset view
 			yPos = g.Rows[0].Height()
 		} else {
 			yPos += int(deviceWidgetHeight)
 		}
-		if wg, ok := g.Rows[x].(*DevicePanel); ok {
+		if wg, ok := g.Rows[g.SelectedRow-1].(*DevicePanel); ok {
+			// Move last device panel off screen
+			wg.SetY(-10)
+		}
+		if wg, ok := g.Rows[nRow].(*DevicePanel); ok {
 			wg.SetY(yPos)
+		}
+		nRow++
+		if nRow > g.NumVisible() {
+			nRow = 1
 		}
 	}
 }
