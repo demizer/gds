@@ -5,8 +5,6 @@
 
 package conui
 
-import "math"
-
 type Grid struct {
 	Rows        []Widget
 	Width       int
@@ -82,43 +80,19 @@ func (g *Grid) SelectPrevious() *DevicePanel {
 }
 
 func (g *Grid) scrollVisible() {
-	visibleArea := TermHeight() //- progressHeight
-
-	// calculate number of widgets before and after selected widget that should render or have parts rendered
-	deviceWidgetHeight := g.Rows[1].Height()
-	renderableWidgets := int(math.Ceil(float64(visibleArea / deviceWidgetHeight)))
-
-	// The y position of the selected widget
-	Log.Debugf("numWidgets: %d g.SelectedRow: %d renderableWidgets: %d visibleArea: %d", len(g.Rows), g.SelectedRow,
-		renderableWidgets, visibleArea)
-	Log.Debugf("renderableWidgets/2: %d", renderableWidgets/2)
-
-	// Set the position of the remaining visible widgets, skipping the selected widget
+	deviceWidgetHeight := float64(g.Rows[1].Height())
 	yPos := 0
-	firstVisible := g.SelectedRow - (renderableWidgets / 2)
-	if firstVisible == 0 {
-		firstVisible = 1
-	}
-	lastVisible := g.SelectedRow + (renderableWidgets / 2)
-
-	for x := 1; x <= len(g.Rows)-1; x++ {
-		Log.Debugf("x: %d firstVisible: %d lastVisible: %d", x, firstVisible, lastVisible)
-		if g.SelectedRow == 1 && x == 1 {
+	for x := 0; x < len(g.Rows); x++ {
+		if !g.Rows[x].IsVisible() {
+			continue
+		}
+		if g.SelectedRow == x {
 			// Reset view
 			yPos = g.Rows[0].Height()
-		} else if x >= firstVisible && x <= lastVisible {
-			if x == firstVisible {
-				yPos = 0
-			}
-			Log.Debugln("IN HERE X:", x-firstVisible, "yPos:", yPos)
-			yPos += (x - firstVisible) * deviceWidgetHeight
-			Log.Debugln("yPos:", yPos)
 		} else {
-			// Throw the panel off screen
-			yPos = TermHeight() + 1000
+			yPos += int(deviceWidgetHeight)
 		}
 		if wg, ok := g.Rows[x].(*DevicePanel); ok {
-			Log.Debugf("x: %d y: %d", x, yPos)
 			wg.SetY(yPos)
 		}
 	}
