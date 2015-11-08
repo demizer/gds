@@ -89,24 +89,19 @@ func dumpContextToFile(c *cli.Context, c2 *core.Context) {
 // each of the devices, but are hidden initially.
 func BuildConsole(c *core.Context) {
 	visible := c.OutputStreamNum
-	var panel []conui.Widget
 	for x, y := range c.Devices {
-		panel = append(panel, conui.NewDevicePanel(y.Name, y.SizeTotal))
+		conui.Body.DevicePanels = append(conui.Body.DevicePanels, conui.NewDevicePanel(y.Name, y.SizeTotal))
 		if visible > 0 {
 			log.Debugln("Making device", x, "visible")
-			panel[x].SetVisible(true)
+			conui.Body.DevicePanels[x].SetVisible(true)
 			if x == 0 {
-				panel[x].SetSelected(true)
+				conui.Body.DevicePanels[x].SetSelected(true)
 			}
 			visible--
 		}
 	}
-	panel[len(c.Devices)-1] = conui.NewProgressGauge(c.Catalog.TotalSize())
-	panel[len(c.Devices)-1].SetVisible(true)
-	conui.Body.AddRows(panel[len(c.Devices)-1])
-	for x, _ := range c.Devices {
-		conui.Body.AddRows(panel[x])
-	}
+	conui.Body.ProgressPanel = conui.NewProgressGauge(c.Catalog.TotalSize())
+	conui.Body.ProgressPanel.SetVisible(true)
 	conui.Layout()
 }
 
@@ -273,15 +268,19 @@ func syncStart(c *cli.Context) {
 	go eventListener(c2)
 	update(c2)
 
-	// Sync the things
-	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
-	if len(errs) > 0 {
-		for _, e := range errs {
-			log.Errorf("Sync error: %s", e.Error())
-		}
-	}
+	// // Sync the things
+	// errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
+	// if len(errs) > 0 {
+	// for _, e := range errs {
+	// log.Errorf("Sync error: %s", e.Error())
+	// }
+	// }
 
-	// Fin
-	dumpContextToFile(c, c2)
-	log.Info("ALL DONE -- Sync complete!")
+	// // Fin
+	// dumpContextToFile(c, c2)
+	// log.Info("ALL DONE -- Sync complete!")
+
+	for {
+		time.Sleep(time.Second)
+	}
 }

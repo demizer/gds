@@ -6,20 +6,25 @@
 package conui
 
 type Grid struct {
-	Rows                []Widget
+	SelectedDevicePanel int
+	DevicePanels        []Widget
+	DevicePanelHeight   int
+	ProgressPanel       *ProgressGauge
+	ProgressPanelHeight int
 	Width               int
 	X                   int
 	Y                   int
 	BgColor             Attribute
-	SelectedDevicePanel int
-	ProgressPanelHeight int
-	DevicePanelHeight   int
+}
+
+func NewGrid() *Grid {
+	return &Grid{DevicePanels: []Widget{}, ProgressPanel: &ProgressGauge{}}
 }
 
 func (g *Grid) selected() int {
 	var x int
 	var y Widget
-	for x, y = range g.Rows {
+	for x, y = range g.DevicePanels {
 		if y.IsSelected() {
 			break
 		}
@@ -28,19 +33,19 @@ func (g *Grid) selected() int {
 }
 
 func (g *Grid) deselectAll() {
-	for x, _ := range g.Rows {
-		if _, ok := g.Rows[x].(*DevicePanel); !ok {
+	for x, _ := range g.DevicePanels {
+		if _, ok := g.DevicePanels[x].(*DevicePanel); !ok {
 			continue
 		}
-		g.Rows[x].SetSelected(false)
-		g.Rows[x].(*DevicePanel).Border.FgColor = ColorWhite
+		g.DevicePanels[x].SetSelected(false)
+		g.DevicePanels[x].(*DevicePanel).Border.FgColor = ColorWhite
 	}
 }
 
 func (g *Grid) NumVisible() int {
 	num := 0
-	for x := 1; x < len(g.Rows)-1; x++ {
-		if g.Rows[x].(*DevicePanel).IsVisible() {
+	for x := 0; x < len(g.DevicePanels); x++ {
+		if g.DevicePanels[x].(*DevicePanel).IsVisible() {
 			num += 1
 		}
 	}
@@ -49,7 +54,7 @@ func (g *Grid) NumVisible() int {
 
 func (g *Grid) Select(index int) *DevicePanel {
 	g.deselectAll()
-	wg := g.Rows[index].(*DevicePanel)
+	wg := g.DevicePanels[index].(*DevicePanel)
 	g.SelectedDevicePanel = index
 	wg.SetSelected(true)
 	wg.SetVisible(true)
@@ -64,7 +69,7 @@ func (g *Grid) scrollVisible() {
 
 	if (TermHeight() - g.ProgressPanelHeight) < g.DevicePanelHeight {
 		Log.Debugln("scrollVisible: Rendering only selected panel (not enough term height)")
-		for x := 1; x < len(g.Rows)-1; x++ {
+		for x := 0; x < len(g.DevicePanels); x++ {
 			if dp := g.DevicePanelByIndex(x); dp != nil {
 				if x == g.SelectedDevicePanel {
 					dp.SetY(g.ProgressPanelHeight)
@@ -72,10 +77,10 @@ func (g *Grid) scrollVisible() {
 				}
 			}
 		}
-	} else if g.SelectedDevicePanel == 1 {
+	} else if g.SelectedDevicePanel == 0 {
 		Log.Debugln("scrollVisible: First visible panel selected")
-		yPos := 5
-		for x := 1; x < len(g.Rows)-1; x++ {
+		yPos := g.ProgressPanelHeight
+		for x := 0; x < len(g.DevicePanels); x++ {
 			if dp := g.DevicePanelByIndex(x); dp != nil {
 				if !dp.IsVisible() {
 					continue
@@ -87,7 +92,7 @@ func (g *Grid) scrollVisible() {
 	} else if g.DevicePanelByIndexNextVisible(g.SelectedDevicePanel) == g.SelectedDevicePanel {
 		Log.Debugln("scrollVisible: Last visible panel selected")
 		yPos := TermHeight() - g.DevicePanelHeight
-		for x := len(g.Rows) - 1; x > 0; x-- {
+		for x := len(g.DevicePanels) - 1; x >= 0; x-- {
 			if dp := g.DevicePanelByIndex(x); dp != nil {
 				if !dp.IsVisible() {
 					continue
@@ -107,7 +112,7 @@ func (g *Grid) scrollVisible() {
 		var visiblePanels []int
 		// The selected device will be set to the middle of the visible area
 		var selRowInVis int
-		for x := 1; x < len(g.Rows)-1; x++ {
+		for x := 0; x < len(g.DevicePanels); x++ {
 			if dp := g.DevicePanelByIndex(x); dp != nil {
 				if dp.IsVisible() {
 					visiblePanels = append(visiblePanels, x)
@@ -125,11 +130,11 @@ func (g *Grid) scrollVisible() {
 					Log.Debugln("scrollVisible:", selRowInVis-x, "rows before from g.SelectedDevicePanel")
 					ny := yPos - ((selRowInVis - x) * g.DevicePanelHeight)
 					Log.Debugf("scrollVisible: visiblePanels[%d] = %d", x, visiblePanels[x])
-					Log.Debugf("scrollVisible: g.Rows[%d].Y = %d", visiblePanels[x], ny)
+					Log.Debugf("scrollVisible: g.DevicePanels[%d].Y = %d", visiblePanels[x], ny)
 					dp.SetY(ny)
 					continue
 				} else if x == selRowInVis {
-					Log.Debugf("scrollVisible: g.Rows[%d].Y = %d", g.SelectedDevicePanel, yPos)
+					Log.Debugf("scrollVisible: g.DevicePanels[%d].Y = %d", g.SelectedDevicePanel, yPos)
 					dp.SetY(yPos)
 				} else {
 					Log.Debugln("scrollVisible:", x+1, "rows after g.SelectedDevicePanel")
@@ -149,14 +154,14 @@ func (g *Grid) SelectPrevious() *DevicePanel {
 	for {
 		g.SelectedDevicePanel--
 		if g.SelectedDevicePanel < 0 {
-			g.SelectedDevicePanel = len(g.Rows) - 1
+			g.SelectedDevicePanel = len(g.DevicePanels) - 1
 		}
-		if wg, ok = g.Rows[g.SelectedDevicePanel].(*DevicePanel); ok {
+		if wg, ok = g.DevicePanels[g.SelectedDevicePanel].(*DevicePanel); ok {
 			visible := wg.IsVisible()
 			Log.Debugf("SELECTED previous Widget[%d].Visible = %t", g.SelectedDevicePanel, visible)
 			if visible {
 				Log.Debugf("SelectPrevious: termHeight: %d wg.Y: %d wg.Height: %d", TermHeight(), wg.Y(), wg.Height())
-				if (g.NumVisible() * g.Rows[1].Height()) > (TermHeight() - 5) {
+				if (g.NumVisible() * g.DevicePanelHeight) > (TermHeight() - 5) {
 					g.scrollVisible()
 				}
 				break
@@ -174,15 +179,15 @@ func (g *Grid) SelectNext() *DevicePanel {
 	var ok bool
 	for {
 		g.SelectedDevicePanel++
-		if g.SelectedDevicePanel > len(g.Rows)-1 {
+		if g.SelectedDevicePanel > len(g.DevicePanels)-1 {
 			g.SelectedDevicePanel = 0
 		}
-		if wg, ok = g.Rows[g.SelectedDevicePanel].(*DevicePanel); ok {
+		if wg, ok = g.DevicePanels[g.SelectedDevicePanel].(*DevicePanel); ok {
 			visible := wg.IsVisible()
 			Log.Debugf("SelectNext: Widget[%d].Visible = %t", g.SelectedDevicePanel, visible)
 			if visible {
 				Log.Debugf("SelectNext: termHeight: %d wg.Y: %d wg.Height: %d", TermHeight(), wg.Y(), wg.Height())
-				if (g.NumVisible() * g.Rows[1].Height()) > (TermHeight() - 5) {
+				if (g.NumVisible() * g.DevicePanelHeight) > (TermHeight() - 5) {
 					g.scrollVisible()
 				}
 				break
@@ -194,11 +199,11 @@ func (g *Grid) SelectNext() *DevicePanel {
 }
 
 func (g *Grid) Selected() *DevicePanel {
-	return g.Rows[g.SelectedDevicePanel].(*DevicePanel)
+	return g.DevicePanels[g.SelectedDevicePanel].(*DevicePanel)
 }
 
 func (g *Grid) DevicePanelByIndex(index int) *DevicePanel {
-	if wg, ok := g.Rows[index].(*DevicePanel); ok {
+	if wg, ok := g.DevicePanels[index].(*DevicePanel); ok {
 		return wg
 	}
 	return nil
@@ -206,10 +211,10 @@ func (g *Grid) DevicePanelByIndex(index int) *DevicePanel {
 
 func (g *Grid) DevicePanelByIndexPreviousVisible(index int) int {
 	if index == 0 {
-		return 1
+		return 0
 	}
-	for x := index; x > 1; x-- {
-		if g.Rows[x].(*DevicePanel).IsVisible() {
+	for x := index; x > 0; x-- {
+		if g.DevicePanels[x].(*DevicePanel).IsVisible() {
 			return x
 		}
 	}
@@ -217,11 +222,11 @@ func (g *Grid) DevicePanelByIndexPreviousVisible(index int) int {
 }
 
 func (g *Grid) DevicePanelByIndexNextVisible(index int) int {
-	if index+1 > len(g.Rows) {
+	if index+1 > len(g.DevicePanels) {
 		return index
 	}
-	for x := index + 1; x < len(g.Rows)-1; x++ {
-		if g.Rows[x].(*DevicePanel).IsVisible() {
+	for x := index + 1; x < len(g.DevicePanels); x++ {
+		if g.DevicePanels[x].(*DevicePanel).IsVisible() {
 			return x
 		}
 	}
@@ -229,7 +234,7 @@ func (g *Grid) DevicePanelByIndexNextVisible(index int) int {
 }
 
 func (g *Grid) PromptByIndex(index int, prompt PromptAction) *DevicePanel {
-	wg := g.Rows[index].(*DevicePanel)
+	wg := g.DevicePanels[index].(*DevicePanel)
 	if wg != nil {
 		g.Select(index)
 		wg.SetVisible(true)
@@ -239,27 +244,15 @@ func (g *Grid) PromptByIndex(index int, prompt PromptAction) *DevicePanel {
 
 // ProgressGauge returns the overall progress gauge from the widget list.
 func (g *Grid) ProgressGauge() *ProgressGauge {
-	return g.Rows[len(g.Rows)-1].(*ProgressGauge)
-}
-
-// NewGrid returns *Grid with given rows.
-func NewGrid(rows ...Widget) *Grid {
-	return &Grid{Rows: rows}
-}
-
-// AddRows appends given rows to Grid.
-func (g *Grid) AddRows(rs ...Widget) {
-	for _, y := range rs {
-		g.Rows = append(g.Rows, y)
-	}
+	return g.DevicePanels[len(g.DevicePanels)-1].(*ProgressGauge)
 }
 
 // Buffer implments Bufferer interface.
 func (g Grid) Buffer() []Point {
 	ps := []Point{}
 	// LIFO with the rows... row 0 has the highest priority, meaning the codes in row 0 cannot be overwritten.
-	for x := len(g.Rows) - 1; x >= 0; x-- {
-		ps = append(ps, g.Rows[x].Buffer()...)
+	for x := len(g.DevicePanels) - 1; x > 0; x-- {
+		ps = append(ps, g.DevicePanels[x].Buffer()...)
 	}
 	return ps
 }
