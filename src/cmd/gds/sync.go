@@ -274,20 +274,14 @@ func syncStart(c *cli.Context) {
 	update(c2)
 
 	// Sync the things
-	// errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
-	// if len(errs) > 0 {
-	// for _, e := range errs {
-	// log.Errorf("Sync error: %s", e.Error())
-	// }
-	// }
-
-	// // Fin
-	// dumpContextToFile(c, c2)
-	// log.Info("ALL DONE -- Sync complete!")
-
-	// Keep the UI going so the user can see the greatness of their efforts
-	for {
-		// Breathing room
-		time.Sleep(time.Second)
+	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
+	if len(errs) > 0 {
+		for _, e := range errs {
+			log.Errorf("Sync error: %s", e.Error())
+		}
 	}
+
+	// Fin
+	dumpContextToFile(c, c2)
+	log.Info("ALL DONE -- Sync complete!")
 }
