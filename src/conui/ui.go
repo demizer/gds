@@ -37,7 +37,7 @@ func Init() error {
 	Body = NewGrid()
 	Body.X = 0
 	Body.Y = 0
-	Body.SelectedRow = 1
+	Body.SelectedDevicePanel = 1
 	Body.ProgressPanelHeight = 5
 	Body.DevicePanelHeight = 10
 	Body.BgColor = theme.BodyBg

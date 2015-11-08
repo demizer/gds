@@ -11,7 +11,7 @@ type Grid struct {
 	X                   int
 	Y                   int
 	BgColor             Attribute
-	SelectedRow         int
+	SelectedDevicePanel int
 	ProgressPanelHeight int
 	DevicePanelHeight   int
 }
@@ -50,7 +50,7 @@ func (g *Grid) NumVisible() int {
 func (g *Grid) Select(index int) *DevicePanel {
 	g.deselectAll()
 	wg := g.Rows[index].(*DevicePanel)
-	g.SelectedRow = index
+	g.SelectedDevicePanel = index
 	wg.SetSelected(true)
 	wg.SetVisible(true)
 	return wg
@@ -59,20 +59,20 @@ func (g *Grid) Select(index int) *DevicePanel {
 func (g *Grid) scrollVisible() {
 	visibleArea := TermHeight() - 5
 
-	Log.Debugf("scrollVisible: visibleArea: %d g.SelectedRow: %d numVisibleWidgets: %d",
-		visibleArea, g.SelectedRow, g.NumVisible())
+	Log.Debugf("scrollVisible: visibleArea: %d g.SelectedDevicePanel: %d numVisibleWidgets: %d",
+		visibleArea, g.SelectedDevicePanel, g.NumVisible())
 
 	if (TermHeight() - g.ProgressPanelHeight) < g.DevicePanelHeight {
 		Log.Debugln("scrollVisible: Rendering only selected panel (not enough term height)")
 		for x := 1; x < len(g.Rows)-1; x++ {
 			if dp := g.DevicePanelByIndex(x); dp != nil {
-				if x == g.SelectedRow {
+				if x == g.SelectedDevicePanel {
 					dp.SetY(g.ProgressPanelHeight)
 					continue
 				}
 			}
 		}
-	} else if g.SelectedRow == 1 {
+	} else if g.SelectedDevicePanel == 1 {
 		Log.Debugln("scrollVisible: First visible panel selected")
 		yPos := 5
 		for x := 1; x < len(g.Rows)-1; x++ {
@@ -84,7 +84,7 @@ func (g *Grid) scrollVisible() {
 				yPos += g.DevicePanelHeight
 			}
 		}
-	} else if g.DevicePanelByIndexNextVisible(g.SelectedRow) == g.SelectedRow {
+	} else if g.DevicePanelByIndexNextVisible(g.SelectedDevicePanel) == g.SelectedDevicePanel {
 		Log.Debugln("scrollVisible: Last visible panel selected")
 		yPos := TermHeight() - g.DevicePanelHeight
 		for x := len(g.Rows) - 1; x > 0; x-- {
@@ -98,9 +98,9 @@ func (g *Grid) scrollVisible() {
 		}
 	} else {
 		Log.Debugln("scrollVisible: In-between panel selected")
-		if dp := g.DevicePanelByIndex(g.SelectedRow); dp != nil {
+		if dp := g.DevicePanelByIndex(g.SelectedDevicePanel); dp != nil {
 			if (dp.Y()+g.DevicePanelHeight) < TermHeight() && dp.Y() > g.ProgressPanelHeight {
-				Log.Debugln("scrollVisible: SelectedRow is fully visible, not doing anything")
+				Log.Debugln("scrollVisible: SelectedDevicePanel is fully visible, not doing anything")
 				return
 			}
 		}
@@ -111,28 +111,28 @@ func (g *Grid) scrollVisible() {
 			if dp := g.DevicePanelByIndex(x); dp != nil {
 				if dp.IsVisible() {
 					visiblePanels = append(visiblePanels, x)
-					if x == g.SelectedRow {
+					if x == g.SelectedDevicePanel {
 						selRowInVis = len(visiblePanels) - 1
 					}
 				}
 			}
 		}
-		Log.Debugf("scrollVisible: visiblePanels: %+v g.SelectedRow: %d", visiblePanels, g.SelectedRow)
+		Log.Debugf("scrollVisible: visiblePanels: %+v g.SelectedDevicePanel: %d", visiblePanels, g.SelectedDevicePanel)
 		yPos := ((visibleArea / 2) - (g.DevicePanelHeight / 2)) + g.ProgressPanelHeight
 		for x := 0; x < len(visiblePanels); x++ {
 			if dp := g.DevicePanelByIndex(visiblePanels[x]); dp != nil {
 				if x < selRowInVis {
-					Log.Debugln("scrollVisible:", selRowInVis-x, "rows before from g.SelectedRow")
+					Log.Debugln("scrollVisible:", selRowInVis-x, "rows before from g.SelectedDevicePanel")
 					ny := yPos - ((selRowInVis - x) * g.DevicePanelHeight)
 					Log.Debugf("scrollVisible: visiblePanels[%d] = %d", x, visiblePanels[x])
 					Log.Debugf("scrollVisible: g.Rows[%d].Y = %d", visiblePanels[x], ny)
 					dp.SetY(ny)
 					continue
 				} else if x == selRowInVis {
-					Log.Debugf("scrollVisible: g.Rows[%d].Y = %d", g.SelectedRow, yPos)
+					Log.Debugf("scrollVisible: g.Rows[%d].Y = %d", g.SelectedDevicePanel, yPos)
 					dp.SetY(yPos)
 				} else {
-					Log.Debugln("scrollVisible:", x+1, "rows after g.SelectedRow")
+					Log.Debugln("scrollVisible:", x+1, "rows after g.SelectedDevicePanel")
 					dp.SetY(yPos)
 				}
 				yPos += g.DevicePanelHeight
@@ -142,18 +142,18 @@ func (g *Grid) scrollVisible() {
 }
 
 func (g *Grid) SelectPrevious() *DevicePanel {
-	g.SelectedRow = g.selected()
+	g.SelectedDevicePanel = g.selected()
 	g.deselectAll()
 	var wg *DevicePanel
 	var ok bool
 	for {
-		g.SelectedRow--
-		if g.SelectedRow < 0 {
-			g.SelectedRow = len(g.Rows) - 1
+		g.SelectedDevicePanel--
+		if g.SelectedDevicePanel < 0 {
+			g.SelectedDevicePanel = len(g.Rows) - 1
 		}
-		if wg, ok = g.Rows[g.SelectedRow].(*DevicePanel); ok {
+		if wg, ok = g.Rows[g.SelectedDevicePanel].(*DevicePanel); ok {
 			visible := wg.IsVisible()
-			Log.Debugf("SELECTED previous Widget[%d].Visible = %t", g.SelectedRow, visible)
+			Log.Debugf("SELECTED previous Widget[%d].Visible = %t", g.SelectedDevicePanel, visible)
 			if visible {
 				Log.Debugf("SelectPrevious: termHeight: %d wg.Y: %d wg.Height: %d", TermHeight(), wg.Y(), wg.Height())
 				if (g.NumVisible() * g.Rows[1].Height()) > (TermHeight() - 5) {
@@ -168,18 +168,18 @@ func (g *Grid) SelectPrevious() *DevicePanel {
 }
 
 func (g *Grid) SelectNext() *DevicePanel {
-	g.SelectedRow = g.selected()
+	g.SelectedDevicePanel = g.selected()
 	g.deselectAll()
 	var wg *DevicePanel
 	var ok bool
 	for {
-		g.SelectedRow++
-		if g.SelectedRow > len(g.Rows)-1 {
-			g.SelectedRow = 0
+		g.SelectedDevicePanel++
+		if g.SelectedDevicePanel > len(g.Rows)-1 {
+			g.SelectedDevicePanel = 0
 		}
-		if wg, ok = g.Rows[g.SelectedRow].(*DevicePanel); ok {
+		if wg, ok = g.Rows[g.SelectedDevicePanel].(*DevicePanel); ok {
 			visible := wg.IsVisible()
-			Log.Debugf("SelectNext: Widget[%d].Visible = %t", g.SelectedRow, visible)
+			Log.Debugf("SelectNext: Widget[%d].Visible = %t", g.SelectedDevicePanel, visible)
 			if visible {
 				Log.Debugf("SelectNext: termHeight: %d wg.Y: %d wg.Height: %d", TermHeight(), wg.Y(), wg.Height())
 				if (g.NumVisible() * g.Rows[1].Height()) > (TermHeight() - 5) {
@@ -194,7 +194,7 @@ func (g *Grid) SelectNext() *DevicePanel {
 }
 
 func (g *Grid) Selected() *DevicePanel {
-	return g.Rows[g.SelectedRow].(*DevicePanel)
+	return g.Rows[g.SelectedDevicePanel].(*DevicePanel)
 }
 
 func (g *Grid) DevicePanelByIndex(index int) *DevicePanel {
