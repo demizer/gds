@@ -4,18 +4,17 @@
 #
 # Requires setting user mountable paths in /etc/fstab:
 #
-# /home/demizer/.config/gds/test/gds-test-dev-0       /mnt/gds-test-0         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-1       /mnt/gds-test-1         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-2       /mnt/gds-test-2         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-3       /mnt/gds-test-3         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-4       /mnt/gds-test-4         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-5       /mnt/gds-test-5         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-6       /mnt/gds-test-6         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-7       /mnt/gds-test-7         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-8       /mnt/gds-test-8         ext4 noauto,defaults,user 0 0
-# /home/demizer/.config/gds/test/gds-test-dev-9       /mnt/gds-test-9         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-0       /mnt/gds-test-0         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-1       /mnt/gds-test-1         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-2       /mnt/gds-test-2         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-3       /mnt/gds-test-3         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-4       /mnt/gds-test-4         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-5       /mnt/gds-test-5         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-6       /mnt/gds-test-6         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-7       /mnt/gds-test-7         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-8       /mnt/gds-test-8         ext4 noauto,defaults,user 0 0
+# /home/demizer/.config/gds/test/gds-test-9       /mnt/gds-test-9         ext4 noauto,defaults,user 0 0
 #
-
 
 #
 # START CONFIG SECTION
@@ -28,7 +27,7 @@ DEVICE_DESTPATH="/home/demizer/.config/gds/test"
 # overhead
 EMU_DATASIZE_BYTES=65489123330
 EMU_NUM_DEVICES=8
-EMU_DEVICE_NAME_PREFIX="gds-emu-test"
+EMU_DEVICE_NAME_PREFIX="gds-test"
 EMU_DEV_UUID[0]="51f5a503-f670-46a5-8098-59fa69af6fed"
 EMU_DEV_UUID[1]="40b46262-96dc-4fb2-a765-a0c948794305"
 EMU_DEV_UUID[2]="79d583e5-dab9-40ad-ad98-253ae0fde964"
@@ -93,7 +92,7 @@ error() {
 debug() {
     # $1: The message to print.
     if [[ $DEBUG -eq 1 ]]; then
-        plain "DEBUG: $1"
+        plain "DEBUG: ${1}"
     fi
 }
 
@@ -142,9 +141,9 @@ trap 'trap_exit' EXIT
 NAME=$(basename $0)
 
 usage() {
-    echo "$NAME - gds test device management tool"
+    echo "${NAME} - gds test device management tool"
     echo
-	echo "Usage: $NAME [options] <command> <test>"
+	echo "Usage: ${NAME} [options] <command> <test>"
     echo
     echo "Options:"
     echo
@@ -165,7 +164,7 @@ usage() {
     echo
 	echo "Examples:"
     echo
-    echo "    $NAME make_emu_test :: Create the test devices."
+    echo "    $NAME make emu_test :: Create the test devices."
 }
 
 if [[ $# -lt 1 ]]; then
@@ -199,7 +198,7 @@ function format_ext4() {
     # $1 - Device file path
     # $2 - UUID of device
     msg2 "Formatting ext4..."
-    run_cmd "mkfs.ext4 -F -U $2 $1"
+    run_cmd "mkfs.ext4 -F -U ${2} ${1}"
 }
 
 function make_devices() {
@@ -209,89 +208,83 @@ function make_devices() {
     # $4 - Disk size in blocks
     # $5 - Block size (for dd)
     # $6 - Disk size in bytes
-    if [[ "$3" == "gds-emu-test" ]]; then
+    if [[ "${3}" == "$EMU_DEVICE_NAME_PREFIX" ]]; then
         arry=(${EMU_DEV_UUID[@]})
     fi
     for (( x = 0; x < $1; x++)); do
-        OF="$2/$3-$x"
-        msg "Setting '$OF' to all zeroes"
-        dd if=/dev/zero count=$4 bs=$5 2> /dev/null | pv -prb -s $6 | dd of="$OF" 2> /dev/null
-        format_ext4 "$OF" "${arry[$x]}"
+        OF="${2}/${3}-${x}"
+        msg "Setting '${OF}' to all zeroes"
+        dd if=/dev/zero count=$4 bs=$5 2> /dev/null | pv -prb -s $6 | dd of="${OF}" 2> /dev/null
+        format_ext4 "${OF}" "${arry[$x]}"
     done
 }
 
 function mount_devices() {
     # $1 - Number of devices
     # $2 - Device name prefix
-    # Clear out old symlinks
-    run_cmd "find $DEVICE_DESTPATH -iname 'gds-test-dev*' -type l -exec rm {} \;"
     for (( x = 0; x < $1; x++)); do
-        symName="gds-test-dev-$x"
-        msg2 "Creating symlink for $symName"
-        run_cmd "ln -s $DEVICE_DESTPATH/$2-$x $DEVICE_DESTPATH/$symName"
-        mnt="gds-test-$x"
-        msg2 "Mounting $mnt"
-        run_cmd "mount /mnt/$mnt"
+        mnt="${EMU_DEVICE_NAME_PREFIX}-${x}"
+        msg2 "Mounting ${mnt}"
+        run_cmd "mount /mnt/${mnt}"
     done
 }
 
 function umount_devices() {
     # $1 - Number of devices
+    # $2 - Device name prefix
     for (( x = 0; x < $1; x++)); do
-        mnt="gds-test-$x"
-        if [[ "$(mountpoint /mnt/$mnt; echo $?)" == 0 ]]; then
-            msg2 "Un-mounting $mnt"
-            run_cmd "umount /mnt/$mnt"
+        mnt="${2}-${x}"
+        if [[ "$(mountpoint -q /mnt/${mnt}; echo $?)" == 0 ]]; then
+            msg2 "Un-mounting ${mnt}"
+            run_cmd "umount /mnt/${mnt}"
         fi
     done
-    # Clear out old symlinks
-    run_cmd "find $DEVICE_DESTPATH -iname 'gds-test-dev*' -type l -exec rm {} \;"
 }
 
 function make_devices_writable() {
     # $1 - Number of devices
     for (( x = 0; x < $1; x++)); do
-        mnt="gds-test-$x"
-        msg2 "chgrp users for $mnt"
-        run_cmd "sudo chgrp -R users /mnt/$mnt"
-        run_cmd "sudo chmod -R g+w /mnt/$mnt"
+        mnt="${EMU_DEVICE_NAME_PREFIX}-${x}"
+        msg2 "chgrp users for ${mnt}"
+        run_cmd "sudo chgrp -R users /mnt/${mnt}"
+        run_cmd "sudo chmod -R g+w /mnt/${mnt}"
     done
 }
 
 function wipe_devices() {
     # $1 - Number of devices
     # $2 - Device name prefix
-    if [[ "$2" == "gds-emu-test" ]]; then
+    if [[ "${2}" == "$EMU_DEVICE_NAME_PREFIX" ]]; then
         arry=(${EMU_DEV_UUID[@]})
     fi
     for (( x = 0; x < $1; x++)); do
-        dev="$DEVICE_DESTPATH/$2-$x"
-        format_ext4 "$dev" "${arry[$x]}"
+        dev="${DEVICE_DESTPATH}/${2}-${x}"
+        format_ext4 "${dev}" "${arry[$x]}"
     done
 }
 
-[[ ! -d $DEVICE_DESTPATH ]] && mkdir -p $DEVICE_DESTPATH
+[[ ! -d "${DEVICE_DESTPATH}" ]] && mkdir -p "${DEVICE_DESTPATH}"
 
-if [[ "$MKT_EMU_TEST" == 1 ]]; then
-    if [[ "$MKT_MAKE" == 1 ]]; then
+if [[ "${MKT_EMU_TEST}" == 1 ]]; then
+    if [[ "${MKT_MAKE}" == 1 ]]; then
         DISKSIZE=$(($EMU_DATASIZE_BYTES/$EMU_NUM_DEVICES))
         DISKSIZE_IN_BLOCKS=$(($DISKSIZE/4096))
-        msg "Creating $EMU_NUM_DEVICES devices!"
+        msg "Creating ${EMU_NUM_DEVICES} devices!"
         make_devices $EMU_NUM_DEVICES $DEVICE_DESTPATH $EMU_DEVICE_NAME_PREFIX $DISKSIZE_IN_BLOCKS "4k" $DISKSIZE
     fi
-    if [[ "$MKT_MOUNT" == 1 ]]; then
+    if [[ "${MKT_MOUNT}" == 1 ]]; then
         msg "Mounting emulation backup devices"
         mount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
-        gown=$(stat '/mnt/gds-test-0' | grep 'Gid:' | awk '{print $10}' | grep -o '[[:alnum:]]*')
-        debug "gown: $gown"
-        if [[ "$gown" != "users" ]]; then
+        gown=$(stat "/mnt/${EMU_DEVICE_NAME_PREFIX}-0" | grep 'Gid:' | awk '{print $10}' | grep -o '[[:alnum:]]*')
+        debug "gown: ${gown}"
+        if [[ "${gown}" != "users" ]]; then
             msg "Setting write permissions"
             make_devices_writable $EMU_NUM_DEVICES
         fi
-    elif [[ "$MKT_UMOUNT" == 1 || "$MKT_WIPE" == 1 ]]; then
+    elif [[ "${MKT_UMOUNT}" == 1 || "${MKT_WIPE}" == 1 ]]; then
         msg "Un-mounting emulation backup devices"
         umount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
-        if [[ "$MKT_WIPE" == 1 ]]; then
+        if [[ "${MKT_WIPE}" == 1 ]]; then
             wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
         fi
     fi

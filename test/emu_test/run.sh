@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ "$(basename $PWD)" != "gds" ]]; then
+if [[ "$(basename ${PWD})" != "gds" ]]; then
     echo "Please run from toplevel gds project directory"
     exit 1;
 fi
@@ -12,6 +12,9 @@ conf="test/emu_test/config.yml"
 
 # Prepare the mount points
 if [[ ! -n "$1" ]]; then
+    if [[ ! -f "${HOME}/.config/gds/test/gds-test-0" ]]; then
+        test/scripts/mktestfs.sh make emu_test
+    fi
     test/scripts/mktestfs.sh wipe emu_test
     test/scripts/mktestfs.sh mount emu_test
 fi
@@ -28,12 +31,12 @@ error() {
 # Build the f'n thing
 gb build -q
 if [[ $? == 0 ]]; then
-    ./bin/gds -c "$conf" --log "$lp" --context "$ctxl" --log-level debug sync 2> /tmp/gds-error
+    ./bin/gds -c "${conf}" --log "${lp}" --context "${ctxl}" --log-level debug sync 2> /tmp/gds-error
     if [[ "$(echo $?)" > 0 ]]; then
         reset
-        echo -e "\n" >> "$lp"
-        cat /tmp/gds-error >> "$lp"
-        error "A fatal error has occurred. See '$lp' for more details."
+        echo -e "\n" >> "${lp}"
+        cat /tmp/gds-error >> "${lp}"
+        error "A fatal error has occurred. See '${lp}' for more details."
     fi
     rm -rf src/cmd/gds/gds 2> /dev/null
 fi
