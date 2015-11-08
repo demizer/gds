@@ -213,7 +213,7 @@ func (g *Grid) DevicePanelByIndexPreviousVisible(index int) int {
 	if index == 0 {
 		return 0
 	}
-	for x := index; x > 0; x-- {
+	for x := index; x >= 0; x-- {
 		if g.DevicePanels[x].(*DevicePanel).IsVisible() {
 			return x
 		}
@@ -240,11 +240,6 @@ func (g *Grid) PromptByIndex(index int, prompt PromptAction) *DevicePanel {
 		wg.SetVisible(true)
 	}
 	return wg
-}
-
-// ProgressGauge returns the overall progress gauge from the widget list.
-func (g *Grid) ProgressGauge() *ProgressGauge {
-	return g.DevicePanels[len(g.DevicePanels)-1].(*ProgressGauge)
 }
 
 // Buffer implments Bufferer interface.

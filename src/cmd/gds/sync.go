@@ -223,7 +223,7 @@ func update(c *core.Context) {
 			for {
 				select {
 				case p := <-c.SyncProgress[index]:
-					prg := conui.Body.ProgressGauge()
+					prg := conui.Body.ProgressPanel
 					prg.SizeWritn = p.ProgressSizeWritn
 					dw := conui.Body.DevicePanelByIndex(index)
 					dw.SizeWritn = p.DeviceSizeWritn
@@ -268,19 +268,15 @@ func syncStart(c *cli.Context) {
 	go eventListener(c2)
 	update(c2)
 
-	// // Sync the things
-	// errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
-	// if len(errs) > 0 {
-	// for _, e := range errs {
-	// log.Errorf("Sync error: %s", e.Error())
-	// }
-	// }
-
-	// // Fin
-	// dumpContextToFile(c, c2)
-	// log.Info("ALL DONE -- Sync complete!")
-
-	for {
-		time.Sleep(time.Second)
+	// Sync the things
+	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
+	if len(errs) > 0 {
+		for _, e := range errs {
+			log.Errorf("Sync error: %s", e.Error())
+		}
 	}
+
+	// Fin
+	dumpContextToFile(c, c2)
+	log.Info("ALL DONE -- Sync complete!")
 }
