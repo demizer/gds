@@ -98,15 +98,45 @@ func (g *Grid) scrollVisible() {
 		}
 	} else {
 		Log.Debugln("scrollVisible: In-between panel selected")
-		yPos := ((visibleArea / 2) - (g.DevicePanelHeight / 2)) + g.ProgressPanelHeight
-		for x := 1; x < len(g.Rows)-1; x++ {
-			dp := g.DevicePanelByIndex(x)
-			if x == g.SelectedRow-1 {
-				dp.SetY(yPos - g.DevicePanelHeight)
-				continue
+		if dp := g.DevicePanelByIndex(g.SelectedRow); dp != nil {
+			if (dp.Y()+g.DevicePanelHeight) < TermHeight() && dp.Y() > g.ProgressPanelHeight {
+				Log.Debugln("scrollVisible: SelectedRow is fully visible, not doing anything")
+				return
 			}
-			dp.SetY(yPos)
-			yPos += g.DevicePanelHeight
+		}
+		var visiblePanels []int
+		// The selected device will be set to the middle of the visible area
+		var selRowInVis int
+		for x := 1; x < len(g.Rows)-1; x++ {
+			if dp := g.DevicePanelByIndex(x); dp != nil {
+				if dp.IsVisible() {
+					visiblePanels = append(visiblePanels, x)
+					if x == g.SelectedRow {
+						selRowInVis = len(visiblePanels) - 1
+					}
+				}
+			}
+		}
+		Log.Debugf("scrollVisible: visiblePanels: %+v g.SelectedRow: %d", visiblePanels, g.SelectedRow)
+		yPos := ((visibleArea / 2) - (g.DevicePanelHeight / 2)) + g.ProgressPanelHeight
+		for x := 0; x < len(visiblePanels); x++ {
+			if dp := g.DevicePanelByIndex(visiblePanels[x]); dp != nil {
+				if x < selRowInVis {
+					Log.Debugln("scrollVisible:", selRowInVis-x, "rows before from g.SelectedRow")
+					ny := yPos - ((selRowInVis - x) * g.DevicePanelHeight)
+					Log.Debugf("scrollVisible: visiblePanels[%d] = %d", x, visiblePanels[x])
+					Log.Debugf("scrollVisible: g.Rows[%d].Y = %d", visiblePanels[x], ny)
+					dp.SetY(ny)
+					continue
+				} else if x == selRowInVis {
+					Log.Debugf("scrollVisible: g.Rows[%d].Y = %d", g.SelectedRow, yPos)
+					dp.SetY(yPos)
+				} else {
+					Log.Debugln("scrollVisible:", x+1, "rows after g.SelectedRow")
+					dp.SetY(yPos)
+				}
+				yPos += g.DevicePanelHeight
+			}
 		}
 	}
 }
