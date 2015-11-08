@@ -37,6 +37,9 @@ func Init() error {
 	Body = NewGrid()
 	Body.X = 0
 	Body.Y = 0
+	Body.SelectedRow = 1
+	Body.ProgressPanelHeight = 5
+	Body.DevicePanelHeight = 10
 	Body.BgColor = theme.BodyBg
 
 	err := termbox.Init()
@@ -54,15 +57,23 @@ func Close() {
 
 func Layout() {
 	yPos := 0
-	for x := 0; x < len(Body.Rows); x++ {
-		row := Body.Rows[x]
-		yHeight := row.Height()
-		if x == len(Body.Rows)-1 {
-			// Rows[0] is the overall progress row...
-			row.SetY(0)
-		} else {
-			row.SetY(yPos)
+	Log.Debugf("Layout: NumVisible: %d TermHeight: %d Body.Rows[0].Height: %d", Body.NumVisible(), TermHeight(),
+		Body.Rows[0].Height())
+	if (Body.NumVisible() * Body.Rows[1].Height()) > (TermHeight() - 5) {
+		Log.Debugln("Layout: Calling Body.scrollVisible()")
+		Body.scrollVisible()
+	} else {
+		Log.Debugln("Layout: Default rendering")
+		for x := 0; x < len(Body.Rows); x++ {
+			row := Body.Rows[x]
+			yHeight := row.Height()
+			if x == len(Body.Rows)-1 {
+				// Rows[0] is the overall progress row, so draw it last
+				row.SetY(0)
+			} else {
+				row.SetY(yPos)
+			}
+			yPos += yHeight
 		}
-		yPos += yHeight
 	}
 }

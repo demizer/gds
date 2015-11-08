@@ -145,7 +145,7 @@ func eventListener(c *core.Context) {
 				go func() { conui.Redraw <- true }()
 			}
 		case <-conui.Redraw:
-			conui.Render(conui.Body)
+			conui.Render()
 		}
 	}
 }

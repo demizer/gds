@@ -25,10 +25,10 @@ func TermHeight() int {
 	return h
 }
 
-func Render(rs ...Bufferer) {
+func Render() {
 	termbox.Clear(termbox.ColorDefault, termbox.Attribute(theme.BodyBg))
-	for _, r := range rs {
-		buf := r.Buffer()
+	for x := 0; x < len(Body.Rows); x++ {
+		buf := Body.Rows[x].Buffer()
 		for _, v := range buf {
 			termbox.SetCell(v.X, v.Y, v.Ch, termbox.Attribute(v.Fg), termbox.Attribute(v.Bg))
 		}

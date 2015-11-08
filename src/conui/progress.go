@@ -111,15 +111,17 @@ func (g *ProgressGauge) Buffer() []Point {
 	if g.SizeWritn < 100 {
 		g.percent = 0
 	}
+	// Clear inside of panel
+	for i := 0; i < g.innerHeight; i++ {
+		for j := 0; j < g.innerWidth; j++ {
+			ps = append(ps, Point{X: g.innerX + j, Y: g.innerY + i, Ch: ' '})
+		}
+	}
 	// plot bar
 	w := g.percent * g.innerWidth / 100
 	for i := 0; i < g.innerHeight; i++ {
 		for j := 0; j < w; j++ {
-			p := Point{}
-			p.X = g.innerX + j
-			p.Y = g.innerY + i
-			p.Ch = ' '
-			p.Bg = ColorCyan
+			p := Point{X: g.innerX + j, Y: g.innerY + i, Ch: ' ', Bg: ColorCyan}
 			if p.Bg == ColorDefault {
 				p.Bg |= AttrReverse
 			}
