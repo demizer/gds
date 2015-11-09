@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -417,7 +416,6 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 func Sync(c *Context, disableContextSave bool) []error {
 	var retError []error
 	var lastDevice *Device
-	var wg sync.WaitGroup
 
 	totalSyncSize = c.Catalog.TotalSize()
 	Log.WithFields(logrus.Fields{
@@ -427,11 +425,8 @@ func Sync(c *Context, disableContextSave bool) []error {
 
 	c.LastSyncStartDate = time.Now()
 
+	// Collects errors for final report
 	errCollector := func(errs *[]error, eChan chan error) {
-		defer func() {
-			wg.Done()
-			Log.Debugln("ERROR COLLECTOR DEFER WG.DONE()")
-		}()
 		select {
 		case err, ok := <-eChan:
 			if !ok {
@@ -443,68 +438,78 @@ func Sync(c *Context, disableContextSave bool) []error {
 		Log.Debugln("Breaking error reporting loop!")
 	}
 
-	i := 0
-	for i < len(c.Catalog) {
-		Log.Debugln("Starting Sync() iteration", i)
-		trackers := make(map[int]chan tracker) // Channel for communicating progress trackers
-		errorChan := make(chan error, 10)
-		for j := 0; j < c.OutputStreamNum; j++ {
-			d := &(c.Devices)[i+j]
-			// ENSURE DEVICE IS MOUNTED
-			// Block until a reply is sent. Discard the value because it's not important.
-			Log.Debugln("Sending SyncDeviceMount channel request to index", i+j)
-			c.SyncDeviceMount[i+j] <- true
-			<-c.SyncDeviceMount[i+j]
-			Log.Debugf("Received response from SyncDeviceMount[%d] channel request", i+j)
-			preSync(d, &c.Catalog)
-			if len(c.Devices) > i+j {
-				lastDevice = d
+	// Reports progress data to controlling goroutine
+	progressReporter := func(trakIndex int, trakc <-chan tracker, fileNum int) {
+		for {
+			ns := time.Now()
+			progress, ok := <-trakc
+			if !ok {
+				break
 			}
-			trackers[i+j] = make(chan tracker, 100)
-
-			wg.Add(1)
-			go errCollector(&retError, errorChan)
-
-			wg.Add(1)
-			go func(index int, dev *Device) {
-				defer func() {
-					wg.Done()
-					Log.Debugln("SYNC DEFER WG.DONE()")
-				}()
-				sync2dev(dev, &c.Catalog, trackers[index], errorChan)
-			}(i+j, d)
+			Log.Debugln("TIME AFTER TRACKER RECEIVE:", time.Since(ns))
+			ns = time.Now()
+			progress.report(c.Devices, c.SyncProgress[trakIndex], c.SyncFileProgress[trakIndex])
+			Log.Debugln("TIME AFTER TRACKER REPORT:", time.Since(ns))
 		}
-		for x, y := range trackers {
-			wg.Add(1)
-			f := c.Catalog[(c.Devices)[x].Name]
-			go func(index int, trakc <-chan tracker, fileNum int) {
-				defer func() {
-					wg.Done()
-					Log.Debugln("TRACKER", index, "DEFER WG.DONE()")
-				}()
-				for {
-					ns := time.Now()
-					progress, ok := <-trakc
-					if !ok {
-						break
-					}
-					Log.Debugln("TIME AFTER TRACKER RECEIVE:", time.Since(ns))
-					ns = time.Now()
-					progress.report(c.Devices, c.SyncProgress[index], c.SyncFileProgress[index])
-					Log.Debugln("TIME AFTER TRACKER REPORT:", time.Since(ns))
-				}
-			}(x, y, len(f))
-		}
-		Log.Debugln("Sync: At wg.Wait()...")
-		wg.Wait()
-		Log.Debugln("Sync: iteration", i, "finished!")
-		i++
+		Log.Debugln("TRACKER", trakIndex, "DONE")
 	}
+
+	i := 0
+	streamCount := 0
+	trackers := make(map[int]chan tracker) // Channel for communicating progress
+
+	// GO GO GO
+	for {
+		if i >= len(c.Catalog) {
+			Log.Debugln("Breaking main sync loop! Counter:", i)
+			break
+		}
+		if streamCount < c.OutputStreamNum {
+			streamCount += 1
+			// Launch into go routine in case exec is blocked waiting for a user to mount a device
+			go func(index int) {
+				Log.Debugln("Starting Sync() iteration", index)
+				d := &(c.Devices)[index]
+
+				// ENSURE DEVICE IS MOUNTED
+				// Block until a reply is sent. Discard the value because it's not important.
+				Log.Debugln("Sending SyncDeviceMount channel request to index", index)
+				c.SyncDeviceMount[index] <- true
+				<-c.SyncDeviceMount[index]
+				Log.Debugf("Received response from SyncDeviceMount[%d] channel request", index)
+
+				preSync(d, &c.Catalog)
+				if len(c.Devices) > index {
+					lastDevice = d
+				}
+
+				errorChan := make(chan error, 10)
+				trackers[index] = make(chan tracker, 100)
+
+				go errCollector(&retError, errorChan)
+
+				go progressReporter(index, trackers[index], len(c.Catalog[(c.Devices)[index].Name]))
+
+				// Finally, starting syncing!
+				go func(syncIndex int, dev *Device) {
+					sync2dev(dev, &c.Catalog, trackers[syncIndex], errorChan)
+					streamCount -= 1
+					Log.Debugln("SYNC", syncIndex, "DONE")
+				}(index, d)
+			}(i)
+			i += 1
+		} else {
+			// Give exec some breathing room
+			time.Sleep(time.Second)
+		}
+	}
+
 	if !disableContextSave {
 		_, err := saveSyncContext(c, lastDevice)
 		if err != nil {
 			retError = append(retError, err)
 		}
 	}
+
 	return retError
 }

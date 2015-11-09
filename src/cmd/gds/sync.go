@@ -279,4 +279,9 @@ func syncStart(c *cli.Context) {
 	// Fin
 	dumpContextToFile(c, c2)
 	log.Info("ALL DONE -- Sync complete!")
+
+	// Give the user time to review the sync in the UI
+	for {
+		time.Sleep(time.Second)
+	}
 }
