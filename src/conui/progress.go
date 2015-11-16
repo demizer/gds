@@ -141,13 +141,13 @@ func (g *ProgressGauge) Buffer() []Point {
 		p.Y = pry
 		p.Ch = v
 		p.Fg = ColorWhite
-		if w+g.x > pos+i {
+		if w+g.x+1 > pos+i {
 			p.Bg = ColorCyan
 			if p.Bg == ColorDefault {
 				p.Bg |= AttrReverse
 			}
-			// } else {
-			// p.Bg = g.BgColor
+		} else {
+			p.Bg = ColorBlack
 		}
 
 		ps = append(ps, p)
