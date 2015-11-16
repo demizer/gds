@@ -153,12 +153,9 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 	<-c.SyncDeviceMount[deviceIndex]
 	log.Debugf("Receive from SyncDeviceMount[%d] after wait of %s", deviceIndex, time.Since(ns))
 
-	// Get the panel widget so we can write messages for the user to it
-	wg := conui.Body.Select(deviceIndex)
-	d, err := c.Devices.DeviceByName(wg.Border.Label)
-	if err != nil {
-		log.Error(err)
-	}
+	d := &c.Devices[deviceIndex]
+	wg := conui.Body.DevicePanelByIndex(deviceIndex)
+	wg.SetVisible(true)
 
 	deviceIsReady := false
 	checkDevice := func(p *conui.PromptAction) error {
@@ -167,7 +164,6 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 		if err != nil {
 			log.Errorf("checkDevice error: %s", err)
 			switch err.(type) {
-
 			case deviceTestPermissionDeniedError:
 				p.Message = "Device is mounted but not writable... " +
 					"Please fix write permissions then press Enter to continue."
@@ -177,6 +173,9 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 			return err
 		}
 		deviceIsReady = true
+		if deviceIndex == 0 {
+			wg.SetSelected(true)
+		}
 		return err
 	}
 
@@ -200,13 +199,14 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 			break
 		}
 		// Rate limit
-		err = checkDevice(prompt)
+		err := checkDevice(prompt)
 		if err != nil {
 			time.Sleep(time.Second * 15)
 			continue
 		}
 		break
 	}
+
 	// The prompt is not needed anymore
 	wg.SetPrompt(nil)
 	c.SyncDeviceMount[deviceIndex] <- true

@@ -56,7 +56,6 @@ func (g *Grid) Select(index int) *DevicePanel {
 	g.deselectAll()
 	wg := g.DevicePanels[index].(*DevicePanel)
 	g.SelectedDevicePanel = index
-	wg.SetSelected(true)
 	wg.SetVisible(true)
 	return wg
 }
@@ -237,6 +236,7 @@ func (g *Grid) PromptByIndex(index int, prompt PromptAction) *DevicePanel {
 	wg := g.DevicePanels[index].(*DevicePanel)
 	if wg != nil {
 		g.Select(index)
+		wg.SetSelected(true)
 		wg.SetVisible(true)
 	}
 	return wg
