@@ -460,11 +460,14 @@ func Sync(c *Context, disableContextSave bool) []error {
 
 	// GO GO GO
 	for {
-		if i >= len(c.Catalog) {
+		if i == len(c.Catalog) && streamCount == 0 {
 			Log.Debugln("Breaking main sync loop! Counter:", i)
 			break
 		}
-		if streamCount < c.OutputStreamNum {
+		Log.WithFields(logrus.Fields{
+			"Index": i, "c.OutputStreamNum": c.OutputStreamNum, "streamCount": streamCount,
+		}).Debugln("Stream count status")
+		if i < len(c.Devices) && streamCount < c.OutputStreamNum {
 			streamCount += 1
 			// Launch into go routine in case exec is blocked waiting for a user to mount a device
 			go func(index int) {
