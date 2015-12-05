@@ -96,6 +96,8 @@ debug() {
     fi
 }
 
+export RUN_CMD_RETURN=0
+
 run_cmd() {
     # $1: The command to run
     if [[ $DRY_RUN -eq 1 ]]; then
@@ -105,19 +107,18 @@ run_cmd() {
     else
         plain "Running command: $@"
         eval "$@"
-        plain "Command returned: $?"
+        RUN_CMD_RETURN=$?
+        plain "Command returned: $RUN_CMD_RETURN"
     fi
 }
 
 cleanup() {
-	# [[ -n $WORKDIR ]] && rm -rf "$WORKDIR"
-	[[ $1 ]] && exit $1
-    exit 0
+    exit $1 || true
 }
 
 abort() {
 	msg 'Aborting...'
-	cleanup 0
+	cleanup 1
 }
 
 trap_abort() {
@@ -194,14 +195,18 @@ for (( a = 0; a < $#; a++ )); do
     fi
 done
 
-function format_ext4() {
+format_ext4() {
     # $1 - Device file path
     # $2 - UUID of device
     msg2 "Formatting ext4..."
     run_cmd "mkfs.ext4 -F -U ${2} ${1}"
+    if [[ ${RUN_CMD_RETURN} != 0 ]]; then
+        error "Could not format ${1}!"
+        return 1
+    fi
 }
 
-function make_devices() {
+make_devices() {
     # $1 - Number of devices
     # $2 - Destination path
     # $3 - Name prefix
@@ -215,21 +220,28 @@ function make_devices() {
         OF="${2}/${3}-${x}"
         msg "Setting '${OF}' to all zeroes"
         dd if=/dev/zero count=$4 bs=$5 2> /dev/null | pv -prb -s $6 | dd of="${OF}" 2> /dev/null
-        format_ext4 "${OF}" "${arry[$x]}"
+        if ! format_ext4 "${OF}" "${arry[$x]}"; then
+            error "Could not make device!"
+            return 1
+        fi
     done
 }
 
-function mount_devices() {
+mount_devices() {
     # $1 - Number of devices
     # $2 - Device name prefix
     for (( x = 0; x < $1; x++)); do
         mnt="${EMU_DEVICE_NAME_PREFIX}-${x}"
         msg2 "Mounting ${mnt}"
         run_cmd "mount /mnt/${mnt}"
+        if [[ ${RUN_CMD_RETURN} != 0 ]]; then
+            error "Could not mount /mnt/${mnt}"
+            return 1
+        fi
     done
 }
 
-function umount_devices() {
+umount_devices() {
     # $1 - Number of devices
     # $2 - Device name prefix
     for (( x = 0; x < $1; x++)); do
@@ -237,21 +249,33 @@ function umount_devices() {
         if [[ "$(mountpoint -q /mnt/${mnt}; echo $?)" == 0 ]]; then
             msg2 "Un-mounting ${mnt}"
             run_cmd "umount /mnt/${mnt}"
+            if [[ ${RUN_CMD_RETURN} != 0 ]]; then
+                error "Could not unmount /mnt/${mnt}"
+                return 1
+            fi
         fi
     done
 }
 
-function make_devices_writable() {
+make_devices_writable() {
     # $1 - Number of devices
     for (( x = 0; x < $1; x++)); do
         mnt="${EMU_DEVICE_NAME_PREFIX}-${x}"
         msg2 "chgrp users for ${mnt}"
         run_cmd "sudo chgrp -R users /mnt/${mnt}"
+        if [[ ${RUN_CMD_RETURN} != 0 ]]; then
+            error "Could not chgrp to users"
+            return 1
+        fi
         run_cmd "sudo chmod -R g+w /mnt/${mnt}"
+        if [[ ${RUN_CMD_RETURN} != 0 ]]; then
+            error "Could not chmod g+w"
+            return 1
+        fi
     done
 }
 
-function wipe_devices() {
+wipe_devices() {
     # $1 - Number of devices
     # $2 - Device name prefix
     if [[ "${2}" == "$EMU_DEVICE_NAME_PREFIX" ]]; then
@@ -259,7 +283,10 @@ function wipe_devices() {
     fi
     for (( x = 0; x < $1; x++)); do
         dev="${DEVICE_DESTPATH}/${2}-${x}"
-        format_ext4 "${dev}" "${arry[$x]}"
+        if ! format_ext4 "${dev}" "${arry[$x]}"; then
+            error "Could not wipe device ${dev}"
+            return 1
+        fi
     done
 }
 
@@ -270,22 +297,32 @@ if [[ "${MKT_EMU_TEST}" == 1 ]]; then
         DISKSIZE=$(($EMU_DATASIZE_BYTES/$EMU_NUM_DEVICES))
         DISKSIZE_IN_BLOCKS=$(($DISKSIZE/4096))
         msg "Creating ${EMU_NUM_DEVICES} devices!"
-        make_devices $EMU_NUM_DEVICES $DEVICE_DESTPATH $EMU_DEVICE_NAME_PREFIX $DISKSIZE_IN_BLOCKS "4k" $DISKSIZE
+        if ! make_devices $EMU_NUM_DEVICES $DEVICE_DESTPATH $EMU_DEVICE_NAME_PREFIX $DISKSIZE_IN_BLOCKS "4k" $DISKSIZE; then
+            exit 1
+        fi
     fi
     if [[ "${MKT_MOUNT}" == 1 ]]; then
         msg "Mounting emulation backup devices"
-        mount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
+        if ! mount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
+            exit 1
+        fi
         gown=$(stat "/mnt/${EMU_DEVICE_NAME_PREFIX}-0" | grep 'Gid:' | awk '{print $10}' | grep -o '[[:alnum:]]*')
         debug "gown: ${gown}"
         if [[ "${gown}" != "users" ]]; then
             msg "Setting write permissions"
-            make_devices_writable $EMU_NUM_DEVICES
+            if ! make_devices_writable $EMU_NUM_DEVICES; then
+                exit 1
+            fi
         fi
     elif [[ "${MKT_UMOUNT}" == 1 || "${MKT_WIPE}" == 1 ]]; then
         msg "Un-mounting emulation backup devices"
-        umount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
+        if ! umount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
+            exit 1
+        fi
         if [[ "${MKT_WIPE}" == 1 ]]; then
-            wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX
+            if ! wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
+                exit 1
+            fi
         fi
     fi
 fi
