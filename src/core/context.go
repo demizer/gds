@@ -11,19 +11,19 @@ import (
 
 // Context contains the application state
 type Context struct {
-	BackupPath        string     `json:"backupPath" yaml:"backupPath"`
-	OutputStreamNum   int        `json:"outputStreams" yaml:"outputStreams"`
-	LastSyncStartDate time.Time  `json:"lastSyncStartDate" yaml:"lastSyncStartDate"`
-	LastSyncEndDate   time.Time  `json:"lastSyncEndDate" yaml:"lastSyncEndDate"`
-	Files             FileList   `json:"files"`
-	Devices           DeviceList `json:"devices" yaml:"devices"`
-	Catalog           Catalog    `json:"catalog"`
+	BackupPath      string     `json:"backupPath" yaml:"backupPath"`
+	OutputStreamNum int        `json:"outputStreams" yaml:"outputStreams"`
+	SyncStartDate   time.Time  `json:"syncStartDate" yaml:"syncStartDate"`
+	LastSyncEndDate time.Time  `json:"lastSyncEndDate" yaml:"lastSyncEndDate"`
+	Files           FileList   `json:"files"`
+	Devices         DeviceList `json:"devices" yaml:"devices"`
+	Catalog         Catalog    `json:"catalog"`
 
 	// Minimum number of bytes that must remain on the device before a file is split across devices
 	SplitMinSize uint64 `json:"splitMinSize" yaml:"splitMinSize"`
 
 	// Progress communication channels
-	SyncProgress     map[int]chan SyncProgress     `json:"-"`
+	SyncProgress     chan SyncProgress             `json:"-"`
 	SyncFileProgress map[int]chan SyncFileProgress `json:"-"`
 	SyncDeviceMount  map[int]chan bool             `json:"-"`
 }
@@ -31,11 +31,11 @@ type Context struct {
 // NewContext returns a new core Context ready to use.
 func NewContext() *Context {
 	return &Context{
-		LastSyncStartDate: time.Now(),
-		OutputStreamNum:   1,
-		SyncProgress:      make(map[int]chan SyncProgress),
-		SyncFileProgress:  make(map[int]chan SyncFileProgress),
-		SyncDeviceMount:   make(map[int]chan bool),
+		SyncStartDate:    time.Now(),
+		OutputStreamNum:  1,
+		SyncProgress:     make(chan SyncProgress),
+		SyncFileProgress: make(map[int]chan SyncFileProgress),
+		SyncDeviceMount:  make(map[int]chan bool),
 	}
 }
 

@@ -11,10 +11,11 @@ import (
 
 // ProgressGauge shows the total device sync progress
 type ProgressGauge struct {
-	Border    labeledBorder // Widget border dimensions
-	SizeWritn uint64        // Number of bytes written
-	SizeTotal uint64        // The total size of the operation.
-	FilePath  string
+	Border         labeledBorder // Widget border dimensions
+	FilePath       string
+	SizeWritn      uint64 // Number of bytes written
+	SizeTotal      uint64 // The total size of the operation.
+	BytesPerSecond uint64 // The bytes per second
 
 	selected bool
 	visible  bool
@@ -130,7 +131,8 @@ func (g *ProgressGauge) Buffer() []Point {
 	}
 
 	// plot percentage
-	s := fmt.Sprintf("%s/%s (%s%%)", humanize.IBytes(g.SizeWritn), humanize.IBytes(g.SizeTotal), strconv.Itoa(g.percent))
+	s := fmt.Sprintf("%s/%s [%s/s] (%s%%)", humanize.IBytes(g.SizeWritn), humanize.IBytes(g.SizeTotal),
+		humanize.IBytes(g.BytesPerSecond), strconv.Itoa(g.percent))
 	pry := g.innerY + g.innerHeight/2
 	rs := []rune(s)
 	pos := (g.width - runewidth.StringWidth(s)) / 2

@@ -213,35 +213,42 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 }
 
 func update(c *core.Context) {
+	// Main progress panel updater
+	go func() {
+		for {
+			p := <-c.SyncProgress
+			prg := conui.Body.ProgressPanel
+			prg.SizeWritn = p.SizeWritn
+			prg.BytesPerSecond = p.BytesPerSecond
+		}
+	}()
+	// Device panel updaters
 	for x := 0; x < len(c.Devices); x++ {
 		go deviceMountHandler(c, x)
 		c.SyncDeviceMount[x] = make(chan bool)
-		c.SyncProgress[x] = make(chan core.SyncProgress, 100)
 		c.SyncFileProgress[x] = make(chan core.SyncFileProgress, 100)
 		go func(index int) {
-			lTime := time.Now()
 			for {
-				select {
-				case p := <-c.SyncProgress[index]:
-					prg := conui.Body.ProgressPanel
-					prg.SizeWritn = p.ProgressSizeWritn
-					dw := conui.Body.DevicePanelByIndex(index)
-					dw.SizeWritn = p.DeviceSizeWritn
-				case fp := <-c.SyncFileProgress[index]:
-					if time.Since(lTime) > (time.Second / 5) {
-						log.WithFields(logrus.Fields{
-							"fp.FileName":     fp.FileName,
-							"fp.SizeTotal":    fp.SizeTotal,
-							"fp.FileWritn":    fp.SizeWritn,
-							"fp.SizeWritnInc": fp.SizeWritnInc,
-							"bps":             fp.BytesPerSecond,
-						}).Debugln("Sync file progress")
-						dw := conui.Body.DevicePanelByIndex(index)
-						dw.SizeWritn += fp.SizeWritnInc
-						lTime = time.Now()
-					}
+				fp := <-c.SyncFileProgress[index]
+				dw := conui.Body.DevicePanelByIndex(index)
+				devSizeOrig := dw.SizeWritn
+				dw.SizeWritn += fp.SizeWritn
+				log.WithFields(logrus.Fields{
+					"fp.FileName":               fp.FileName,
+					"fp.FilePath":               fp.FilePath,
+					"fp.FileSize":               fp.FileSize,
+					"fp.SizeWritn":              fp.SizeWritn,
+					"fp.TotalSizeWritn":         fp.TotalSizeWritn,
+					"deviceIndex":               index,
+					"dw.SizeWritn":              devSizeOrig,
+					"dw.SizeWritn+fp.SizeWritn": dw.SizeWritn,
+					"dw.TotalSize":              dw.SizeTotal,
+				}).Debugln("Sync file progress")
+				if dw.SizeWritn == dw.SizeTotal {
+					break
 				}
 			}
+			log.Debugln("DONE REPORTING index:", index)
 		}(x)
 	}
 	go func() {

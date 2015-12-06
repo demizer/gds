@@ -26,24 +26,21 @@ var (
 
 // SyncProgress details information of the overall sync progress.
 type SyncProgress struct {
-	DeviceName             string
-	DeviceMountPoint       string
-	DeviceSizeWritn        uint64
-	DeviceSizeTotal        uint64
-	ProgressBytesPerSecond uint64
-	ProgressSizeWritn      uint64
-	ProgressSizeTotal      uint64
-	ETA                    time.Time
+	SizeWritn      uint64
+	SizeTotal      uint64
+	BytesPerSecond uint64
+	ETA            time.Time
 }
 
 // SyncFileProgress details sync progress of an individual file.
 type SyncFileProgress struct {
-	FileName       string
-	FilePath       string
-	SizeWritnInc   uint64 // Used to track bytes written since last report
-	SizeWritn      uint64
-	SizeTotal      uint64
-	BytesPerSecond uint64
+	FileName string
+	FilePath string
+	FileSize uint64
+	// Bytes written since last progress report
+	SizeWritn      uint64 // Bytes written to dest file in update
+	TotalSizeWritn uint64 // Total bytes written to dest file
+	// BytesPerSecond uint64
 }
 
 type tracker struct {
@@ -53,41 +50,29 @@ type tracker struct {
 	closed bool
 }
 
-func (s *tracker) report(devices DeviceList, sp chan<- SyncProgress, sfp chan<- SyncFileProgress) {
-	var lastSizeWritn uint64
+func (s *tracker) report(timeStart time.Time, devices DeviceList, sfp chan<- SyncFileProgress) {
 	for {
 		if s.closed {
 			break
 		}
-		if (s.file.SplitEndByte == 0 && s.io.totalBytesWritten < s.file.SourceSize) ||
-			(s.file.SplitEndByte != 0 && s.io.totalBytesWritten < s.file.SplitEndByte-s.file.SplitStartByte) {
-			sfp <- SyncFileProgress{
-				FileName:       s.file.Name,
-				FilePath:       s.file.DestPath,
-				SizeWritn:      s.io.totalBytesWritten,
-				SizeWritnInc:   s.io.totalBytesWritten - lastSizeWritn,
-				SizeTotal:      s.file.DestSize,
-				BytesPerSecond: s.io.WriteBytesPerSecond(),
-			}
-			lastSizeWritn = s.io.totalBytesWritten
-		} else {
+		// Log.Debugf("BEFORE s.io.sizeWritn receive i: %p", s.io)
+		bw := <-s.io.sizeWritn
+		// Log.Debugf("AFTER s.io.sizeWritn receive i: %p file.DestPath: %s", s.io, s.file.DestPath)
+		sfp <- SyncFileProgress{
+			FileName:       s.file.Name,
+			FilePath:       s.file.DestPath,
+			FileSize:       s.file.SourceSize,
+			SizeWritn:      bw,
+			TotalSizeWritn: s.io.sizeWritnTotal,
+			// BytesPerSecond: s.io.writeBPS.calc(),
+		}
+		// Log.Debugf("AFTER SyncFileProgress SEND i: %p", s.io)
+		if s.io.sizeWritnTotal == s.file.DestSize {
 			Log.WithFields(logrus.Fields{
-				"destPath":       s.file.DestPath,
-				"bytesPerSecond": humanize.IBytes(s.io.WriteBytesPerSecond())}).Print("Copy complete")
-			totalSyncBytesWritten = devices.TotalSizeWritten()
-			Log.Debugln("totalSyncBytesWritten:", totalSyncBytesWritten)
-			Log.Debugln("totalSyncSize:", totalSyncSize)
-			sp <- SyncProgress{
-				DeviceName:        s.device.Name,
-				DeviceMountPoint:  s.device.MountPoint,
-				DeviceSizeWritn:   s.device.SizeWritn,
-				DeviceSizeTotal:   s.device.SizeTotal,
-				ProgressSizeWritn: totalSyncBytesWritten,
-				ProgressSizeTotal: totalSyncSize,
-			}
+				"destPath": s.file.DestPath}).Print("Copy complete")
+			// "bytesPerSecond": humanize.IBytes(s.io.writeBPS.calc())}).Print("Copy complete")
 			break
 		}
-		time.Sleep(time.Second / 10)
 	}
 }
 
@@ -146,7 +131,7 @@ func saveSyncContext(c *Context, lastDevice *Device) (size int64, err error) {
 		}
 		return
 	}
-	cp := filepath.Join(lastDevice.MountPoint, "sync_context_"+c.LastSyncStartDate.Format(time.RFC3339)+".json.gz")
+	cp := filepath.Join(lastDevice.MountPoint, "sync_context_"+c.SyncStartDate.Format(time.RFC3339)+".json.gz")
 	f, err := os.Create(cp)
 	err = writeCompressedContextToFile(c, f)
 	if err != nil {
@@ -258,7 +243,6 @@ func createFile(f *File) {
 // size once they contain pointers to files and sub-directories.
 func preSync(d *Device, c *Catalog) {
 	for _, xy := range (*c)[d.Name] {
-		// fmt.Println(xy.DestPath)
 		createFile(xy)
 	}
 }
@@ -327,7 +311,8 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			}
 		}
 
-		mIo := NewIoReaderWriter(oFile, cf.DestSize)
+		pReporter := make(chan uint64, 100)
+		mIo := NewIoReaderWriter(oFile, pReporter, cf.DestSize)
 		nIo := mIo.MultiWriter()
 
 		ns := time.Now()
@@ -336,7 +321,6 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 		Log.Debugln("TIME AFTER TRACKER SEND:", time.Since(ns))
 		if cf.SplitEndByte == 0 && !syncTest {
 			if _, err := io.Copy(nIo, sFile); err != nil {
-				// code smell ...
 				newTracker.closed = true
 				Log.WithFields(logrus.Fields{
 					"filePath":       cf.Path,
@@ -401,7 +385,6 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			break
 		}
 	}
-	// deviceSyncDone <- true
 	Log.WithFields(logrus.Fields{
 		"device":     device.Name,
 		"mountPoint": device.MountPoint,
@@ -423,7 +406,13 @@ func Sync(c *Context, disableContextSave bool) []error {
 		"poolSize": c.Devices.TotalSize(),
 	}).Info("Data vs Pool size")
 
-	c.LastSyncStartDate = time.Now()
+	i := 0
+	streamCount := 0
+
+	c.SyncStartDate = time.Now()
+
+	progress := newBytesPerSecond()
+	trackers := make(map[int]chan tracker) // Channel for communicating progress
 
 	// Collects errors for final report
 	errCollector := func(errs *[]error, eChan chan error) {
@@ -438,25 +427,30 @@ func Sync(c *Context, disableContextSave bool) []error {
 		Log.Debugln("Breaking error reporting loop!")
 	}
 
+	overallProgressReporter := func() {
+		totalSyncBytesWritten := c.Devices.TotalSizeWritten()
+		progress.addPoint(totalSyncBytesWritten)
+		c.SyncProgress <- SyncProgress{
+			SizeWritn:      totalSyncBytesWritten,
+			BytesPerSecond: progress.calc(),
+		}
+	}
+
 	// Reports progress data to controlling goroutine
 	progressReporter := func(trakIndex int, trakc <-chan tracker, fileNum int) {
 		for {
-			ns := time.Now()
+			// ns := time.Now()
 			progress, ok := <-trakc
 			if !ok {
 				break
 			}
-			Log.Debugln("TIME AFTER TRACKER RECEIVE:", time.Since(ns))
-			ns = time.Now()
-			progress.report(c.Devices, c.SyncProgress[trakIndex], c.SyncFileProgress[trakIndex])
-			Log.Debugln("TIME AFTER TRACKER REPORT:", time.Since(ns))
+			// Log.Debugf("TIME AFTER TRACKER RECEIVE: %s trakIndex: %d mIo: %p", time.Since(ns), trakIndex, progress.io)
+			// ns = time.Now()
+			progress.report(c.SyncStartDate, c.Devices, c.SyncFileProgress[trakIndex])
+			// Log.Debugf("TIME AFTER TRACKER REPORT: %s trakIndex: %d mIo: %p", time.Since(ns), trakIndex, progress.io)
 		}
-		Log.Debugln("TRACKER", trakIndex, "DONE")
+		Log.Debugf("TRACKER DONE: trakIndex: %d", trakIndex)
 	}
-
-	i := 0
-	streamCount := 0
-	trackers := make(map[int]chan tracker) // Channel for communicating progress
 
 	// GO GO GO
 	for {
@@ -464,9 +458,6 @@ func Sync(c *Context, disableContextSave bool) []error {
 			Log.Debugln("Breaking main sync loop! Counter:", i)
 			break
 		}
-		Log.WithFields(logrus.Fields{
-			"Index": i, "c.OutputStreamNum": c.OutputStreamNum, "streamCount": streamCount,
-		}).Debugln("Stream count status")
 		if i < len(c.Devices) && streamCount < c.OutputStreamNum {
 			streamCount += 1
 			// Launch into go routine in case exec is blocked waiting for a user to mount a device
@@ -501,11 +492,14 @@ func Sync(c *Context, disableContextSave bool) []error {
 				}(index, d)
 			}(i)
 			i += 1
-		} else {
-			// Give exec some breathing room
-			time.Sleep(time.Second)
 		}
+		overallProgressReporter()
+		// Give exec some breathing room
+		time.Sleep(time.Second)
 	}
+
+	// One final update to show full copy
+	overallProgressReporter()
 
 	if !disableContextSave {
 		_, err := saveSyncContext(c, lastDevice)
