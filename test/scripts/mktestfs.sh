@@ -283,7 +283,8 @@ wipe_devices() {
     fi
     for (( x = 0; x < $1; x++)); do
         dev="${DEVICE_DESTPATH}/${2}-${x}"
-        if ! format_ext4 "${dev}" "${arry[$x]}"; then
+        msg2 "Wiping files from /mnt/${2}-${x}/*"
+        if ! find /mnt/${2}-${x}/ -maxdepth 1 -type f | xargs -r rm; then
             error "Could not wipe device ${dev}"
             return 1
         fi
@@ -314,15 +315,15 @@ if [[ "${MKT_EMU_TEST}" == 1 ]]; then
                 exit 1
             fi
         fi
-    elif [[ "${MKT_UMOUNT}" == 1 || "${MKT_WIPE}" == 1 ]]; then
+    elif [[ "${MKT_UMOUNT}" == 1 ]]; then
         msg "Un-mounting emulation backup devices"
         if ! umount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
             exit 1
         fi
-        if [[ "${MKT_WIPE}" == 1 ]]; then
+    elif [[ "${MKT_WIPE}" == 1 ]]; then
+        msg "Wiping backup devices..."
             if ! wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
                 exit 1
             fi
-        fi
     fi
 fi

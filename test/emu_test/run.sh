@@ -25,15 +25,20 @@ fi
 
 # Prepare the mount points
 if [[ ! -n "$1" ]]; then
+    # Unmount any mounted drives
+    ./test/scripts/mktestfs.sh umount emu_test
+
+    # Create the devices if they do not exist
     if [[ ! -f "${HOME}/.config/gds/test/gds-test-0" ]]; then
         if ! ./test/scripts/mktestfs.sh make emu_test; then
             exit 1
         fi
     fi
-    if ! ./test/scripts/mktestfs.sh wipe emu_test; then
+
+    if ! ./test/scripts/mktestfs.sh mount emu_test; then
         exit 1
     fi
-    if ! ./test/scripts/mktestfs.sh mount emu_test; then
+    if ! ./test/scripts/mktestfs.sh wipe emu_test; then
         exit 1
     fi
 fi
@@ -42,7 +47,6 @@ fi
 gb build -q
 if [[ $? == 0 ]]; then
     if ! ./bin/gds -c "${conf}" --log "${lp}" --context "${ctxl}" --log-level debug sync 2> /tmp/gds-error; then
-    # if [[ "$(echo $?)" > 0 ]]; then
         reset
         echo -e "\n" >> "${lp}"
         cat /tmp/gds-error >> "${lp}"
