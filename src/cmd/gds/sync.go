@@ -233,6 +233,7 @@ func update(c *core.Context) {
 				dw := conui.Body.DevicePanelByIndex(index)
 				devSizeOrig := dw.SizeWritn
 				dw.SizeWritn += fp.SizeWritn
+				dw.BytesPerSecond = fp.BytesPerSecond
 				log.WithFields(logrus.Fields{
 					"fp.FileName":               fp.FileName,
 					"fp.FilePath":               fp.FilePath,

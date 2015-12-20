@@ -40,7 +40,7 @@ type SyncFileProgress struct {
 	// Bytes written since last progress report
 	SizeWritn      uint64 // Bytes written to dest file in update
 	TotalSizeWritn uint64 // Total bytes written to dest file
-	// BytesPerSecond uint64
+	BytesPerSecond uint64
 }
 
 type tracker struct {
@@ -51,26 +51,24 @@ type tracker struct {
 }
 
 func (s *tracker) report(timeStart time.Time, devices DeviceList, sfp chan<- SyncFileProgress) {
+	progress := newBytesPerSecond()
 	for {
 		if s.closed {
 			break
 		}
-		// Log.Debugf("BEFORE s.io.sizeWritn receive i: %p", s.io)
 		bw := <-s.io.sizeWritn
-		// Log.Debugf("AFTER s.io.sizeWritn receive i: %p file.DestPath: %s", s.io, s.file.DestPath)
+		progress.addPoint(s.io.sizeWritnTotal)
 		sfp <- SyncFileProgress{
 			FileName:       s.file.Name,
 			FilePath:       s.file.DestPath,
 			FileSize:       s.file.SourceSize,
 			SizeWritn:      bw,
 			TotalSizeWritn: s.io.sizeWritnTotal,
-			// BytesPerSecond: s.io.writeBPS.calc(),
+			BytesPerSecond: progress.calc(),
 		}
-		// Log.Debugf("AFTER SyncFileProgress SEND i: %p", s.io)
 		if s.io.sizeWritnTotal == s.file.DestSize {
 			Log.WithFields(logrus.Fields{
 				"destPath": s.file.DestPath}).Print("Copy complete")
-			// "bytesPerSecond": humanize.IBytes(s.io.writeBPS.calc())}).Print("Copy complete")
 			break
 		}
 	}
@@ -439,15 +437,11 @@ func Sync(c *Context, disableContextSave bool) []error {
 	// Reports progress data to controlling goroutine
 	progressReporter := func(trakIndex int, trakc <-chan tracker, fileNum int) {
 		for {
-			// ns := time.Now()
 			progress, ok := <-trakc
 			if !ok {
 				break
 			}
-			// Log.Debugf("TIME AFTER TRACKER RECEIVE: %s trakIndex: %d mIo: %p", time.Since(ns), trakIndex, progress.io)
-			// ns = time.Now()
 			progress.report(c.SyncStartDate, c.Devices, c.SyncFileProgress[trakIndex])
-			// Log.Debugf("TIME AFTER TRACKER REPORT: %s trakIndex: %d mIo: %p", time.Since(ns), trakIndex, progress.io)
 		}
 		Log.Debugf("TRACKER DONE: trakIndex: %d", trakIndex)
 	}

@@ -17,7 +17,6 @@ type DeviceFile struct {
 	Path      string
 	SizeWritn uint64
 	SizeTotal uint64
-	Bps       uint64 // Write speed in bytes per second
 }
 
 // DeviceFileHist is a helper type for tracking progress.
@@ -42,6 +41,7 @@ type DevicePanel struct {
 	Label               string         // Label of the widget
 	SizeWritn           uint64         // Size of bytes written
 	SizeTotal           uint64         // Total data size of the output
+	BytesPerSecond      uint64         // Write speed in bytes per second
 	DeviceFileHist      DeviceFileHist // Log of files seen
 	FileHistoryViewable int            // Number of files to show in the history log
 
@@ -166,7 +166,8 @@ func (g *DevicePanel) Buffer() []Point {
 	}
 
 	// Render the percentage
-	s := fmt.Sprintf("%s/%s (%s%%)", humanize.IBytes(g.SizeWritn), humanize.IBytes(g.SizeTotal), strconv.Itoa(g.percent))
+	s := fmt.Sprintf("%s/%s [%s/s] (%s%%)", humanize.IBytes(g.SizeWritn), humanize.IBytes(g.SizeTotal),
+		humanize.IBytes(g.BytesPerSecond), strconv.Itoa(g.percent))
 	pry := g.y + (g.height-g.FileHistoryViewable)/2
 	rs := []rune(s)
 	pos := (g.width - runewidth.StringWidth(s)) / 2
@@ -201,9 +202,6 @@ func (g *DevicePanel) Buffer() []Point {
 		if len(g.DeviceFileHist) == 0 {
 			break
 		}
-		f := g.DeviceFileHist[(len(g.DeviceFileHist)-1)-i]
-		fmt.Fprintf(tw, "%s  \t%s/%s\t   %s\n", humanize.IBytes(f.Bps), humanize.IBytes(f.SizeWritn),
-			humanize.IBytes(f.SizeTotal), f.Path)
 	}
 	tw.Flush()
 
