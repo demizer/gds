@@ -23,19 +23,19 @@ type Context struct {
 	SplitMinSize uint64 `json:"splitMinSize" yaml:"splitMinSize"`
 
 	// Progress communication channels
-	SyncProgress     chan SyncProgress             `json:"-"`
-	SyncFileProgress map[int]chan SyncFileProgress `json:"-"`
-	SyncDeviceMount  map[int]chan bool             `json:"-"`
+	SyncProgress       chan SyncProgress               `json:"-"`
+	SyncDeviceProgress map[int]chan SyncDeviceProgress `json:"-"`
+	SyncDeviceMount    map[int]chan bool               `json:"-"`
 }
 
 // NewContext returns a new core Context ready to use.
 func NewContext() *Context {
 	return &Context{
-		SyncStartDate:    time.Now(),
-		OutputStreamNum:  1,
-		SyncProgress:     make(chan SyncProgress),
-		SyncFileProgress: make(map[int]chan SyncFileProgress),
-		SyncDeviceMount:  make(map[int]chan bool),
+		SyncStartDate:      time.Now(),
+		OutputStreamNum:    1,
+		SyncProgress:       make(chan SyncProgress),
+		SyncDeviceProgress: make(map[int]chan SyncDeviceProgress),
+		SyncDeviceMount:    make(map[int]chan bool),
 	}
 }
 

@@ -226,24 +226,20 @@ func update(c *core.Context) {
 	for x := 0; x < len(c.Devices); x++ {
 		go deviceMountHandler(c, x)
 		c.SyncDeviceMount[x] = make(chan bool)
-		c.SyncFileProgress[x] = make(chan core.SyncFileProgress, 100)
+		c.SyncDeviceProgress[x] = make(chan core.SyncDeviceProgress, 100)
 		go func(index int) {
 			for {
-				fp := <-c.SyncFileProgress[index]
+				fp := <-c.SyncDeviceProgress[index]
 				dw := conui.Body.DevicePanelByIndex(index)
-				devSizeOrig := dw.SizeWritn
-				dw.SizeWritn += fp.SizeWritn
-				dw.BytesPerSecond = fp.BytesPerSecond
+				dw.SizeWritn += fp.DeviceSizeWritn
+				dw.BytesPerSecond = fp.DeviceBytesPerSecond
 				log.WithFields(logrus.Fields{
-					"fp.FileName":               fp.FileName,
-					"fp.FilePath":               fp.FilePath,
-					"fp.FileSize":               fp.FileSize,
-					"fp.SizeWritn":              fp.SizeWritn,
-					"fp.TotalSizeWritn":         fp.TotalSizeWritn,
-					"deviceIndex":               index,
-					"dw.SizeWritn":              devSizeOrig,
-					"dw.SizeWritn+fp.SizeWritn": dw.SizeWritn,
-					"dw.TotalSize":              dw.SizeTotal,
+					"fp.FileName":           fp.FileName,
+					"fp.FilePath":           fp.FilePath,
+					"fp.FileSize":           fp.FileSize,
+					"fp.FileSizeWritn":      fp.FileSizeWritn,
+					"fp.FileTotalSizeWritn": fp.FileTotalSizeWritn,
+					"deviceIndex":           index,
 				}).Debugln("Sync file progress")
 				if dw.SizeWritn == dw.SizeTotal {
 					break

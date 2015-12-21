@@ -2,8 +2,8 @@ package core
 
 import "time"
 
-// Number of points used to calculate the average
-var totalPoints = 25
+// Maximum number of points used to calculate the average
+var totalPoints = 10
 
 type progressPoint struct {
 	time              time.Time
@@ -47,8 +47,8 @@ func (b *bytesPerSecond) calc() uint64 {
 	if len(b.points) == 0 {
 		return 0
 	}
-	for _, x := range b.points {
-		tBytes += x.totalBytesWritten
+	for _, y := range b.points {
+		tBytes += y.totalBytesWritten
 	}
-	return uint64(float64(tBytes/uint64(len(b.points))) / time.Since(b.timeStart).Seconds())
+	return uint64(float64(tBytes / uint64(len(b.points))))
 }

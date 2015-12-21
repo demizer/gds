@@ -19,9 +19,8 @@ import (
 
 var (
 	// Used for testing
-	fakeTestPath          string = "/fake/path/" // If the trailing slash is removed, tests will break.
-	totalSyncBytesWritten uint64
-	totalSyncSize         uint64
+	fakeTestPath  string = "/fake/path/" // If the trailing slash is removed, tests will break.
+	totalSyncSize uint64
 )
 
 // SyncProgress details information of the overall sync progress.
@@ -32,15 +31,19 @@ type SyncProgress struct {
 	ETA            time.Time
 }
 
-// SyncFileProgress details sync progress of an individual file.
-type SyncFileProgress struct {
+// SyncDeviceProgress details sync progress of an individual file.
+type SyncDeviceProgress struct {
 	FileName string
 	FilePath string
 	FileSize uint64
-	// Bytes written since last progress report
-	SizeWritn      uint64 // Bytes written to dest file in update
-	TotalSizeWritn uint64 // Total bytes written to dest file
-	BytesPerSecond uint64
+
+	FileSizeWritn      uint64 // Number of bytes written since last report
+	FileTotalSizeWritn uint64 // Total number of bytes written to dest file
+	FileBytesPerSecond uint64
+
+	DeviceSizeWritn      uint64 // Number of bytes written since last report
+	DeviceTotalSizeWritn uint64 // Total number of bytes written to dest device
+	DeviceBytesPerSecond uint64
 }
 
 type tracker struct {
@@ -50,21 +53,26 @@ type tracker struct {
 	closed bool
 }
 
-func (s *tracker) report(timeStart time.Time, devices DeviceList, sfp chan<- SyncFileProgress) {
-	progress := newBytesPerSecond()
+func (s *tracker) report(dev *Device, devBps *bytesPerSecond, sfp chan<- SyncDeviceProgress) {
+	// File bps calculation
+	fbps := newBytesPerSecond()
 	for {
 		if s.closed {
 			break
 		}
 		bw := <-s.io.sizeWritn
-		progress.addPoint(s.io.sizeWritnTotal)
-		sfp <- SyncFileProgress{
-			FileName:       s.file.Name,
-			FilePath:       s.file.DestPath,
-			FileSize:       s.file.SourceSize,
-			SizeWritn:      bw,
-			TotalSizeWritn: s.io.sizeWritnTotal,
-			BytesPerSecond: progress.calc(),
+		devBps.addPoint(bw)
+		fbps.addPoint(s.io.sizeWritnTotal)
+		sfp <- SyncDeviceProgress{
+			FileName:             s.file.Name,
+			FilePath:             s.file.DestPath,
+			FileSize:             s.file.SourceSize,
+			FileSizeWritn:        bw,
+			FileTotalSizeWritn:   s.io.sizeWritnTotal,
+			FileBytesPerSecond:   fbps.calc(),
+			DeviceSizeWritn:      bw,
+			DeviceTotalSizeWritn: dev.SizeWritn,
+			DeviceBytesPerSecond: devBps.calc(),
 		}
 		if s.io.sizeWritnTotal == s.file.DestSize {
 			Log.WithFields(logrus.Fields{
@@ -410,6 +418,8 @@ func Sync(c *Context, disableContextSave bool) []error {
 	c.SyncStartDate = time.Now()
 
 	progress := newBytesPerSecond()
+	var progressLastSizeWritn uint64
+
 	trackers := make(map[int]chan tracker) // Channel for communicating progress
 
 	// Collects errors for final report
@@ -427,21 +437,29 @@ func Sync(c *Context, disableContextSave bool) []error {
 
 	overallProgressReporter := func() {
 		totalSyncBytesWritten := c.Devices.TotalSizeWritten()
-		progress.addPoint(totalSyncBytesWritten)
+		if progressLastSizeWritn == 0 {
+			progressLastSizeWritn = totalSyncBytesWritten
+		}
+		diffSizeWritn := totalSyncBytesWritten - progressLastSizeWritn
+		progress.addPoint(diffSizeWritn)
 		c.SyncProgress <- SyncProgress{
 			SizeWritn:      totalSyncBytesWritten,
 			BytesPerSecond: progress.calc(),
 		}
+		progressLastSizeWritn = totalSyncBytesWritten
 	}
 
 	// Reports progress data to controlling goroutine
-	progressReporter := func(trakIndex int, trakc <-chan tracker, fileNum int) {
+	progressReporter := func(dev *Device, trakIndex int, trakc <-chan tracker) {
+		// device bps calculation
+		dbps := newBytesPerSecond()
 		for {
+			// Report the progress for each file
 			progress, ok := <-trakc
 			if !ok {
 				break
 			}
-			progress.report(c.SyncStartDate, c.Devices, c.SyncFileProgress[trakIndex])
+			progress.report(dev, dbps, c.SyncDeviceProgress[trakIndex])
 		}
 		Log.Debugf("TRACKER DONE: trakIndex: %d", trakIndex)
 	}
@@ -476,7 +494,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 
 				go errCollector(&retError, errorChan)
 
-				go progressReporter(index, trackers[index], len(c.Catalog[(c.Devices)[index].Name]))
+				go progressReporter(d, index, trackers[index])
 
 				// Finally, starting syncing!
 				go func(syncIndex int, dev *Device) {
