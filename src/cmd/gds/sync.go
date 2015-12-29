@@ -132,7 +132,8 @@ func eventListener(c *core.Context) {
 			}
 			if e.Type == conui.EventKey && e.Ch == 'q' {
 				conui.Close()
-				os.Exit(0)
+				c.Exit = true
+				break
 			}
 			if e.Type == conui.EventResize {
 				// conui.Body.Width = conui.TermWidth()
@@ -220,6 +221,9 @@ func update(c *core.Context) {
 			prg := conui.Body.ProgressPanel
 			prg.SizeWritn = p.SizeWritn
 			prg.BytesPerSecond = p.BytesPerSecond
+			if c.Exit {
+				break
+			}
 		}
 	}()
 	// Device panel updaters
@@ -241,7 +245,7 @@ func update(c *core.Context) {
 					"fp.FileTotalSizeWritn": fp.FileTotalSizeWritn,
 					"deviceIndex":           index,
 				}).Debugln("Sync file progress")
-				if dw.SizeWritn == dw.SizeTotal {
+				if dw.SizeWritn == dw.SizeTotal || c.Exit {
 					break
 				}
 			}
@@ -250,11 +254,12 @@ func update(c *core.Context) {
 	}
 	go func() {
 		for {
-			if !termbox.IsInit {
+			if !termbox.IsInit || c.Exit {
 				break
 			}
 			conui.Redraw <- true
-			time.Sleep(time.Second / 5)
+			// Rate limit redrawing
+			time.Sleep(time.Second / 3)
 		}
 	}()
 }
@@ -272,20 +277,28 @@ func syncStart(c *cli.Context) {
 	go eventListener(c2)
 	update(c2)
 
+	exit := false
+
 	// Sync the things
-	errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
-	if len(errs) > 0 {
-		for _, e := range errs {
-			log.Errorf("Sync error: %s", e.Error())
+	go func() {
+		errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
+		if len(errs) > 0 {
+			for _, e := range errs {
+				log.Errorf("Sync error: %s", e.Error())
+			}
 		}
+		log.Info("ALL DONE -- Sync complete!")
+		// exit = true
+	}()
+
+	// Give the user time to review the sync in the UI
+	for {
+		if c2.Exit || exit {
+			break
+		}
+		time.Sleep(time.Second)
 	}
 
 	// Fin
 	dumpContextToFile(c, c2)
-	log.Info("ALL DONE -- Sync complete!")
-
-	// Give the user time to review the sync in the UI
-	for {
-		time.Sleep(time.Second)
-	}
 }

@@ -26,6 +26,8 @@ type Context struct {
 	SyncProgress       chan SyncProgress               `json:"-"`
 	SyncDeviceProgress map[int]chan SyncDeviceProgress `json:"-"`
 	SyncDeviceMount    map[int]chan bool               `json:"-"`
+
+	Exit bool
 }
 
 // NewContext returns a new core Context ready to use.
