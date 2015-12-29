@@ -42,17 +42,32 @@ func (i *IoReaderWriter) Write(p []byte) (int, error) {
 		i.sizeWritnFromLastReport += uint64(n)
 		i.sizeWritnTotal += uint64(n)
 
-		// Log.Debugf("i: %p i.sizeTotal: %d i.sizeWritnFromLastReport: %d n: %d time.Since: %f",
-		// i, i.sizeTotal, i.sizeWritnFromLastReport, n, time.Since(i.timeLastReport).Seconds())
+		// Log.Debugf("File Size: %d i: %p i.sizeTotal: %d i.sizeWritnFromLastReport: %d n: %d time.Since: %f",
+		// i.sizeTotal, i, i.sizeTotal, i.sizeWritnFromLastReport, n, time.Since(i.timeLastReport).Seconds())
+
+		ns := time.Now()
+		report := func() {
+			i.sizeWritn <- i.sizeWritnFromLastReport
+			Log.Debugf("REPORTING FINISHED in %s FILE SIZE: %d", time.Since(ns), i.sizeTotal)
+			if i.sizeWritnTotal != i.sizeTotal {
+				i.sizeWritnFromLastReport = 0
+				i.timeLastReport = time.Now()
+			}
+		}
 
 		// Limit the number of reports to once a second
-		if i.timeLastReport.IsZero() || time.Since(i.timeLastReport).Seconds() > 1 || i.sizeWritnTotal == i.sizeTotal {
-			Log.Debugf("REPORTING: %p, timeLastReport.IsZero: %t BYTES: %d FILE SIZE: %d",
+		if i.timeLastReport.IsZero() {
+			Log.Debugf("REPORTING: %p timeLastReport.IsZero: %t BYTES: %d FILE SIZE: %d",
 				i, i.timeLastReport.IsZero(), i.sizeWritnFromLastReport, i.sizeTotal)
-			i.sizeWritn <- i.sizeWritnFromLastReport
-			Log.Debugln("REPORTING FINISHED")
-			i.sizeWritnFromLastReport = 0
-			i.timeLastReport = time.Now()
+			report()
+		} else if time.Since(i.timeLastReport).Seconds() > 1 {
+			Log.Debugf("REPORTING: %p timeSinceLastReport %s BYTES: %d FILE SIZE: %d",
+				i, time.Since(i.timeLastReport), i.sizeWritnFromLastReport, i.sizeTotal)
+			report()
+		} else if i.sizeWritnTotal == i.sizeTotal {
+			Log.Debugf("REPORTING: %p -- FILE WRITE COMPLETE -- timeSinceLastReport %s BYTES: %d FILE SIZE: %d",
+				i, time.Since(i.timeLastReport), i.sizeWritnFromLastReport, i.sizeTotal)
+			report()
 		}
 	}
 	return n, err

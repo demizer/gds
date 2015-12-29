@@ -56,28 +56,52 @@ type tracker struct {
 func (s *tracker) report(dev *Device, devBps *bytesPerSecond, sfp chan<- SyncDeviceProgress) {
 	// File bps calculation
 	fbps := newBytesPerSecond()
+	lastReport := time.Now()
+	lastRealReport := time.Now()
+outer:
 	for {
-		if s.closed {
-			break
-		}
-		bw := <-s.io.sizeWritn
-		devBps.addPoint(bw)
-		fbps.addPoint(s.io.sizeWritnTotal)
-		sfp <- SyncDeviceProgress{
-			FileName:             s.file.Name,
-			FilePath:             s.file.DestPath,
-			FileSize:             s.file.SourceSize,
-			FileSizeWritn:        bw,
-			FileTotalSizeWritn:   s.io.sizeWritnTotal,
-			FileBytesPerSecond:   fbps.calc(),
-			DeviceSizeWritn:      bw,
-			DeviceTotalSizeWritn: dev.SizeWritn,
-			DeviceBytesPerSecond: devBps.calc(),
-		}
-		if s.io.sizeWritnTotal == s.file.DestSize {
+		select {
+		case bw := <-s.io.sizeWritn:
 			Log.WithFields(logrus.Fields{
-				"destPath": s.file.DestPath}).Print("Copy complete")
-			break
+				"fileName":                   s.file.Name,
+				"fileDestName":               s.file.DestPath,
+				"fileBytesWritn":             bw,
+				"fileTotalBytes":             s.file.DestSize,
+				"elapsedTimeSinceLastReport": time.Since(lastRealReport),
+				"copyTotalBytesWritn":        s.io.sizeWritnTotal,
+			}).Infoln("Copy report")
+			dev.SizeWritn += bw
+			devBps.addPoint(bw)
+			fbps.addPoint(s.io.sizeWritnTotal)
+			sfp <- SyncDeviceProgress{
+				FileName:             s.file.Name,
+				FilePath:             s.file.DestPath,
+				FileSize:             s.file.SourceSize,
+				FileSizeWritn:        bw,
+				FileTotalSizeWritn:   s.io.sizeWritnTotal,
+				FileBytesPerSecond:   fbps.calc(),
+				DeviceSizeWritn:      bw,
+				DeviceTotalSizeWritn: dev.SizeWritn,
+				DeviceBytesPerSecond: devBps.calc(),
+			}
+			if s.io.sizeWritnTotal == s.file.DestSize {
+				Log.WithFields(logrus.Fields{
+					"bw":                  bw,
+					"destPath":            s.file.DestPath,
+					"destSize":            s.file.DestSize,
+					"s.io.sizeWritnTotal": s.io.sizeWritnTotal,
+				}).Print("Copy complete")
+				break outer
+			}
+			lastReport = time.Now()
+			lastRealReport = time.Now()
+		default:
+			if time.Since(lastReport).Seconds() > 1 {
+				Log.Debugf("No bytes written in last second for device %q !", dev.Name)
+				devBps.addPoint(0)
+				fbps.addPoint(0)
+				lastReport = time.Now()
+			}
 		}
 	}
 }
@@ -146,10 +170,7 @@ func saveSyncContext(c *Context, lastDevice *Device) (size int64, err error) {
 	s, err := os.Lstat(cp)
 	if err == nil {
 		size = s.Size()
-		Log.WithFields(logrus.Fields{
-			"syncContextFile": cp,
-			"size":            size,
-		}).Debug("Saved sync context on last device")
+		Log.WithFields(logrus.Fields{"syncContextFile": cp, "size": size}).Debug("Saved sync context on last device")
 	}
 	return
 }
@@ -271,18 +292,6 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			"fileSplitStart": cf.SplitStartByte,
 			"fileSplitEnd":   cf.SplitEndByte}).Infoln("Syncing file")
 
-		// We only need to check the size of the file if it is a directory or a symlink
-		if cf.FileType == DIRECTORY || cf.FileType == SYMLINK {
-			ls, err := os.Lstat(cf.DestPath)
-			if err != nil {
-				cerr <- fmt.Errorf("%s Lstat: %s", syncErrCtx, err.Error())
-				continue
-			}
-			Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": ls.Size(), "destSize": cf.DestSize}).Debugln("File size")
-			device.SizeWritn += uint64(ls.Size())
-			continue
-		}
-
 		var oFile *os.File
 		var err error
 		// Open dest file for writing
@@ -332,7 +341,6 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 					"filePath":       cf.Path,
 					"fileSourceSize": cf.SourceSize,
 					"fileDestSize":   cf.DestSize,
-					"deviceUsage":    device.SizeWritn,
 					"deviceSize":     device.SizeTotal,
 				}).Error("Error copying file!")
 				cerr <- fmt.Errorf("%s copy %s: %s", syncErrCtx, cf.DestPath, err.Error())
@@ -342,8 +350,11 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 				err = oFile.Close()
 				ls, err := os.Lstat(cf.DestPath)
 				if err == nil {
-					Log.WithFields(logrus.Fields{"file": cf.Name, "size": ls.Size(), "destSize": cf.DestSize}).Debugln("File size")
-					device.SizeWritn += uint64(ls.Size())
+					Log.WithFields(logrus.Fields{
+						"file":     cf.Name,
+						"size":     ls.Size(),
+						"destSize": cf.DestSize,
+					}).Debugln("File size")
 					// Set mode after file is copied to prevent no write perms from causing trouble
 					err = os.Chmod(cf.DestPath, cf.Mode)
 					if err == nil {
@@ -358,32 +369,22 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			if oSize, err := io.CopyN(nIo, sFile, int64(cf.DestSize)); err != nil {
 				newTracker.closed = true
 				Log.WithFields(logrus.Fields{
-					"oSize":           oSize,
-					"cf.Path":         cf.Path,
-					"cf.SourceSize":   cf.SourceSize,
-					"cf.DestSize":     cf.DestSize,
-					"d.SizeTotal":     device.SizeTotal,
-					"d.SizeWritn":     device.SizeWritn,
-					"expectAvailable": device.SizeTotal - device.SizeWritn,
+					"oSize":         oSize,
+					"cf.Path":       cf.Path,
+					"cf.SourceSize": cf.SourceSize,
+					"cf.DestSize":   cf.DestSize,
+					"d.SizeTotal":   device.SizeTotal,
 				}).Error("Error copying file!")
-				Log.WithFields(logrus.Fields{"file": cf.Name, "size": oSize, "destSize": cf.DestSize}).Debugln("File size")
 				cerr <- fmt.Errorf("%s copyn: %s", syncErrCtx, err.Error())
 				break
 			} else {
-				Log.WithFields(logrus.Fields{"file": cf.DestPath, "size": oSize}).Debugln("File size")
 				err = sFile.Close()
 				err = oFile.Close()
-				var ls os.FileInfo
-				ls, err = os.Lstat(cf.DestPath)
-				if err == nil {
-					Log.WithFields(logrus.Fields{"file": cf.Name, "size": ls.Size(), "destSize": cf.DestSize}).Debugln("File size")
-					device.SizeWritn += uint64(ls.Size())
-				}
 			}
 		}
 		if err == nil {
 			cf.SrcSha1 = mIo.Sha1SumToString()
-			Log.WithFields(logrus.Fields{"file": cf.DestPath, "sha1sum": cf.SrcSha1}).Debugln("File sha1sum")
+			Log.WithFields(logrus.Fields{"file": cf.DestPath, "sha1sum": cf.SrcSha1}).Infoln("File sha1sum")
 			err = setMetaData(cf)
 		}
 		if err != nil {
@@ -391,10 +392,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			break
 		}
 	}
-	Log.WithFields(logrus.Fields{
-		"device":     device.Name,
-		"mountPoint": device.MountPoint,
-	}).Info("Sync to device complete")
+	Log.WithFields(logrus.Fields{"device": device.Name, "mountPoint": device.MountPoint}).Info("Sync to device complete")
 	close(trakc)
 	close(cerr)
 }
@@ -407,10 +405,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 	var lastDevice *Device
 
 	totalSyncSize = c.Catalog.TotalSize()
-	Log.WithFields(logrus.Fields{
-		"dataSize": totalSyncSize,
-		"poolSize": c.Devices.TotalSize(),
-	}).Info("Data vs Pool size")
+	Log.WithFields(logrus.Fields{"dataSize": totalSyncSize, "poolSize": c.Devices.TotalSize()}).Info("Data vs Pool size")
 
 	i := 0
 	streamCount := 0
@@ -435,12 +430,15 @@ func Sync(c *Context, disableContextSave bool) []error {
 		Log.Debugln("Breaking error reporting loop!")
 	}
 
+	// Called every one second
 	overallProgressReporter := func() {
 		totalSyncBytesWritten := c.Devices.TotalSizeWritten()
-		if progressLastSizeWritn == 0 {
-			progressLastSizeWritn = totalSyncBytesWritten
-		}
 		diffSizeWritn := totalSyncBytesWritten - progressLastSizeWritn
+		Log.WithFields(logrus.Fields{
+			"totalSyncBytesWritn": totalSyncBytesWritten,
+			"lastBytesWritn":      progressLastSizeWritn,
+			"diff":                diffSizeWritn,
+		}).Infoln("Overall progress report")
 		progress.addPoint(diffSizeWritn)
 		c.SyncProgress <- SyncProgress{
 			SizeWritn:      totalSyncBytesWritten,
