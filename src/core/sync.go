@@ -468,7 +468,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 			Log.Debugln("Breaking main sync loop! Counter:", i)
 			break
 		}
-		if i < len(c.Devices) && streamCount < c.OutputStreamNum {
+		if i < len(c.Devices) && i < len(c.Catalog) && streamCount < c.OutputStreamNum {
 			streamCount += 1
 			// Launch into go routine in case exec is blocked waiting for a user to mount a device
 			go func(index int) {
