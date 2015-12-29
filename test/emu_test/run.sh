@@ -13,6 +13,11 @@ ALL_OFF="$(tput sgr0 2> /dev/null)"
 BOLD="$(tput bold 2> /dev/null)"
 RED="${BOLD}$(tput setaf 1 2> /dev/null)"
 
+msg() {
+	local mesg=$1; shift
+	printf "${GREEN}====${ALL_OFF}${WHITE}${BOLD} ${mesg}${ALL_OFF}\n" "$@"
+}
+
 error() {
 	local mesg=$1; shift
 	printf "${RED}====  ERROR: ${ALL_OFF}${BOLD}${WHITE}${mesg}${ALL_OFF}\n" "$@" >&2
@@ -41,16 +46,23 @@ if [[ ! -n "$1" ]]; then
     if ! ./test/scripts/mktestfs.sh wipe emu_test; then
         exit 1
     fi
+    # if ! ./test/scripts/mktestfs.sh umount emu_test; then
+        # exit 1
+    # fi
 fi
 
 # Build the f'n thing
 gb build -q
 if [[ $? == 0 ]]; then
+    START=$(date +%s.%N)
     if ! ./bin/gds -c "${conf}" --log "${lp}" --context "${ctxl}" --log-level debug sync 2> /tmp/gds-error; then
         reset
         echo -e "\n" >> "${lp}"
         cat /tmp/gds-error >> "${lp}"
         error "A fatal error has occurred. See '${lp}' for more details."
     fi
+    END=$(date +%s.%N)
+    DIFF=$(echo "$END - $START" | bc)
+    msg "Ran in $DIFF seconds"
     rm -rf src/cmd/gds/gds 2> /dev/null
 fi
