@@ -39,6 +39,12 @@
 			"path": "/spew"
 		},
 		{
+			"importpath": "github.com/davecheney/profile",
+			"repository": "https://github.com/davecheney/profile",
+			"revision": "c29d1a1565bca9fbeed5eed0e5d52ba78469a16b",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/demizer/go-humanize",
 			"repository": "https://github.com/demizer/go-humanize",
 			"revision": "675823bfa41eb19bcb4a5899e129e09d637a7204",

@@ -14,6 +14,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecheney/profile"
 	"github.com/nsf/termbox-go"
 )
 
@@ -70,6 +71,10 @@ func (f fatalShowHelp) Error() (s string) {
 	return
 }
 
+var pprof interface {
+	Stop()
+}
+
 // cleanupAtExit performs some cleanup operations before exiting.
 func cleanupAtExit() {
 	if termbox.IsInit {
@@ -105,9 +110,18 @@ func cleanupAtExit() {
 		GDS_LOG_FD.WriteString(fmt.Sprintf("\nFATAL ERROR: %s\n\n%s\n", v, string(stack[:size])))
 		os.Exit(1)
 	}
+	// pprof.Stop()
 }
 
 func main() {
+	defer cleanupAtExit()
+	// cfg := profile.Config{
+	// CPUProfile:     true,
+	// MemProfile:     true,
+	// ProfilePath:    ".",  // store profiles in current directory
+	// NoShutdownHook: true, // do not hook SIGINT
+	// }
+	// pprof = profile.Start(&cfg)
 	app := cli.NewApp()
 	app.Name = "Ghetto Device Storage (gds)"
 	app.Version = "0.0.1"
@@ -150,7 +164,6 @@ func main() {
 			Usage: "The level of log output. Levels: debug, info, warn, error, fatal, panic",
 		},
 	}
-	defer cleanupAtExit()
 	app.Commands = []cli.Command{
 		NewSyncCommand(),
 	}
