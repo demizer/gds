@@ -54,6 +54,8 @@ type tracker struct {
 }
 
 func (s *tracker) report(dev *Device, devBps *bytesPerSecond, sfp chan<- SyncDeviceProgress) {
+	// Tracks total file size reported to the tracker
+	var size uint64
 	// File bps calculation
 	fbps := newBytesPerSecond()
 	lastReport := time.Now()
@@ -71,8 +73,9 @@ outer:
 				"copyTotalBytesWritn":        s.io.sizeWritnTotal,
 			}).Infoln("Copy report")
 			dev.SizeWritn += bw
+			size += bw
 			devBps.addPoint(bw)
-			fbps.addPoint(s.io.sizeWritnTotal)
+			fbps.addPoint(size)
 			sfp <- SyncDeviceProgress{
 				FileName:             s.file.Name,
 				FilePath:             s.file.DestPath,
@@ -84,7 +87,7 @@ outer:
 				DeviceTotalSizeWritn: dev.SizeWritn,
 				DeviceBytesPerSecond: devBps.calc(),
 			}
-			if s.io.sizeWritnTotal == s.file.DestSize {
+			if size == s.file.DestSize {
 				Log.WithFields(logrus.Fields{
 					"bw":                  bw,
 					"destPath":            s.file.DestPath,
