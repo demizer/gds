@@ -58,6 +58,7 @@ func (s *tracker) report(dev *Device, devBps *bytesPerSecond, sfp chan<- SyncDev
 	var size uint64
 	// File bps calculation
 	fbps := newBytesPerSecond()
+	// Used to track times from the last report
 	lastReport := time.Now()
 	lastRealReport := time.Now()
 outer:
@@ -100,7 +101,7 @@ outer:
 			lastRealReport = time.Now()
 		default:
 			if time.Since(lastReport).Seconds() > 1 {
-				Log.Debugf("No bytes written in last second for device %q !", dev.Name)
+				Log.Debugf("No bytes written in last second for device %s !", dev.Name)
 				devBps.addPoint(0)
 				fbps.addPoint(0)
 				lastReport = time.Now()
@@ -462,7 +463,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 			}
 			progress.report(dev, dbps, c.SyncDeviceProgress[trakIndex])
 		}
-		Log.Debugf("TRACKER DONE: trakIndex: %d", trakIndex)
+		Log.WithFields(logrus.Fields{"trakIndex": trakIndex, "dev.SizeWritn": dev.SizeWritn}).Debugf("TRACKER DONE")
 	}
 
 	// GO GO GO
