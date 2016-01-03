@@ -336,8 +336,12 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 
 		ns := time.Now()
 		newTracker := tracker{io: mIo, file: cf, device: device}
-		trakc <- newTracker
-		Log.Debugln("TIME AFTER TRACKER SEND:", time.Since(ns))
+		select {
+		case trakc <- newTracker:
+			Log.Debugln("TIME AFTER TRACKER SEND:", time.Since(ns))
+		case <-time.After(200 * time.Second):
+			panic("Should not be here! No receive on tracker channel in 200 seconds...")
+		}
 		if cf.SplitEndByte == 0 && !syncTest {
 			if _, err := io.Copy(nIo, sFile); err != nil {
 				newTracker.closed = true
@@ -493,7 +497,7 @@ func Sync(c *Context, disableContextSave bool) []error {
 				}
 
 				errorChan := make(chan error, 10)
-				trackers[index] = make(chan tracker, 100)
+				trackers[index] = make(chan tracker, 1)
 
 				go errCollector(&retError, errorChan)
 
