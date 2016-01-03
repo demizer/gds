@@ -394,6 +394,12 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- tracker, cerr chan<
 			cf.SrcSha1 = mIo.Sha1SumToString()
 			Log.WithFields(logrus.Fields{"file": cf.DestPath, "sha1sum": cf.SrcSha1}).Infoln("File sha1sum")
 			err = setMetaData(cf)
+			// For zero length files, report zero on the sizeWritn channel. io.Copy will only
+			// create the file, but it will not report bytes written since there are none.
+			// Otherwise sends to the tracker will block causing everything to grind to a halt.
+			if cf.SourceSize == 0 && cf.FileType == FILE {
+				mIo.sizeWritn <- 0
+			}
 		}
 		if err != nil {
 			cerr <- fmt.Errorf("%s %s", syncErrCtx, err.Error())
