@@ -1,0 +1,12 @@
+backupPath: "/mnt/data/stage"
+outputStreams: 2
+paddingPercentage: 1.0
+devices:
+  - name: "Test Device 1 500GB"
+    sizeTotal: 496869335040
+    mountPoint: "/mnt/gds-test-btrfs-0"
+    uuid: 3d1f17ee-0b72-4e3c-a1b6-cfe9bc04a601
+  - name: "Test Device 2 1TB"
+    sizeTotal: 998040100864
+    mountPoint: "/mnt/gds-test-btrfs-1"
+    uuid: 00adc226-8264-40ff-8f74-d3c08b6a0319

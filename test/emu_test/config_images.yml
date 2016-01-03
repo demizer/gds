@@ -1,0 +1,35 @@
+backupPath: "/mnt/data/files/images"
+outputStreams: 3
+devices:
+  - name: "Test Device 1"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-0"
+    uuid: 51f5a503-f670-46a5-8098-59fa69af6fed
+  - name: "Test Device 2"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-1"
+    uuid: 40b46262-96dc-4fb2-a765-a0c948794305
+  - name: "Test Device 3"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-2"
+    uuid: 79d583e5-dab9-40ad-ad98-253ae0fde964
+  - name: "Test Device 4"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-3"
+    uuid: 50a38e6c-2bfd-4cb1-8741-78632304a8fe
+  - name: "Test Device 5"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-4"
+    uuid: beb2cd83-72e3-40d9-ae7f-d73f3897366a
+  - name: "Test Device 6"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-5"
+    uuid: 2a52ef55-be52-4e40-803b-39f0a350695e
+  - name: "Test Device 7"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-6"
+    uuid: 5a6cfaa6-7827-4222-b6e7-a29c38e5ebe9
+  - name: "Test Device 8"
+    sizeTotal: 7479361536
+    mountPoint: "/mnt/gds-test-7"
+    uuid: 808312f2-e11d-49e5-a46f-d4dd18f6514e

@@ -1,5 +1,3 @@
-# Test configuration file
-# Use: \df -B1 /mnt/backup1 to find correct available space in bytes.
 backupPath: "/mnt/data/files/games/emulation"
 outputStreams: 8
 devices:

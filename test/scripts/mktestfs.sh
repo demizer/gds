@@ -161,11 +161,11 @@ usage() {
     echo
     echo "Tests:"
     echo
-    echo "    emu_test   Create the test devices needed for testing using my emulation files (50GiB in Size)."
+    echo "    emulation   Create the test devices needed for testing using my emulation files (50GiB in Size)."
     echo
 	echo "Examples:"
     echo
-    echo "    $NAME make emu_test :: Create the test devices."
+    echo "    $NAME make emulation :: Create the test devices."
 }
 
 if [[ $# -lt 1 ]]; then
@@ -183,7 +183,7 @@ for (( a = 0; a < $#; a++ )); do
         MKT_MOUNT=1
     elif [[ ${ARGS[$a]} == "umount" ]]; then
         MKT_UMOUNT=1
-    elif [[ ${ARGS[$a]} == "emu_test" ]]; then
+    elif [[ ${ARGS[$a]} == "emulation" ]]; then
         MKT_EMU_TEST=1
     elif [[ ${ARGS[$a]} == "-n" ]]; then
         DRY_RUN=1
