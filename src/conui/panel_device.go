@@ -41,9 +41,11 @@ type DevicePanel struct {
 	Label               string         // Label of the widget
 	SizeWritn           uint64         // Size of bytes written
 	SizeTotal           uint64         // Total data size of the output
-	BytesPerSecond      uint64         // Write speed in bytes per second
 	DeviceFileHist      DeviceFileHist // Log of files seen
 	FileHistoryViewable int            // Number of files to show in the history log
+
+	BytesPerSecond        uint64 // Write speed in bytes per second
+	BytesPerSecondVisible bool   // Show or hide the BPS display in the panel
 
 	// private
 	visible  bool
@@ -68,11 +70,12 @@ type DevicePanel struct {
 // NewGauge return a new DevicePanel with current theme.
 func NewDevicePanel(label string, fileSize uint64) *DevicePanel {
 	g := &DevicePanel{
-		Label:               label,
-		SizeWritn:           1,
-		SizeTotal:           fileSize,
-		FileHistoryViewable: 5,
-		progressBarHeight:   2,
+		Label:                 label,
+		SizeWritn:             1,
+		SizeTotal:             fileSize,
+		FileHistoryViewable:   5,
+		progressBarHeight:     2,
+		BytesPerSecondVisible: true,
 	}
 	g.width = TermWidth()
 	g.height = borderSize + g.progressBarHeight + g.FileHistoryViewable + 1
@@ -168,6 +171,10 @@ func (g *DevicePanel) Buffer() []Point {
 	// Render the percentage
 	s := fmt.Sprintf("%s/%s [%s/s] (%s%%)", humanize.IBytes(g.SizeWritn), humanize.IBytes(g.SizeTotal),
 		humanize.IBytes(g.BytesPerSecond), strconv.Itoa(g.percent))
+	if !g.BytesPerSecondVisible {
+		s = fmt.Sprintf("%s/%s (%s%%)", humanize.IBytes(g.SizeWritn), humanize.IBytes(g.SizeTotal),
+			strconv.Itoa(g.percent))
+	}
 	pry := g.y + (g.height-g.FileHistoryViewable)/2
 	rs := []rune(s)
 	pos := (g.width - runewidth.StringWidth(s)) / 2

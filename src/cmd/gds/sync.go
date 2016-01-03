@@ -232,20 +232,21 @@ func update(c *core.Context) {
 		c.SyncDeviceMount[x] = make(chan bool)
 		c.SyncDeviceProgress[x] = make(chan core.SyncDeviceProgress, 100)
 		go func(index int) {
+			dw := conui.Body.DevicePanelByIndex(index)
 			for {
-				fp := <-c.SyncDeviceProgress[index]
-				dw := conui.Body.DevicePanelByIndex(index)
-				dw.SizeWritn += fp.DeviceSizeWritn
-				dw.BytesPerSecond = fp.DeviceBytesPerSecond
-				log.WithFields(logrus.Fields{
-					"fp.FileName":           fp.FileName,
-					"fp.FilePath":           fp.FilePath,
-					"fp.FileSize":           fp.FileSize,
-					"fp.FileSizeWritn":      fp.FileSizeWritn,
-					"fp.FileTotalSizeWritn": fp.FileTotalSizeWritn,
-					"deviceIndex":           index,
-				}).Debugln("Sync file progress")
-				if dw.SizeWritn == dw.SizeTotal || c.Exit {
+				if fp, ok := <-c.SyncDeviceProgress[index]; ok {
+					dw.SizeWritn += fp.DeviceSizeWritn
+					dw.BytesPerSecond = fp.DeviceBytesPerSecond
+					log.WithFields(logrus.Fields{
+						"fp.FileName":           fp.FileName,
+						"fp.FilePath":           fp.FilePath,
+						"fp.FileSize":           fp.FileSize,
+						"fp.FileSizeWritn":      fp.FileSizeWritn,
+						"fp.FileTotalSizeWritn": fp.FileTotalSizeWritn,
+						"deviceIndex":           index,
+					}).Debugln("Sync file progress")
+				} else if !ok || c.Exit {
+					dw.BytesPerSecondVisible = false
 					break
 				}
 			}

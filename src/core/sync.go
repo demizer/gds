@@ -457,12 +457,13 @@ func Sync(c *Context, disableContextSave bool) []error {
 		dbps := newBytesPerSecond()
 		for {
 			// Report the progress for each file
-			progress, ok := <-trakc
-			if !ok {
+			if progress, ok := <-trakc; ok {
+				progress.report(dev, dbps, c.SyncDeviceProgress[trakIndex])
+			} else {
 				break
 			}
-			progress.report(dev, dbps, c.SyncDeviceProgress[trakIndex])
 		}
+		close(c.SyncDeviceProgress[trakIndex])
 		Log.WithFields(logrus.Fields{"trakIndex": trakIndex, "dev.SizeWritn": dev.SizeWritn}).Debugf("TRACKER DONE")
 	}
 
