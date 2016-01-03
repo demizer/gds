@@ -31,7 +31,7 @@ type SyncProgress struct {
 	ETA            time.Time
 }
 
-// SyncDeviceProgress details sync progress of an individual file.
+// SyncDeviceProgress details sync progress of an individual file. Channel is closed once writes to the device are complete.
 type SyncDeviceProgress struct {
 	FileName string
 	FilePath string

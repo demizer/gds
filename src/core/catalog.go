@@ -44,38 +44,31 @@ func NewCatalog(c *Context) (Catalog, error) {
 		}
 
 		d := c.Devices[dNum]
-		if dSize == 0 {
+		paddBytes := uint64(float64(c.Devices[dNum].SizeTotal) * (c.PaddingPercentage / 100))
+		if len(t[d.Name]) == 1 {
 			Log.WithFields(logrus.Fields{
-				"d.SizeTotal":  d.SizeTotal,
-				"deviceNumber": dNum,
+				"d.SizeTotal": d.SizeTotal, "paddBytes": paddBytes, "deviceNumber": dNum,
+				"dev.SizeTotal-paddBytes": c.Devices[dNum].SizeTotal - paddBytes,
 			}).Debugln("Device stats")
 		}
 
 		f.DestSize = f.SourceSize
 		Log.WithFields(logrus.Fields{
-			"f.Name":       f.Name,
-			"f.SourceSize": f.SourceSize,
-			"f.DestSize":   f.DestSize,
-			"f.FileType":   f.FileType,
-			"dSize":        dSize,
+			"f.Name": f.Name, "f.SourceSize": f.SourceSize, "f.DestSize": f.DestSize,
+			"f.FileType": f.FileType, "dSize": dSize,
 		}).Debugln("NewCatalog: FILE")
 
-		if (dSize + f.DestSize) <= d.SizeTotal {
-			Log.Debugln("Adding file to device!")
+		if (dSize + f.DestSize) <= (d.SizeTotal - paddBytes) {
 			dSize += f.DestSize
-		} else if (dSize+c.SplitMinSize) <= d.SizeTotal && f.SourceSize > d.SizeTotal-dSize {
-			// Split de file, more logic to follow ...
-			Log.Debugln("Splitting file!")
+		} else if dSize <= (d.SizeTotal-paddBytes) && f.SourceSize > d.SizeTotal-dSize-paddBytes {
 			split = true
 			f.SplitStartByte = 0
-			// Subtract an extra 2 tenths of a percent of the total device size to insure no out-of-space errors
-			// will occurr. As named files are added to the mounted device, the size of directory increases due
-			// to the information the directory file must contain (pointers to inodes, names, etc). This is not
-			// easily calculated for the multitude of filesystems available, so it's just easier to leave an
-			// extra 2 tenths of a percent for this information.
-			buf := uint64(float64(c.Devices[dNum].SizeTotal) * 0.002)
-			f.SplitEndByte = (c.Devices[dNum].SizeTotal - dSize) - buf
+			f.SplitEndByte = (c.Devices[dNum].SizeTotal - paddBytes) - dSize
 			f.DestSize = f.SplitEndByte - f.SplitStartByte
+			Log.WithFields(logrus.Fields{
+				"dSize": dSize, "f.SplitEndByte": f.SplitEndByte, "f.DestSize": f.DestSize,
+			}).Debugln("Splitting file!")
+
 		} else {
 			// Out of device space, get the next device
 			Log.Debugln("Out of device space!")
@@ -83,9 +76,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 				Log.Error("Total backup size is greater than device pool size!")
 				notEnoughSpaceError = true
 				c.Devices = append(c.Devices, Device{
-					Name:       "overrun",
-					MountPoint: "none",
-					SizeTotal:  d.SizeTotal,
+					Name: "overrun", MountPoint: "none", SizeTotal: d.SizeTotal,
 				})
 			} else {
 				dNum += 1
@@ -96,9 +87,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 		}
 
 		Log.WithFields(logrus.Fields{
-			"dSize":       dSize,
-			"d.SizeTotal": d.SizeTotal,
-			"f.DestSize":  f.DestSize,
+			"dSize": dSize, "d.SizeTotal": d.SizeTotal, "f.DestSize": f.DestSize,
 		}).Debugln("NewCatalog: After size calc")
 
 		// Set the UUID destination path
@@ -134,9 +123,10 @@ func NewCatalog(c *Context) (Catalog, error) {
 				fNew.SplitEndByte = fNew.SourceSize
 				fNew.DestSize = fNew.SourceSize - fNew.SplitStartByte
 
-				// If the file is still larger than the new divice, use all of the available space
-				if (dSize + fNew.DestSize) >= d.SizeTotal {
-					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeTotal - dSize) // Use the remaining device space
+				// If the file is still larger than the new device, use all of the available space
+				if (dSize + fNew.DestSize) >= (d.SizeTotal - paddBytes) {
+					// Use the remaining device space
+					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeTotal - dSize - paddBytes)
 					fNew.DestSize = fNew.SplitEndByte - fNew.SplitStartByte
 				}
 				dSize += fNew.DestSize
@@ -154,7 +144,6 @@ func NewCatalog(c *Context) (Catalog, error) {
 				t[d.Name] = append(t[d.Name], &fNew)
 				if fNew.SplitEndByte == fNew.SourceSize {
 					// The file is accounted for, break the loop
-					Log.Debug("File is accounted for")
 					break
 				}
 				// If the exec path reaches this point, we are out of device space, but still have a portion
@@ -182,6 +171,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 				lastf = fNew
 			}
 		} else {
+			Log.WithFields(logrus.Fields{"deviceName": d.Name, "fileName": f.Name}).Debugln("File destination")
 			t[d.Name] = append(t[d.Name], f)
 		}
 	}

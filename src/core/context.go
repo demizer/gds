@@ -11,13 +11,14 @@ import (
 
 // Context contains the application state
 type Context struct {
-	BackupPath      string     `json:"backupPath" yaml:"backupPath"`
-	OutputStreamNum int        `json:"outputStreams" yaml:"outputStreams"`
-	SyncStartDate   time.Time  `json:"syncStartDate" yaml:"syncStartDate"`
-	LastSyncEndDate time.Time  `json:"lastSyncEndDate" yaml:"lastSyncEndDate"`
-	Files           FileList   `json:"files"`
-	Devices         DeviceList `json:"devices" yaml:"devices"`
-	Catalog         Catalog    `json:"catalog"`
+	BackupPath        string     `json:"backupPath" yaml:"backupPath"`
+	OutputStreamNum   int        `json:"outputStreams" yaml:"outputStreams"`
+	SyncStartDate     time.Time  `json:"syncStartDate" yaml:"syncStartDate"`
+	LastSyncEndDate   time.Time  `json:"lastSyncEndDate" yaml:"lastSyncEndDate"`
+	PaddingPercentage float64    `json:"paddingPercentage" yaml:"paddingPercentage"`
+	Files             FileList   `json:"files"`
+	Devices           DeviceList `json:"devices" yaml:"devices"`
+	Catalog           Catalog    `json:"catalog"`
 
 	// Minimum number of bytes that must remain on the device before a file is split across devices
 	SplitMinSize uint64 `json:"splitMinSize" yaml:"splitMinSize"`
@@ -35,6 +36,7 @@ func NewContext() *Context {
 	return &Context{
 		SyncStartDate:      time.Now(),
 		OutputStreamNum:    1,
+		PaddingPercentage:  1.0,
 		SyncProgress:       make(chan SyncProgress),
 		SyncDeviceProgress: make(map[int]chan SyncDeviceProgress),
 		SyncDeviceMount:    make(map[int]chan bool),
