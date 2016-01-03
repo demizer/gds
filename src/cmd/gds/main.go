@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"logfmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,7 +16,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/davecgh/go-spew/spew"
-	// "github.com/davecheney/profile"
+	"github.com/davecheney/profile"
 	"github.com/nsf/termbox-go"
 )
 
@@ -71,10 +73,6 @@ func (f fatalShowHelp) Error() (s string) {
 	return
 }
 
-var pprof interface {
-	Stop()
-}
-
 // cleanupAtExit performs some cleanup operations before exiting.
 func cleanupAtExit() {
 	if termbox.IsInit {
@@ -110,18 +108,30 @@ func cleanupAtExit() {
 		GDS_LOG_FD.WriteString(fmt.Sprintf("\nFATAL ERROR: %s\n\n%s\n", v, string(stack[:size])))
 		os.Exit(1)
 	}
-	// pprof.Stop()
+	pprof.Stop()
+}
+
+var pprof interface {
+	Stop()
+}
+
+func enable_profiling() {
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+	cfg := profile.Config{
+		CPUProfile:     true,
+		MemProfile:     true,
+		ProfilePath:    ".",  // store profiles in current directory
+		NoShutdownHook: true, // do not hook SIGINT
+	}
+	pprof = profile.Start(&cfg)
 }
 
 func main() {
 	defer cleanupAtExit()
-	// cfg := profile.Config{
-	// CPUProfile:     true,
-	// MemProfile:     true,
-	// ProfilePath:    ".",  // store profiles in current directory
-	// NoShutdownHook: true, // do not hook SIGINT
-	// }
-	// pprof = profile.Start(&cfg)
+	// enable_profiling()
+
 	app := cli.NewApp()
 	app.Name = "Ghetto Device Storage (gds)"
 	app.Version = "0.0.1"
