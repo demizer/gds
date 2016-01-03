@@ -60,7 +60,6 @@ func (s *tracker) report(dev *Device, devBps *bytesPerSecond, sfp chan<- SyncDev
 	fbps := newBytesPerSecond()
 	// Used to track times from the last report
 	lastReport := time.Now()
-	lastRealReport := time.Now()
 outer:
 	for {
 		select {
@@ -70,7 +69,7 @@ outer:
 				"fileDestName":               s.file.DestPath,
 				"fileBytesWritn":             bw,
 				"fileTotalBytes":             s.file.DestSize,
-				"elapsedTimeSinceLastReport": time.Since(lastRealReport),
+				"elapsedTimeSinceLastReport": time.Since(lastReport),
 				"copyTotalBytesWritn":        s.io.sizeWritnTotal,
 			}).Infoln("Copy report")
 			dev.SizeWritn += bw
@@ -98,14 +97,15 @@ outer:
 				break outer
 			}
 			lastReport = time.Now()
-			lastRealReport = time.Now()
-		default:
-			if time.Since(lastReport).Seconds() > 1 {
-				Log.Debugf("No bytes written in last second for device %s !", dev.Name)
-				devBps.addPoint(0)
-				fbps.addPoint(0)
-				lastReport = time.Now()
+			lastReport = time.Now()
+		case <-time.After(time.Second):
+			if s.closed {
+				break outer
 			}
+			Log.Debugf("No bytes written to %q on device %q in last second.", s.file.Name, dev.Name)
+			devBps.addPoint(0)
+			fbps.addPoint(0)
+			lastReport = time.Now()
 		}
 	}
 }
