@@ -216,7 +216,7 @@ func update(c *core.Context) {
 	// Main progress panel updater
 	go func() {
 		for {
-			p := <-c.SyncProgress
+			p := <-c.SyncProgress.Report
 			prg := conui.Body.ProgressPanel
 			prg.SizeWritn = p.SizeWritn
 			prg.BytesPerSecond = p.BytesPerSecond
@@ -229,11 +229,10 @@ func update(c *core.Context) {
 	for x := 0; x < len(c.Devices); x++ {
 		go deviceMountHandler(c, x)
 		c.SyncDeviceMount[x] = make(chan bool)
-		c.SyncDeviceProgress[x] = make(chan core.SyncDeviceProgress, 100)
 		go func(index int) {
 			dw := conui.Body.DevicePanelByIndex(index)
 			for {
-				if fp, ok := <-c.SyncDeviceProgress[index]; ok {
+				if fp, ok := <-c.SyncProgress.Device[index].Report; ok {
 					dw.SizeWritn += fp.DeviceSizeWritn
 					dw.BytesPerSecond = fp.DeviceBytesPerSecond
 					log.WithFields(logrus.Fields{
@@ -277,26 +276,26 @@ func syncStart(c *cli.Context) {
 	go eventListener(c2)
 	update(c2)
 
-	exit := false
+	errChan := make(chan error, 100)
 
 	// Sync the things
 	go func() {
-		errs := core.Sync(c2, c.GlobalBool("no-dev-context"))
-		if len(errs) > 0 {
-			for _, e := range errs {
-				log.Errorf("Sync error: %s", e.Error())
-			}
-		}
+		core.Sync(c2, c.GlobalBool("no-dev-context"), errChan)
 		log.Info("ALL DONE -- Sync complete!")
-		// exit = true
+		// c2.Exit = true
 	}()
 
 	// Give the user time to review the sync in the UI
+outer:
 	for {
-		if c2.Exit || exit {
-			break
+		select {
+		case err := <-errChan:
+			log.Errorf("Sync error: %s", err)
+		case <-time.After(time.Second):
+			if c2.Exit {
+				break outer
+			}
 		}
-		time.Sleep(time.Second)
 	}
 
 	// Fin
