@@ -34,8 +34,8 @@ var (
 
 var log = &logrus.Logger{
 	Out:       os.Stdout,
-	Formatter: &logfmt.TextFormatter{DisableColors: true},
-	// Formatter: &logfmt.TextFormatter{},
+	Formatter: &logfmt.TextFormatter{},
+	// Formatter: &logfmt.TextFormatter{DisableColors: true},
 	Hooks: make(logrus.LevelHooks),
 	Level: logrus.InfoLevel,
 }

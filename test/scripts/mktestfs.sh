@@ -4,6 +4,8 @@
 #
 # Requires setting user mountable paths in /etc/fstab:
 #
+# Emulation tests:
+#
 # /home/demizer/.config/gds/test/gds-test-0       /mnt/gds-test-0         ext4 noauto,defaults,user 0 0
 # /home/demizer/.config/gds/test/gds-test-1       /mnt/gds-test-1         ext4 noauto,defaults,user 0 0
 # /home/demizer/.config/gds/test/gds-test-2       /mnt/gds-test-2         ext4 noauto,defaults,user 0 0
@@ -14,6 +16,11 @@
 # /home/demizer/.config/gds/test/gds-test-7       /mnt/gds-test-7         ext4 noauto,defaults,user 0 0
 # /home/demizer/.config/gds/test/gds-test-8       /mnt/gds-test-8         ext4 noauto,defaults,user 0 0
 # /home/demizer/.config/gds/test/gds-test-9       /mnt/gds-test-9         ext4 noauto,defaults,user 0 0
+#
+# btrfs-compressed tests
+#
+# UUID=3d1f17ee-0b72-4e3c-a1b6-cfe9bc04a601 /mnt/gds-test-btrfs-0 btrfs noauto,noatime,autodefrag,compress-force=lzo,space_cache,user 0 0
+# UUID=00adc226-8264-40ff-8f74-d3c08b6a0319 /mnt/gds-test-btrfs-1 btrfs noauto,noatime,autodefrag,compress-force=lzo,space_cache,user 0 0
 #
 
 #
@@ -36,6 +43,11 @@ EMU_DEV_UUID[4]="beb2cd83-72e3-40d9-ae7f-d73f3897366a"
 EMU_DEV_UUID[5]="2a52ef55-be52-4e40-803b-39f0a350695e"
 EMU_DEV_UUID[6]="5a6cfaa6-7827-4222-b6e7-a29c38e5ebe9"
 EMU_DEV_UUID[7]="808312f2-e11d-49e5-a46f-d4dd18f6514e"
+
+BTRFS1_DEVICE_NAME_PREFIX="gds-test-btrfs"
+BTRFS1_NUM_DEVICES=2
+BTRFS1_DEV_UUID[0]="3d1f17ee-0b72-4e3c-a1b6-cfe9bc04a601"
+BTRFS1_DEV_UUID[1]="00adc226-8264-40ff-8f74-d3c08b6a0319"
 
 #
 # END CONFIG SECTION
@@ -161,11 +173,12 @@ usage() {
     echo
     echo "Tests:"
     echo
-    echo "    emulation   Create the test devices needed for testing using my emulation files (50GiB in Size)."
+    echo "    emulation     Create the test devices needed for testing using my emulation files (50GiB in Size)."
+    echo "    btrfscomp        Wipe, mount, and unmount btrfs filesystems for testing btrfs compression"
     echo
 	echo "Examples:"
     echo
-    echo "    $NAME make emulation :: Create the test devices."
+    echo "    ${NAME} make emulation :: Create the test devices."
 }
 
 if [[ $# -lt 1 ]]; then
@@ -185,6 +198,8 @@ for (( a = 0; a < $#; a++ )); do
         MKT_UMOUNT=1
     elif [[ ${ARGS[$a]} == "emulation" ]]; then
         MKT_EMU_TEST=1
+    elif [[ ${ARGS[$a]} == "btrfscomp" ]]; then
+        MKT_BTRFS1_TEST=1
     elif [[ ${ARGS[$a]} == "-n" ]]; then
         DRY_RUN=1
     elif [[ ${ARGS[$a]} == "-d" ]]; then
@@ -194,6 +209,19 @@ for (( a = 0; a < $#; a++ )); do
         exit 0;
     fi
 done
+
+if [[ ${MKT_MAKE} -eq 0 ]] && [[ ${MKT_MOUNT} -eq 0 ]] && [[ ${MKT_WIPE} -eq 0 ]] && [[ ${MKT_UMOUNT} -eq 0 ]]; then
+    error "No commands specified!"
+    usage
+    exit 1
+elif [[ ${MKT_EMU_TEST} -eq 0 ]] && [[ ${MKT_BTRFS1_TEST} -eq 0 ]]; then
+    error "No tests specified!"
+    usage
+    exit 1
+elif [[ ${MKT_MAKE} -eq 1 ]] && [[ ${MKT_BTRFS1_TEST} -eq 1 ]]; then
+    error "Creating BTRFS devices is not yet possible!"
+    exit 1
+fi
 
 format_ext4() {
     # $1 - Device file path
@@ -231,7 +259,7 @@ mount_devices() {
     # $1 - Number of devices
     # $2 - Device name prefix
     for (( x = 0; x < $1; x++)); do
-        mnt="${EMU_DEVICE_NAME_PREFIX}-${x}"
+        mnt="${2}-${x}"
         msg2 "Mounting ${mnt}"
         run_cmd "mount /mnt/${mnt}"
         if [[ ${RUN_CMD_RETURN} != 0 ]]; then
@@ -259,8 +287,9 @@ umount_devices() {
 
 make_devices_writable() {
     # $1 - Number of devices
+    # $2 - Device name prefix
     for (( x = 0; x < $1; x++)); do
-        mnt="${EMU_DEVICE_NAME_PREFIX}-${x}"
+        mnt="${2}-${x}"
         msg2 "chgrp users for ${mnt}"
         run_cmd "sudo chgrp -R users /mnt/${mnt}"
         if [[ ${RUN_CMD_RETURN} != 0 ]]; then
@@ -293,36 +322,63 @@ wipe_devices() {
 
 [[ ! -d "${DEVICE_DESTPATH}" ]] && mkdir -p "${DEVICE_DESTPATH}"
 
-if [[ "${MKT_EMU_TEST}" == 1 ]]; then
-    if [[ "${MKT_MAKE}" == 1 ]]; then
-        DISKSIZE=$(($EMU_DATASIZE_BYTES/$EMU_NUM_DEVICES))
-        DISKSIZE_IN_BLOCKS=$(($DISKSIZE/4096))
+if [[ ${MKT_EMU_TEST} -eq 1 ]]; then
+    if [[ ${MKT_MAKE} -eq 1 ]]; then
+        DISKSIZE=$((${EMU_DATASIZE_BYTES}/${EMU_NUM_DEVICES}))
+        DISKSIZE_IN_BLOCKS=$((${DISKSIZE}/4096))
         msg "Creating ${EMU_NUM_DEVICES} devices!"
-        if ! make_devices $EMU_NUM_DEVICES $DEVICE_DESTPATH $EMU_DEVICE_NAME_PREFIX $DISKSIZE_IN_BLOCKS "4k" $DISKSIZE; then
+        if ! make_devices ${EMU_NUM_DEVICES} ${DEVICE_DESTPATH} ${EMU_DEVICE_NAME_PREFIX} ${DISKSIZE_IN_BLOCKS} "4k" ${DISKSIZE}; then
             exit 1
         fi
     fi
-    if [[ "${MKT_MOUNT}" == 1 ]]; then
+    if [[ ${MKT_MOUNT} -eq 1 ]]; then
         msg "Mounting emulation backup devices"
-        if ! mount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
+        if ! mount_devices ${EMU_NUM_DEVICES} ${EMU_DEVICE_NAME_PREFIX}; then
             exit 1
         fi
         gown=$(stat "/mnt/${EMU_DEVICE_NAME_PREFIX}-0" | grep 'Gid:' | awk '{print $10}' | grep -o '[[:alnum:]]*')
         debug "gown: ${gown}"
         if [[ "${gown}" != "users" ]]; then
             msg "Setting write permissions"
-            if ! make_devices_writable $EMU_NUM_DEVICES; then
+            if ! make_devices_writable ${EMU_NUM_DEVICES}; then
                 exit 1
             fi
         fi
-    elif [[ "${MKT_UMOUNT}" == 1 ]]; then
+    elif [[ ${MKT_UMOUNT} -eq 1 ]]; then
         msg "Un-mounting emulation backup devices"
-        if ! umount_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
+        if ! umount_devices ${EMU_NUM_DEVICES} ${EMU_DEVICE_NAME_PREFIX}; then
             exit 1
         fi
-    elif [[ "${MKT_WIPE}" == 1 ]]; then
+    elif [[ ${MKT_WIPE} -eq 1 ]]; then
         msg "Wiping backup devices..."
-            if ! wipe_devices $EMU_NUM_DEVICES $EMU_DEVICE_NAME_PREFIX; then
+            if ! wipe_devices ${EMU_NUM_DEVICES} ${EMU_DEVICE_NAME_PREFIX}; then
+                exit 1
+            fi
+    fi
+fi
+
+if [[ ${MKT_BTRFS1_TEST} -eq 1 ]]; then
+    if [[ ${MKT_MOUNT} -eq 1 ]]; then
+        msg "Mounting btrfs backup devices"
+        if ! mount_devices ${BTRFS1_NUM_DEVICES} ${BTRFS1_DEVICE_NAME_PREFIX}; then
+            exit 1
+        fi
+        gown=$(stat "/mnt/${BTRFS1_DEVICE_NAME_PREFIX}-0" | grep 'Gid:' | awk '{print $10}' | grep -o '[[:alnum:]]*')
+        debug "gown: ${gown}"
+        if [[ "${gown}" != "users" ]]; then
+            msg "Setting write permissions"
+            if ! make_devices_writable ${BTRFS1_NUM_DEVICES} ${BTRFS1_DEVICE_NAME_PREFIX}; then
+                exit 1
+            fi
+        fi
+    elif [[ ${MKT_UMOUNT} -eq 1 ]]; then
+        msg "Un-mounting btrfs backup devices"
+        if ! umount_devices ${BTRFS1_NUM_DEVICES} ${BTRFS1_DEVICE_NAME_PREFIX}; then
+            exit 1
+        fi
+    elif [[ ${MKT_WIPE} -eq 1 ]]; then
+        msg "Wiping backup devices..."
+            if ! wipe_devices ${BTRFS1_NUM_DEVICES} ${BTRFS1_DEVICE_NAME_PREFIX}; then
                 exit 1
             fi
     fi
