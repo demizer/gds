@@ -91,7 +91,7 @@ func BuildConsole(c *core.Context) {
 	visible := c.OutputStreamNum
 	for x, y := range c.Devices {
 		conui.Body.DevicePanels = append(conui.Body.DevicePanels, conui.NewDevicePanel(y.Name, y.SizeTotal))
-		if visible > 0 {
+		if visible > 0 && len(c.Catalog[y.Name]) > 0 {
 			log.Debugln("Making device", x, "visible")
 			conui.Body.DevicePanels[x].SetVisible(true)
 			if x == 0 {
