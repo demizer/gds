@@ -56,17 +56,29 @@ func Close() {
 }
 
 func Layout() {
-	Log.Debugf("Layout: NumVisible: %d TermHeight: %d Body.ProgressPanelHeight: %d", Body.NumVisible(), TermHeight(),
-		Body.ProgressPanelHeight)
+	Log.WithFields(logrus.Fields{
+		"NumVisible":               Body.NumVisible(),
+		"TermHeight":               TermHeight(),
+		"TermWidth":                TermWidth(),
+		"Body.ProgressPanelHeight": Body.ProgressPanelHeight,
+	}).Debugf("Layout")
+	// Use all of the width of the terminal
+	Body.Width = TermWidth()
+	Body.ProgressPanel.SetWidth(TermWidth())
+	for x := 0; x < len(Body.DevicePanels); x++ {
+		Body.DevicePanels[x].SetWidth(TermWidth())
+	}
 	if (Body.NumVisible() * Body.DevicePanelHeight) > (TermHeight() - Body.ProgressPanelHeight) {
 		Log.Debugln("Layout: Calling Body.scrollVisible()")
 		Body.scrollVisible()
 	} else {
 		Log.Debugln("Layout: Default rendering")
 		yPos := Body.ProgressPanelHeight
+		Body.ProgressPanel.SetWidth(TermWidth())
 		Body.ProgressPanel.SetY(0)
 		for x := 0; x < len(Body.DevicePanels); x++ {
 			row := Body.DevicePanels[x]
+			row.SetWidth(TermWidth())
 			yHeight := row.Height()
 			row.SetY(yPos)
 			yPos += yHeight
