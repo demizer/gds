@@ -136,7 +136,6 @@ func eventListener(c *core.Context) {
 				break
 			}
 			if e.Type == conui.EventResize {
-				// conui.Body.Width = conui.TermWidth()
 				conui.Layout()
 				go func() { conui.Redraw <- true }()
 			}

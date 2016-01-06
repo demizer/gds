@@ -29,6 +29,7 @@ var (
 	GDS_LOG_FILENAME     = "log_" + time.Now().Format(time.RFC3339) + ".log"
 	GDS_CONFIG_NAME      = "config.yaml"
 	GDS_CLI_APP          *cli.App
+	GDS_PROFILE          = true
 )
 
 var log = &logrus.Logger{
@@ -108,7 +109,9 @@ func cleanupAtExit() {
 		GDS_LOG_FD.WriteString(fmt.Sprintf("\nFATAL ERROR: %s\n\n%s\n", v, string(stack[:size])))
 		os.Exit(1)
 	}
-	pprof.Stop()
+	if GDS_PROFILE {
+		pprof.Stop()
+	}
 }
 
 var pprof interface {
@@ -130,7 +133,9 @@ func enable_profiling() {
 
 func main() {
 	defer cleanupAtExit()
-	// enable_profiling()
+	if GDS_PROFILE {
+		enable_profiling()
+	}
 
 	app := cli.NewApp()
 	app.Name = "Ghetto Device Storage (gds)"
