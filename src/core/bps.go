@@ -64,5 +64,5 @@ func (b *bytesPerSecond) calcFull() uint64 {
 	for _, y := range b.points {
 		tBytes += y.totalBytesWritten
 	}
-	return uint64(float64(tBytes/uint64(len(b.points))) / time.Since(b.timeStart).Seconds())
+	return uint64(float64(tBytes / uint64(len(b.points))))
 }

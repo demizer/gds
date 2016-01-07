@@ -73,7 +73,7 @@ func NewSyncProgressTracker(devices DeviceList) *SyncProgressTracker {
 }
 
 // Reports overall progress. Should be called once a second.
-func (s *SyncProgressTracker) report() {
+func (s *SyncProgressTracker) report(finalReport bool) {
 	totalSyncBytesWritten := s.devices.TotalSizeWritten()
 	if totalSyncBytesWritten == 0 {
 		return
@@ -88,9 +88,13 @@ func (s *SyncProgressTracker) report() {
 
 	s.bps.addPoint(diffSizeWritn)
 
+	nbps := s.bps.calc()
+	if finalReport {
+		nbps = s.bps.calcFull()
+	}
 	s.Report <- SyncProgress{
 		SizeWritn:      totalSyncBytesWritten,
-		BytesPerSecond: s.bps.calc(),
+		BytesPerSecond: nbps,
 	}
 
 	s.lastReportedBytesWritten = totalSyncBytesWritten

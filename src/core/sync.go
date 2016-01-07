@@ -361,13 +361,13 @@ func Sync(c *Context, disableContextSave bool, errChan chan error) {
 			case <-done:
 				streamCount -= 1
 			case <-time.After(time.Second):
-				c.SyncProgress.report()
+				c.SyncProgress.report(false)
 			}
 		}
 	}
 
 	// One final update to show full copy
-	c.SyncProgress.report()
+	c.SyncProgress.report(true)
 
 	if !disableContextSave {
 		_, err := saveSyncContext(c)
