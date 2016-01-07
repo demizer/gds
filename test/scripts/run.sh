@@ -87,7 +87,7 @@ prepare_devices_emu_img() {
     if ! ${SCRIPT_DIR}/mktestfs.sh wipe emulation; then
         exit 1
     fi
-    # if ! ${SCRIPT_DIR}/mktestfs.sh umount emu_test; then
+    # if ! ${SCRIPT_DIR}/mktestfs.sh umount emulation; then
         # exit 1
     # fi
 }
