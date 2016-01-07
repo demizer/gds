@@ -356,12 +356,13 @@ func Sync(c *Context, disableContextSave bool, errChan chan error) {
 			// Launch into go routine in case exec is blocked waiting for a user to mount a device
 			go syncLaunch(c, i, errChan, done)
 			i += 1
-		}
-		select {
-		case <-done:
-			streamCount -= 1
-		case <-time.After(time.Second):
-			c.SyncProgress.report()
+		} else {
+			select {
+			case <-done:
+				streamCount -= 1
+			case <-time.After(time.Second):
+				c.SyncProgress.report()
+			}
 		}
 	}
 
