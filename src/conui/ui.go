@@ -14,7 +14,7 @@ var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
 
 var (
 	Body   *Grid
-	Redraw = make(chan bool)
+	Redraw = make(chan bool, 1)
 	Events = EventCh()
 )
 

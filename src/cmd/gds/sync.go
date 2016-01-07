@@ -157,10 +157,12 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 	wg := conui.Body.DevicePanelByIndex(deviceIndex)
 	wg.SetVisible(true)
 
-	deviceIsReady := false
-	checkDevice := func(p *conui.PromptAction) error {
+	// Used to correctly time the display of the message in the prompt for the device panel.
+	pmc := make(chan string, 10)
+
+	checkDevice := func(p *conui.PromptAction, keyEvent bool, mesgChan chan string) (err error) {
 		// The actual checking
-		err := ensureDeviceIsReady(*d)
+		err = ensureDeviceIsReady(*d)
 		if err != nil {
 			log.Errorf("checkDevice error: %s", err)
 			switch err.(type) {
@@ -168,43 +170,48 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 				p.Message = "Device is mounted but not writable... " +
 					"Please fix write permissions then press Enter to continue."
 			case deviceNotFoundByUUIDError:
-				p.Message = "Please mount device and press Enter to continue..."
+				if keyEvent {
+					pmc <- fmt.Sprintf("Device not found! (UUID=%s)", d.UUID)
+				} else {
+					pmc <- fmt.Sprintf("Please mount device to %q and press Enter to continue...", d.MountPoint)
+				}
 			}
-			return err
+			return
 		}
-		deviceIsReady = true
 		if deviceIndex == 0 {
 			wg.SetSelected(true)
 		}
-		return err
+		return
 	}
 
-	// The prompt that will be displayed in the device panel
-	var pAction func()
+	// The prompt that will be displayed in the device panel. Allow the user to press enter on the device panel to force
+	// a device check
 	prompt := &conui.PromptAction{}
-	// Allow the user to press enter on the device panel to force a device check
-	pAction = func() {
+	prompt.Action = func() {
 		// With the device selected in the panel, the user has pressed the enter key.
 		log.Printf("Action for panel %q!", wg.Border.Label)
-		checkDevice(prompt)
+		checkDevice(prompt, true, pmc)
 	}
-	prompt.Action = pAction
-
-	// Finally, set the prompt for the device in the panel
 	wg.SetPrompt(prompt)
 
-	// Check device automatically periodically
-	for {
-		if deviceIsReady {
-			break
+	// Pre-check
+	err := checkDevice(prompt, false, pmc)
+	if err != nil {
+		// Check device automatically periodically until the device is mounted
+	loop:
+		for {
+			// This will make sure the message is visible for a constant amount of time
+			select {
+			case pmsg := <-pmc:
+				prompt.Message = pmsg
+				conui.Redraw <- true
+			case <-time.After(time.Second * 5):
+				err := checkDevice(prompt, false, pmc)
+				if err == nil {
+					break loop
+				}
+			}
 		}
-		// Rate limit
-		err := checkDevice(prompt)
-		if err != nil {
-			time.Sleep(time.Second * 15)
-			continue
-		}
-		break
 	}
 
 	// The prompt is not needed anymore
