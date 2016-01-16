@@ -233,7 +233,7 @@ func update(c *core.Context) {
 		}
 	}()
 	// Device panel updaters
-	for x := 0; x < len(c.Devices); x++ {
+	for x := 0; x < len(c.Catalog); x++ {
 		go deviceMountHandler(c, x)
 		c.SyncDeviceMount[x] = make(chan bool)
 		go func(index int) {
