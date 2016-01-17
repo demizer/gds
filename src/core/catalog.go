@@ -58,6 +58,14 @@ func NewCatalog(c *Context) (Catalog, error) {
 			"f.FileType": f.FileType, "dSize": dSize,
 		}).Debugln("NewCatalog: FILE")
 
+		if f.FileType == SYMLINK {
+			f.TargetPath, err = filepath.EvalSymlinks(f.Path)
+			if err != nil {
+				break
+			}
+			continue
+		}
+
 		if (dSize + f.DestSize) <= (d.SizeTotal - paddBytes) {
 			dSize += f.DestSize
 		} else if dSize <= (d.SizeTotal-paddBytes) && f.SourceSize > d.SizeTotal-dSize-paddBytes {

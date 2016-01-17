@@ -42,6 +42,7 @@ type File struct {
 	Path           string      `json:"path"`
 	FileType       FileType    `json:"fileType"`
 	SourceSize     uint64      `json:"sourceSize"` // The actual file size
+	TargetPath     string      `json:"targetPath"` // For symlinks
 	DestPath       string      `json:"destPath"`   // The file size at the destination
 	DestSize       uint64      `json:"destSize"`
 	Mode           os.FileMode `json:"mode"`
