@@ -97,9 +97,9 @@ func cleanupAtExit() {
 		case fatalShowHelp:
 			cli.HelpPrinter(os.Stdout, cli.AppHelpTemplate, GDS_CLI_APP)
 			log.Fatal(err)
-		case core.CatalogNotEnoughDevicePoolSpaceError:
-			v = err.(core.CatalogNotEnoughDevicePoolSpaceError).Error()
-			log.Fatal(v)
+		// case core.CatalogNotEnoughDevicePoolSpaceError:
+		// v = err.(core.CatalogNotEnoughDevicePoolSpaceError).Error()
+		// log.Fatal(v)
 		default:
 			v = fmt.Sprint(err)
 		}

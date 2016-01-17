@@ -48,24 +48,11 @@ func loadInitialState(c *cli.Context) *core.Context {
 	if err != nil {
 		panic(fatal{err})
 	}
-	log.WithFields(logrus.Fields{
-		"path": cPath,
-	}).Info("Using configuration file")
+	log.WithFields(logrus.Fields{"path": cPath}).Info("Using configuration file")
 
 	c2, err := core.ContextFromPath(cPath)
 	if err != nil {
 		panic(fatal{fmt.Sprintf("Error loading config: %s", err.Error())})
-	}
-
-	c2.Files, err = core.NewFileList(c2)
-	if err != nil {
-		panic(fatal{fmt.Sprintf("Error retrieving FileList %s", err.Error())})
-	}
-
-	c2.Catalog, err = core.NewCatalog(c2)
-	if err != nil {
-		// Not wrapped in fatal here because NewCatalog returns custom error types
-		panic(err)
 	}
 
 	return c2
@@ -91,7 +78,7 @@ func BuildConsole(c *core.Context) {
 	visible := c.OutputStreamNum
 	for x, y := range c.Devices {
 		conui.Body.DevicePanels = append(conui.Body.DevicePanels, conui.NewDevicePanel(y.Name, y.SizeTotal))
-		if visible > 0 && len(c.Catalog[y.Name]) > 0 {
+		if visible > 0 && c.DevicesUsed > 0 {
 			log.Debugln("Making device", x, "visible")
 			conui.Body.DevicePanels[x].SetVisible(true)
 			if x == 0 {
@@ -100,7 +87,7 @@ func BuildConsole(c *core.Context) {
 			visible--
 		}
 	}
-	conui.Body.ProgressPanel = conui.NewProgressGauge(c.Catalog.TotalSize())
+	conui.Body.ProgressPanel = conui.NewProgressGauge(c.FileIndex.TotalSize())
 	conui.Body.ProgressPanel.SetVisible(true)
 	conui.Layout()
 }
@@ -173,7 +160,8 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 				if keyEvent {
 					pmc <- fmt.Sprintf("Device not found! (UUID=%s)", d.UUID)
 				} else {
-					pmc <- fmt.Sprintf("Please mount device to %q and press Enter to continue...", d.MountPoint)
+					pmc <- fmt.Sprintf("Please mount device to %q and press Enter to continue...",
+						d.MountPoint)
 				}
 			}
 			return
@@ -236,7 +224,7 @@ func update(c *core.Context) {
 		}
 	}()
 	// Device panel updaters
-	for x := 0; x < len(c.Catalog); x++ {
+	for x := 0; x < c.DevicesUsed; x++ {
 		go deviceMountHandler(c, x)
 		c.SyncDeviceMount[x] = make(chan bool)
 		go func(index int) {
@@ -280,6 +268,9 @@ func syncStart(c *cli.Context) {
 		"date":    time.Now().Format(time.RFC3339),
 	}).Infoln("Ghetto Device Storage")
 	c2 := loadInitialState(c)
+
+	// log.Debugln(spd.Sdump(c2.FileIndex))
+	// os.Exit(1)
 
 	conui.Init()
 	BuildConsole(c2)

@@ -13,7 +13,7 @@ type bpsRecord struct {
 
 type fileTracker struct {
 	io     *IoReaderWriter
-	file   *File
+	file   *DestFile
 	device *Device
 	closed bool
 	done   chan bool
@@ -115,10 +115,10 @@ outer:
 		select {
 		case bw := <-ft.io.sizeWritn:
 			Log.WithFields(logrus.Fields{
-				"fileName":                   ft.file.Name,
-				"fileDestName":               ft.file.DestPath,
+				"fileName":                   ft.file.Source.Name,
+				"fileDestPath":               ft.file.Path,
 				"fileBytesWritn":             bw,
-				"fileTotalBytes":             ft.file.DestSize,
+				"fileTotalBytes":             ft.file.Size,
 				"elapsedTimeSinceLastReport": time.Since(lr),
 				"copyTotalBytesWritn":        ft.io.sizeWritnTotal,
 			}).Infoln("Copy report")
@@ -127,9 +127,9 @@ outer:
 			size += bw
 			fbps.addPoint(size)
 			s.Device[index].Report <- SyncDeviceProgress{
-				FileName:             ft.file.Name,
-				FilePath:             ft.file.DestPath,
-				FileSize:             ft.file.SourceSize,
+				FileName:             ft.file.Source.Name,
+				FilePath:             ft.file.Path,
+				FileSize:             ft.file.Size,
 				FileSizeWritn:        bw,
 				FileTotalSizeWritn:   ft.io.sizeWritnTotal,
 				FileBytesPerSecond:   fbps.calc(),
@@ -137,11 +137,11 @@ outer:
 				DeviceTotalSizeWritn: dev.SizeWritn,
 				DeviceBytesPerSecond: dt.bps.calc(),
 			}
-			if size == ft.file.DestSize {
+			if size == ft.file.Size {
 				Log.WithFields(logrus.Fields{
 					"bw":                   bw,
-					"destPath":             ft.file.DestPath,
-					"destSize":             ft.file.DestSize,
+					"destPath":             ft.file.Path,
+					"destSize":             ft.file.Size,
 					"ft.io.sizeWritnTotal": ft.io.sizeWritnTotal,
 				}).Print("Copy complete")
 				// Test the sync goroutine that file is accounted for
@@ -154,13 +154,12 @@ outer:
 				Log.Debugln("Tracker loop has been closed. Exiting.")
 				break outer
 			}
-			Log.Debugf("No bytes written to %q on device %q in last second.", ft.file.Name, dev.Name)
+			Log.Debugf("No bytes written to %q on device %q in last second.", ft.file.Source.Name, dev.Name)
 			dt.bps.addPoint(0)
 			fbps.addPoint(0)
 			lr = time.Now()
 		}
 	}
-
 }
 
 // Reports device progress. Should be called every second.

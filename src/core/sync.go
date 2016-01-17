@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/demizer/go-humanize"
 )
 
 var (
@@ -92,20 +91,21 @@ func saveSyncContext(c *Context) (size uint64, err error) {
 	return
 }
 
-func setMetaData(f *File) error {
+func setMetaData(f *DestFile) error {
 	var err error
-	mTimeval := syscall.NsecToTimespec(f.ModTime.UnixNano())
+	mTimeval := syscall.NsecToTimespec(f.Source.ModTime.UnixNano())
 	times := []syscall.Timespec{
 		mTimeval,
 		mTimeval,
 	}
-	err = os.Chown(f.DestPath, f.Owner, f.Group)
+	// err = os.Chown(f.Source.Path, f.Source.Owner, f.Source.Group)
+	err = os.Chown(f.Path, f.Source.Owner, f.Source.Group)
 	if err == nil {
-		Log.WithFields(logrus.Fields{"owner": f.Owner, "group": f.Group}).Debugln("Set owner")
+		Log.WithFields(logrus.Fields{"owner": f.Source.Owner, "group": f.Source.Group}).Debugln("Set owner")
 		// Change the modtime of a symlink without following it
-		err = LUtimesNano(f.DestPath, times)
+		err = LUtimesNano(f.Path, times)
 		if err == nil {
-			Log.WithFields(logrus.Fields{"modTime": f.ModTime}).Debugln("Set modification time")
+			Log.WithFields(logrus.Fields{"modTime": f.Source.ModTime}).Debugln("Set modification time")
 		}
 	}
 	if err != nil {
@@ -127,51 +127,41 @@ func (e SyncIncorrectOwnershipError) Error() string {
 	return fmt.Sprintf("Cannot copy %q (owner id: %d) as user id: %d", e.FilePath, e.OwnerId, e.UserId)
 }
 
-// SyncNotEnoughDevicePoolSpaceError is an error given when the backup size exceeds the device pool storage size.
-type SyncNotEnoughDevicePoolSpaceError struct {
-	BackupSize     uint64
-	DevicePoolSize uint64
+// SyncDestinatonFileOpenError is generated if an error occurrs when trying to open the destination file for writing.
+type SyncDestinatonFileOpenError struct {
+	err error
 }
 
 // Error implements the Error interface.
-func (e SyncNotEnoughDevicePoolSpaceError) Error() string {
-	return fmt.Sprintf("Not enough device pool space! backup_size: %d (%s) device_pool_size: %d (%s)", e.BackupSize,
-		humanize.IBytes(e.BackupSize), e.DevicePoolSize, humanize.IBytes(e.DevicePoolSize))
+func (e SyncDestinatonFileOpenError) Error() string {
+	return e.err.Error()
+}
+
+// SyncSourceFileOpenError is generated if an error occurrs when trying to open the destination file for writing.
+type SyncSourceFileOpenError struct {
+	err error
+}
+
+// Error implements the Error interface.
+func (e SyncSourceFileOpenError) Error() string {
+	return e.err.Error()
 }
 
 // createFile is a helper function for creating directories, symlinks, and regular files. If it encounters errors creating
 // these files, the error is sent on the cerr buffered error channel.
-func createFile(f *File) {
+func createFile(f *DestFile) {
 	var err error
-	if f.Owner != os.Getuid() && os.Getuid() != 0 {
-		f.err = SyncIncorrectOwnershipError{f.DestPath, f.Owner, os.Getuid()}
+	if f.Source.Owner != os.Getuid() && os.Getuid() != 0 {
+		f.err = SyncIncorrectOwnershipError{f.Source.Path, f.Source.Owner, os.Getuid()}
 		Log.Errorf("createFile: %s", f.err)
 		return
 	}
-	switch f.FileType {
-	case FILE:
-		var oFile *os.File
-		if _, lerr := os.Stat(f.DestPath); lerr != nil {
-			oFile, err = os.Create(f.DestPath)
-			err = oFile.Close()
-			if err == nil {
-				Log.WithFields(logrus.Fields{"path": f.DestPath}).Debugln("Created file")
-			}
-		}
-	case DIRECTORY:
-		if _, lerr := os.Stat(f.DestPath); lerr != nil {
-			err = os.Mkdir(f.DestPath, f.Mode)
-			if err == nil {
-				Log.WithFields(logrus.Fields{"path": f.DestPath}).Debugln("Created directory")
-			}
-		}
-	case SYMLINK:
-		if _, lerr := os.Lstat(f.DestPath); lerr != nil {
-			p, _ := os.Readlink(f.Path)
-			err = os.Symlink(p, f.DestPath)
-			if err == nil {
-				Log.WithFields(logrus.Fields{"path": f.DestPath}).Debugln("Created symlink")
-			}
+	var oFile *os.File
+	if _, lerr := os.Stat(f.Path); lerr != nil {
+		oFile, err = os.Create(f.Path)
+		err = oFile.Close()
+		if err == nil {
+			Log.WithFields(logrus.Fields{"name": f.Source.Name}).Debugln("Created empty file")
 		}
 	}
 	if err == nil {
@@ -182,57 +172,61 @@ func createFile(f *File) {
 	}
 }
 
-// preSync uses the catalog to pre-create the files that are to be synced at the mountpoint. This allows for increased
-// accuracy when calculating actual device usage during the sync. This is needed because directory files on Linux increase in
-// size once they contain pointers to files and sub-directories.
-func preSync(d *Device, c *Catalog) {
-	for _, xy := range (*c)[d.Name] {
-		createFile(xy)
+// preSync uses the catalog to pre-create the files that are to be synced at the mountpoint.
+func preSync(d *Device, f *FileIndex) (err []error) {
+	for _, df := range f.DeviceFiles(d.Name) {
+		createFile(df)
+		if df.err != nil {
+			err = append(err, df.err)
+		}
 	}
+	return
 }
 
 // sync2dev is the main file syncing function. It is big, mean, and will eat your bytes.
-func sync2dev(device *Device, catalog *Catalog, trakc chan<- fileTracker, cerr chan<- error) {
+func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr chan<- error) {
 	Log.WithFields(logrus.Fields{"device": device.Name}).Infoln("Syncing to device")
+
 	syncErrCtx := fmt.Sprintf("sync Device[%q]:", device.Name)
-	for _, cf := range (*catalog)[device.Name] {
-		if cf.err != nil {
+
+	for _, df := range files.DeviceFiles(device.Name) {
+		if df.err != nil {
 			// An error was generated in pre-sync, send it down the line
-			cerr <- cf.err
+			cerr <- df.err
 			continue
 		}
-		Log.WithFields(logrus.Fields{"fileName": cf.Name, "device": device.Name,
-			"fileSourceSize": cf.SourceSize, "fileDestSize": cf.DestSize,
-			"fileSplitStart": cf.SplitStartByte, "fileSplitEnd": cf.SplitEndByte}).Infoln("Syncing file")
+		Log.WithFields(logrus.Fields{"fileName": df.Source.Name, "device": device.Name,
+			"fileSourceSize": df.Source.Size, "fileDestSize": df.Size,
+			"fileSplitStart": df.StartByte, "fileSplitEnd": df.EndByte}).Infoln("Syncing file")
 
 		var oFile *os.File
 		var err error
 		// Open dest file for writing
-		oFile, err = os.OpenFile(cf.DestPath, os.O_RDWR, cf.Mode)
+		oFile, err = os.OpenFile(df.Path, os.O_RDWR, df.Source.Mode)
 		if err != nil {
-			cerr <- fmt.Errorf("%s ofile open: %s", syncErrCtx, err.Error())
+			cerr <- SyncDestinatonFileOpenError{fmt.Errorf("%s ofile open: %s", syncErrCtx, err.Error())}
 			continue
 		}
 		defer oFile.Close()
 
 		var sFile *os.File
 		var syncTest bool
-		if strings.Contains(cf.Path, fakeTestPath) {
+		if strings.Contains(df.Source.Path, fakeTestPath) {
 			// For testing
 			syncTest = true
 			sFile, err = os.Open("/dev/urandom")
 		} else {
-			sFile, err = os.Open(cf.Path)
+			sFile, err = os.Open(df.Source.Path)
 			defer sFile.Close()
 		}
 		if err != nil {
-			cerr <- fmt.Errorf("%s sfile open: %s", syncErrCtx, err.Error())
+			cerr <- SyncSourceFileOpenError{fmt.Errorf("%s sfile open: %s", syncErrCtx, err.Error())}
 			continue
 		}
 
 		// Seek to the correct position for split files
-		if cf.SplitStartByte != 0 && cf.SplitEndByte != 0 {
-			_, err = sFile.Seek(int64(cf.SplitStartByte), 0)
+		if df.Source.IsSplit() {
+			_, err = sFile.Seek(int64(df.StartByte), 0)
 			if err != nil {
 				cerr <- fmt.Errorf("%s seek: %s", syncErrCtx, err.Error())
 				continue
@@ -240,47 +234,47 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- fileTracker, cerr c
 		}
 
 		pReporter := make(chan uint64, 100)
-		mIo := NewIoReaderWriter(oFile, pReporter, cf.DestSize)
+		mIo := NewIoReaderWriter(oFile, pReporter, df.Size)
 		nIo := mIo.MultiWriter()
 
 		ns := time.Now()
-		ft := fileTracker{io: mIo, file: cf, device: device, done: make(chan bool)}
+		ft := fileTracker{io: mIo, file: df, device: device, done: make(chan bool)}
 		select {
 		case trakc <- ft:
 			Log.Debugln("TIME AFTER FILE TRACKER SEND:", time.Since(ns))
 		case <-time.After(200 * time.Second):
 			panic("Should not be here! No receive on tracker channel in 200 seconds...")
 		}
-		if cf.SplitEndByte == 0 && !syncTest {
+		if !df.Source.IsSplit() && !syncTest {
 			if _, err := io.Copy(nIo, sFile); err != nil {
 				ft.closed = true
-				Log.WithFields(logrus.Fields{"filePath": cf.Path, "fileSourceSize": cf.SourceSize,
-					"fileDestSize": cf.DestSize, "deviceSize": device.SizeTotal,
+				Log.WithFields(logrus.Fields{"filePath": df.Path, "fileSourceSize": df.Source.Size,
+					"fileDestSize": df.Size, "deviceSize": device.SizeTotal,
 				}).Error("Error copying file!")
-				cerr <- fmt.Errorf("%s copy %s: %s", syncErrCtx, cf.DestPath, err.Error())
+				cerr <- fmt.Errorf("%s copy %s: %s", syncErrCtx, df.Path, err.Error())
 				break
 			} else {
 				err = sFile.Close()
 				err = oFile.Close()
-				ls, err := os.Lstat(cf.DestPath)
+				ls, err := os.Lstat(df.Path)
 				if err == nil {
 					Log.WithFields(logrus.Fields{
-						"file": cf.Name, "size": ls.Size(), "destSize": cf.DestSize,
+						"file": df.Source.Name, "size": ls.Size(), "destSize": df.Size,
 					}).Debugln("File size")
 					// Set mode after file is copied to prevent no write perms from causing trouble
-					err = os.Chmod(cf.DestPath, cf.Mode)
+					err = os.Chmod(df.Path, df.Source.Mode)
 					if err == nil {
-						Log.WithFields(logrus.Fields{"file": cf.Name,
-							"mode": cf.Mode}).Debugln("Set mode")
+						Log.WithFields(logrus.Fields{"file": df.Source.Name,
+							"mode": df.Source.Mode}).Debugln("Set mode")
 					}
 				}
 			}
 		} else {
-			if oSize, err := io.CopyN(nIo, sFile, int64(cf.DestSize)); err != nil {
+			if oSize, err := io.CopyN(nIo, sFile, int64(df.Size)); err != nil {
 				ft.closed = true
 				Log.WithFields(logrus.Fields{
-					"oSize": oSize, "cf.Path": cf.Path,
-					"cf.SourceSize": cf.SourceSize, "cf.DestSize": cf.DestSize,
+					"oSize": oSize, "df.Path": df.Path,
+					"df.Source.Size": df.Source.Size, "df.Size": df.Size,
 					"d.SizeTotal": device.SizeTotal,
 				}).Error("Error copying file!")
 				cerr <- fmt.Errorf("%s copyn: %s", syncErrCtx, err.Error())
@@ -291,13 +285,13 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- fileTracker, cerr c
 			}
 		}
 		if err == nil {
-			cf.SrcSha1 = mIo.Sha1SumToString()
-			Log.WithFields(logrus.Fields{"file": cf.DestPath, "sha1sum": cf.SrcSha1}).Infoln("File sha1sum")
-			err = setMetaData(cf)
+			df.Source.Sha1Sum = mIo.Sha1SumToString()
+			Log.WithFields(logrus.Fields{"file": df.Path, "sha1sum": df.Source.Sha1Sum}).Infoln("File sha1sum")
+			err = setMetaData(df)
 			// For zero length files, report zero on the sizeWritn channel. io.Copy will only
 			// create the file, but it will not report bytes written since there are none.
 			// Otherwise sends to the tracker will block causing everything to grind to a halt.
-			if cf.SourceSize == 0 && cf.FileType == FILE {
+			if df.Source.Size == 0 && df.Source.FileType == FILE {
 				mIo.sizeWritn <- 0
 			}
 		} else {
@@ -322,12 +316,20 @@ func syncLaunch(c *Context, index int, err chan error, done chan bool) {
 	Log.Debugf("Received response from SyncDeviceMount[%d] channel request", index)
 
 	// Creates the destination files
-	preSync(d, &c.Catalog)
+	errs := preSync(d, &c.FileIndex)
+	if errs != nil {
+		for _, dfErr := range errs {
+			err <- dfErr
+		}
+		goto done
+	}
 
 	go c.SyncProgress.deviceCopyReporter(index)
 
 	// Finally, starting syncing!
-	sync2dev(d, &c.Catalog, c.SyncProgress.Device[index].files, err)
+	sync2dev(d, &c.FileIndex, c.SyncProgress.Device[index].files, err)
+
+done:
 
 	done <- true
 
@@ -342,7 +344,7 @@ func syncLaunch(c *Context, index int, err chan error, done chan bool) {
 // will be NOT be dumped to the last devices as compressed JSON.
 func Sync(c *Context, disableContextSave bool, errChan chan error) {
 	Log.WithFields(logrus.Fields{
-		"dataSize": c.Catalog.TotalSize(), "poolSize": c.Devices.TotalSize(),
+		"dataSize": c.FileIndex.TotalSize(), "poolSizePadded": c.Devices.TotalSizePadded(),
 	}).Info("Data vs Pool size")
 
 	// GO GO GO
@@ -352,11 +354,11 @@ func Sync(c *Context, disableContextSave bool, errChan chan error) {
 	done := make(chan bool, len(c.Devices))
 
 	for {
-		if i == len(c.Catalog) && streamCount == 0 {
+		if i == c.DevicesUsed && streamCount == 0 {
 			Log.Debugln("Breaking main sync loop! Counter:", i)
 			break
 		}
-		if i < len(c.Devices) && i < len(c.Catalog) && streamCount < c.OutputStreamNum {
+		if i < len(c.Devices) && i < c.DevicesUsed && streamCount < c.OutputStreamNum {
 			streamCount += 1
 			// Launch into go routine in case exec is blocked waiting for a user to mount a device
 			go syncLaunch(c, i, errChan, done)

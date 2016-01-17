@@ -61,5 +61,4 @@ func main() {
 		fmt.Println("ERROR:", err)
 		os.Exit(1)
 	}
-	spd.Dump(devs)
 }

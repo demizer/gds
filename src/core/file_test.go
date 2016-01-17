@@ -1,29 +1,6 @@
 package core
 
-import (
-	"os"
-	"testing"
-)
-
-func TestBadFileMetadataError(t *testing.T) {
-	if new(BadFileMetadatError).Error() == "" {
-		t.Error("Missing error message")
-	}
-}
-
-func TestGetFileByName(t *testing.T) {
-	f := &FileList{
-		File{Name: "test1"},
-		File{Name: "test2"},
-	}
-	_, err := f.FileByName("test3")
-	if d, ok := err.(*FileNotFound); !ok {
-		t.Errorf("Expect: %T Got: %T", new(FileNotFound), d)
-	}
-	if new(FileNotFound).Error() == "" {
-		t.Error("Missing error message")
-	}
-}
+import "testing"
 
 type expectDevice struct {
 	name      string
@@ -58,58 +35,16 @@ func checkDevices(t *testing.T, c *Context, e []expectDevice) {
 	}
 }
 
-func TestDestPathSha1SumError(t *testing.T) {
-	if new(BadDestPathSha1Sum).Error() == "" {
+func TestGetFileByName(t *testing.T) {
+	f := &FileIndex{
+		&File{Name: "test1"},
+		&File{Name: "test2"},
+	}
+	_, err := f.FileByName("test3")
+	if d, ok := err.(*FileNotFoundError); !ok {
+		t.Errorf("Expect: %T Got: %T", new(FileNotFoundError), d)
+	}
+	if new(FileNotFoundError).Error() == "" {
 		t.Error("Missing error message")
-	}
-}
-
-func TestDestPathSha1SumCopyError(t *testing.T) {
-	f := File{}
-	_, err := f.DestPathSha1Sum()
-	if err == nil {
-		t.Error("Expect: Error Got: No Error")
-	}
-}
-
-func TestDestPathSha1Sum(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test")
-	}
-	expectSha1 := "08cdd7178a20032c27d152a1f440334ee5f132a0"
-
-	// Check bad dest path
-	f := File{
-		Name:    "alice",
-		SrcSha1: expectSha1,
-	}
-	_, err := f.DestPathSha1Sum()
-	if _, ok := err.(*os.PathError); !ok {
-		t.Errorf("Expect: *os.PathError Got: %T", err)
-		return
-	}
-
-	// Check no error
-	f.DestPath = "../../testdata/filesync_freebooks/alice/alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm"
-	s, err := f.DestPathSha1Sum()
-	if err != nil {
-		t.Errorf("Expect: No error Got: %T (%q)", err, err.Error())
-		return
-	}
-
-	f.DestPath = "../../testdata/filesync_freebooks/ulysses/ulysses_by_james_joyce_gutenberg.org.htm"
-	s, err = f.DestPathSha1Sum()
-	// Check sha1
-	if s == expectSha1 {
-		t.Error("Bad sha1 sum")
-		return
-	}
-}
-
-func TestNewFileList(t *testing.T) {
-	c := &Context{BackupPath: "/root"}
-	_, err := NewFileList(c)
-	if err == nil {
-		t.Error("Expect: Error  Got: No errors")
 	}
 }
