@@ -16,6 +16,7 @@ type fileTracker struct {
 	file   *File
 	device *Device
 	closed bool
+	done   chan bool
 	bpsRecord
 }
 
@@ -143,11 +144,14 @@ outer:
 					"destSize":             ft.file.DestSize,
 					"ft.io.sizeWritnTotal": ft.io.sizeWritnTotal,
 				}).Print("Copy complete")
+				// Test the sync goroutine that file is accounted for
+				ft.done <- true
 				break outer
 			}
 			lr = time.Now()
 		case <-time.After(time.Second):
 			if ft.closed {
+				Log.Debugln("Tracker loop has been closed. Exiting.")
 				break outer
 			}
 			Log.Debugf("No bytes written to %q on device %q in last second.", ft.file.Name, dev.Name)
@@ -167,10 +171,10 @@ func (s *SyncProgressTracker) deviceCopyReporter(index int) {
 		if ft, ok := <-s.Device[index].files; ok {
 			s.fileCopyReporter(index, ft)
 		} else {
+			Log.Debugln("deviceCopyReporter(): Breaking main reporter loop!")
 			break
 		}
 	}
-	close(s.Device[index].Report)
 	Log.WithFields(logrus.Fields{
 		"index": index, "device.SizeWritn": s.devices[index].SizeWritn,
 	}).Debugf("DEVICE COPY DONE")

@@ -223,11 +223,14 @@ func update(c *core.Context) {
 	// Main progress panel updater
 	go func() {
 		for {
-			p := <-c.SyncProgress.Report
-			prg := conui.Body.ProgressPanel
-			prg.SizeWritn = p.SizeWritn
-			prg.BytesPerSecond = p.BytesPerSecond
 			if c.Exit {
+				break
+			}
+			if p, ok := <-c.SyncProgress.Report; ok {
+				prg := conui.Body.ProgressPanel
+				prg.SizeWritn = p.SizeWritn
+				prg.BytesPerSecond = p.BytesPerSecond
+			} else {
 				break
 			}
 		}

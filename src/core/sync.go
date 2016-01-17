@@ -244,7 +244,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- fileTracker, cerr c
 		nIo := mIo.MultiWriter()
 
 		ns := time.Now()
-		ft := fileTracker{io: mIo, file: cf, device: device}
+		ft := fileTracker{io: mIo, file: cf, device: device, done: make(chan bool)}
 		select {
 		case trakc <- ft:
 			Log.Debugln("TIME AFTER FILE TRACKER SEND:", time.Since(ns))
@@ -304,10 +304,10 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- fileTracker, cerr c
 			cerr <- fmt.Errorf("%s %s", syncErrCtx, err.Error())
 			break
 		}
+		// Wait for the filetracker reporter to complete
+		<-ft.done
 	}
 	Log.WithFields(logrus.Fields{"device": device.Name, "mountPoint": device.MountPoint}).Info("Sync to device complete")
-	close(trakc)
-	// close(cerr)
 }
 
 func syncLaunch(c *Context, index int, err chan error, done chan bool) {
@@ -330,6 +330,10 @@ func syncLaunch(c *Context, index int, err chan error, done chan bool) {
 	sync2dev(d, &c.Catalog, c.SyncProgress.Device[index].files, err)
 
 	done <- true
+
+	close(c.SyncProgress.Device[index].Report)
+	close(c.SyncProgress.Device[index].files)
+
 	Log.Debugln("SYNC", index, "DONE")
 }
 
@@ -368,6 +372,8 @@ func Sync(c *Context, disableContextSave bool, errChan chan error) {
 
 	// One final update to show full copy
 	c.SyncProgress.report(true)
+
+	close(c.SyncProgress.Report)
 
 	if !disableContextSave {
 		_, err := saveSyncContext(c)
