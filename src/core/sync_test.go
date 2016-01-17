@@ -30,7 +30,7 @@ var (
 
 // fileTests test subdirectory creation, fileinfo synchronization, and file duplication.
 type syncTest struct {
-	outputStreams     int
+	outputStreams     uint16
 	paddingPercentage float64
 	backupPath        string
 	fileList          func() FileList // Must come before deviceList in the anon struct

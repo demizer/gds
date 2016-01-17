@@ -12,7 +12,7 @@ import (
 // Context contains the application state
 type Context struct {
 	BackupPath        string  `json:"backupPath" yaml:"backupPath"`
-	OutputStreamNum   int     `json:"outputStreams" yaml:"outputStreams"`
+	OutputStreamNum   uint16  `json:"outputStreams" yaml:"outputStreams"`
 	PaddingPercentage float64 `json:"paddingPercentage" yaml:"paddingPercentage"`
 
 	SyncStartDate   time.Time `json:"syncStartDate" yaml:"syncStartDate"`

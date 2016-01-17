@@ -34,7 +34,7 @@ func writeCompressedContextToFile(c *Context, f *os.File) (err error) {
 }
 
 // syncContextCompressedSize returns the actual file size of the sync context compressed into a file.
-func syncContextCompressedSize(c *Context) (size int64, err error) {
+func syncContextCompressedSize(c *Context) (size uint64, err error) {
 	c.LastSyncEndDate = time.Now()
 	f, err := ioutil.TempFile("", "gds-sync-context-")
 	defer f.Close()
@@ -47,7 +47,7 @@ func syncContextCompressedSize(c *Context) (size int64, err error) {
 	}
 	s, err := os.Lstat(f.Name())
 	if err == nil {
-		size = s.Size()
+		size = uint64(s.Size())
 	}
 	return
 }
@@ -65,7 +65,7 @@ func (e SyncNotEnoughDeviceSpaceForSyncContextError) Error() string {
 		e.DeviceName, e.DeviceSizeWritn, e.DeviceSizeTotalPadded, e.SyncContextSize)
 }
 
-func saveSyncContext(c *Context) (size int64, err error) {
+func saveSyncContext(c *Context) (size uint64, err error) {
 	c.LastSyncEndDate = time.Now()
 	sgzSize, err := syncContextCompressedSize(c)
 	if err != nil {
@@ -86,7 +86,7 @@ func saveSyncContext(c *Context) (size int64, err error) {
 	}
 	s, err := os.Lstat(cp)
 	if err == nil {
-		size = s.Size()
+		size = uint64(s.Size())
 		Log.WithFields(logrus.Fields{"syncContextFile": cp, "size": size}).Debug("Saved sync context on last device")
 	}
 	return
@@ -346,7 +346,8 @@ func Sync(c *Context, disableContextSave bool, errChan chan error) {
 	}).Info("Data vs Pool size")
 
 	// GO GO GO
-	i, streamCount := 0, 0
+	var streamCount uint16
+	i := 0
 	c.SyncStartDate = time.Now()
 	done := make(chan bool, len(c.Devices))
 
