@@ -107,8 +107,7 @@ func TestDestPathSha1Sum(t *testing.T) {
 }
 
 func TestNewFileList(t *testing.T) {
-	c := NewContext()
-	c.BackupPath = "/root"
+	c := &Context{BackupPath: "/root"}
 	_, err := NewFileList(c)
 	if err == nil {
 		t.Error("Expect: Error  Got: No errors")

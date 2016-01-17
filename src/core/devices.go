@@ -2,11 +2,22 @@ package core
 
 // Device represents a single mountable storage device.
 type Device struct {
-	Name       string
-	MountPoint string `yaml:"mountPoint"`
-	SizeWritn  uint64 `yaml:"sizeWritn"`
-	SizeTotal  uint64 `yaml:"sizeTotal"`
-	UUID       string
+	Name              string
+	MountPoint        string  `yaml:"mountPoint"`
+	SizeWritn         uint64  `yaml:"sizeWritn"`
+	SizeTotal         uint64  `yaml:"sizeTotal"`
+	PaddingPercentage float64 `yaml:"paddingPercentage"`
+	UUID              string
+}
+
+// SizeTotalPadded returns the device total size with the defined percentage of padding bytes subtracted.
+func (d *Device) SizeTotalPadded() uint64 {
+	return d.SizeTotal - uint64(float64(d.SizeTotal)*(d.PaddingPercentage/100))
+}
+
+// SizePaddingBytes returns the number of bytes used for padding.
+func (d *Device) SizePaddingBytes() uint64 {
+	return uint64(float64(d.SizeTotal) * (d.PaddingPercentage / 100))
 }
 
 // DeviceList is a type for a list of devices.
@@ -23,6 +34,23 @@ func (d *DeviceList) TotalSize() uint64 {
 			continue
 		}
 		total += x.SizeTotal
+	}
+	return total
+}
+
+// TotalSizePadded returns the total size in bytes, subtracting a number of bytes defined by the padding percentage specified
+// in the configuration yaml. Default padding bytes subtracted is 1 percent of device size.
+func (d *DeviceList) TotalSizePadded() uint64 {
+	var total uint64
+	for _, x := range *d {
+		if x.Name == "overrun" {
+			// NewCatalog() creates devices named "overrun", when the pool size has been exceeded when splitting
+			// a file across devices. It is necessary to create a new device so that the actual data size and
+			// device pool size can be calculated and reported to the user.
+			continue
+		}
+		paddBytes := uint64(float64(x.SizeTotal) * (x.PaddingPercentage / 100))
+		total += x.SizeTotal - paddBytes
 	}
 	return total
 }

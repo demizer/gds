@@ -11,7 +11,7 @@ func TestContextFromBytes(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx, err := ContextFromBytes(b)
+	ctx, err := NewContextFromYaml(b)
 	if err != nil {
 		t.Error(err)
 	}
@@ -24,7 +24,7 @@ func TestContextFromBytesNoDevices(t *testing.T) {
 	a := []byte(`
 backupPath: "/home"
 outputStreams: 1`)
-	_, err := ContextFromBytes(a)
+	_, err := NewContextFromYaml(a)
 	if err == nil {
 		t.Errorf("Expect: DeviceNotFoundError Got: %q", err.Error())
 	}
@@ -38,7 +38,7 @@ outputStreams: 1`)
 
 func TestContextFromBytesBadYaml(t *testing.T) {
 	a := []byte("backupPath: [")
-	_, err := ContextFromBytes(a)
+	_, err := NewContextFromYaml(a)
 	if err == nil {
 		t.Error("Expect: Error Got: nil")
 	}
@@ -71,35 +71,26 @@ func TestContextMarshalJSON(t *testing.T) {
 			}
 		},
 	}
-	c := NewContext()
-	c.BackupPath = f.backupPath
-
+	c := NewContext(f.backupPath, f.outputStreams, nil, f.deviceList(), f.paddingPercentage)
 	var err error
 	c.Files, err = NewFileList(c)
 	if err != nil {
 		t.Errorf("Expect: No Errors  Got: %s", err)
 	}
-
-	c.Devices = f.deviceList()
-	c.OutputStreamNum = f.outputStreams
-	c.SplitMinSize = f.splitMinSize
 	c.Catalog, err = NewCatalog(c)
 	if err != nil {
 		t.Errorf("EXPECT: No errors from NewCatalog() GOT: %s", err)
 	}
-
 	// Turn into json
 	j, err := json.Marshal(c)
 	if err != nil {
 		t.Errorf("Expect: No Errors  Got: %s", err)
 	}
-
 	// From json to context
 	_, err = NewContextFromJSON(j)
 	if err != nil {
 		t.Errorf("Expect: No Errors  Got: %s", err)
 	}
-
 	// if !reflect.DeepEqual(c, c2) {
 	// t.Error("Expect: Context from JSON DeepEqual = True  Got: False")
 	// }

@@ -25,24 +25,56 @@ type Context struct {
 	SyncProgress    *SyncProgressTracker `json:"-"`
 	SyncDeviceMount map[int]chan bool    `json:"-"`
 
+	SyncContextSize uint64 `json:"syncContextSize"`
+
 	Exit bool
 }
 
-// NewContext returns a new core Context
-func NewContext() *Context {
-	return &Context{
+// NewContext returns a context ready to use.
+func NewContext(backupPath string, outputStreams uint16, files FileList, devices DeviceList, paddingPercentage float64) *Context {
+	c := &Context{
+		BackupPath:        backupPath,
+		OutputStreamNum:   outputStreams,
+		PaddingPercentage: paddingPercentage,
 		SyncStartDate:     time.Now(),
-		OutputStreamNum:   1,
-		PaddingPercentage: 1.0,
+		Devices:           devices,
+		Files:             files,
 		SyncDeviceMount:   make(map[int]chan bool),
 	}
+	if c.PaddingPercentage == 0 {
+		c.PaddingPercentage = 1.0
+	}
+	if c.OutputStreamNum == 0 {
+		c.OutputStreamNum = 1
+	}
+	c.SyncProgress = NewSyncProgressTracker(c.Devices)
+	for x, _ := range c.Devices {
+		if c.Devices[x].PaddingPercentage == 0 {
+			// This variable is used when computing padding bytes
+			c.Devices[x].PaddingPercentage = c.PaddingPercentage
+		}
+	}
+	return c
 }
 
 func NewContextFromJSON(b []byte) (*Context, error) {
 	var err error
-	c := NewContext()
-	c.SyncProgress = NewSyncProgressTracker(c.Devices)
+	c := &Context{
+		SyncStartDate:   time.Now(),
+		OutputStreamNum: 1,
+		SyncDeviceMount: make(map[int]chan bool),
+	}
 	err = json.Unmarshal(b, c)
+	c.SyncProgress = NewSyncProgressTracker(c.Devices)
+	if c.PaddingPercentage == 0 {
+		c.PaddingPercentage = 1.0
+	}
+	for x, _ := range c.Devices {
+		if c.Devices[x].PaddingPercentage == 0 {
+			// This variable is used when computing padding bytes
+			c.Devices[x].PaddingPercentage = c.PaddingPercentage
+		}
+	}
 	return c, err
 }
 
@@ -88,9 +120,13 @@ func (e ContextFileDeviceHasNoUUID) Error() string {
 	return fmt.Sprintf("UUID is not defined for device %q", e.Name)
 }
 
-// ContextFromBytes parses a yaml encoded context from a slice of bytes.
-func ContextFromBytes(config []byte) (*Context, error) {
-	c := NewContext()
+// NewContextFromYaml returns a new context parsed from yaml.
+func NewContextFromYaml(config []byte) (*Context, error) {
+	c := &Context{
+		SyncStartDate:   time.Now(),
+		OutputStreamNum: 1,
+		SyncDeviceMount: make(map[int]chan bool),
+	}
 	err := yaml.Unmarshal(config, c)
 	if err != nil {
 		return nil, err
@@ -111,6 +147,15 @@ func ContextFromBytes(config []byte) (*Context, error) {
 		}
 	}
 	c.SyncProgress = NewSyncProgressTracker(c.Devices)
+	if c.PaddingPercentage == 0 {
+		c.PaddingPercentage = 1.0
+	}
+	for x, _ := range c.Devices {
+		if c.Devices[x].PaddingPercentage == 0 {
+			// This variable is used when computing padding bytes
+			c.Devices[x].PaddingPercentage = c.PaddingPercentage
+		}
+	}
 	return c, nil
 }
 
@@ -120,5 +165,5 @@ func ContextFromPath(path string) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ContextFromBytes(conf)
+	return NewContextFromYaml(conf)
 }

@@ -12,8 +12,7 @@ import (
 // increased backup size causing an unexpected write error to occurr.
 func TestCatalogFileSplitAcrossDevicesNotEnoughSpace(t *testing.T) {
 	f := &syncTest{
-		backupPath:   "../../testdata/filesync_freebooks",
-		splitMinSize: 1000,
+		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 			return DeviceList{
 				&Device{
@@ -32,15 +31,12 @@ func TestCatalogFileSplitAcrossDevicesNotEnoughSpace(t *testing.T) {
 			return []error{CatalogNotEnoughDevicePoolSpaceError{}}
 		},
 	}
-	c := NewContext()
-	c.BackupPath = f.backupPath
+	c := NewContext(f.backupPath, f.outputStreams, nil, f.deviceList(), f.paddingPercentage)
 	var err error
 	c.Files, err = NewFileList(c)
 	if err != nil {
 		t.Errorf("EXPECT: No errors from NewFileList() GOT: %s", err)
 	}
-	c.Devices = f.deviceList()
-	c.SplitMinSize = f.splitMinSize
 	c.Catalog, err = NewCatalog(c)
 	if err == nil || reflect.TypeOf(err) != reflect.TypeOf(f.expectErrors()[0]) {
 		if err == nil {
@@ -49,7 +45,6 @@ func TestCatalogFileSplitAcrossDevicesNotEnoughSpace(t *testing.T) {
 			t.Errorf("EXPECT: Error TypeOf CatalogNotEnoughDevicePoolSpaceError GOT: %T %q", err, err)
 		}
 	}
-	// Log.Error(err)
 	Log.WithFields(logrus.Fields{
 		"deviceName": c.Devices[0].Name,
 		"mountPoint": c.Devices[0].MountPoint}).Print("Test mountpoint")

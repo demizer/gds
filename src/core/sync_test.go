@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -30,13 +31,14 @@ var (
 // fileTests test subdirectory creation, fileinfo synchronization, and file duplication.
 type syncTest struct {
 	outputStreams     int
+	paddingPercentage float64
 	backupPath        string
 	fileList          func() FileList // Must come before deviceList in the anon struct
 	deviceList        func() DeviceList
 	catalog           func() Catalog
 	expectErrors      func() []error
 	expectDeviceUsage func() []expectDevice
-	splitMinSize      uint64
+	saveSyncContext   bool
 }
 
 // checkMountpointUsage calculates the total size of files located under the mountpoint (m).
@@ -46,6 +48,7 @@ func checkMountpointUsage(m string) (int64, error) {
 		if p == m {
 			return nil
 		}
+		Log.Debugf("checkMountpointUsage(): Got size bytes %d for %q", i.Size(), p)
 		byts += i.Size()
 		return nil
 	}
@@ -53,11 +56,9 @@ func checkMountpointUsage(m string) (int64, error) {
 	return byts, err
 }
 
-func syncTestChannelHandlers(c *Context) {
+func syncTestChannelHandlers(c *Context, err []error) {
 	for x := 0; x < len(c.Devices); x++ {
 		c.SyncDeviceMount[x] = make(chan bool)
-		c.SyncProgress[x] = make(chan SyncProgress, 10)
-		c.SyncFileProgress[x] = make(chan SyncFileProgress, 10)
 	}
 	for x := 0; x < len(c.Devices); x++ {
 		go func(index int) {
@@ -65,8 +66,8 @@ func syncTestChannelHandlers(c *Context) {
 				select {
 				case <-c.SyncDeviceMount[index]:
 					c.SyncDeviceMount[index] <- true
-				case <-c.SyncProgress[index]:
-				case <-c.SyncFileProgress[index]:
+				case <-c.SyncProgress.Device[index].Report:
+				case <-c.SyncProgress.Report:
 				}
 			}
 		}(x)
@@ -74,8 +75,7 @@ func syncTestChannelHandlers(c *Context) {
 }
 
 func runSyncTest(t *testing.T, f *syncTest) *Context {
-	c := NewContext()
-	c.BackupPath = f.backupPath
+	c := NewContext(f.backupPath, f.outputStreams, nil, f.deviceList(), f.paddingPercentage)
 	var err error
 	if f.fileList == nil {
 		c.Files, err = NewFileList(c)
@@ -86,25 +86,56 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 	} else {
 		c.Files = f.fileList()
 	}
-	c.Devices = f.deviceList()
-	c.OutputStreamNum = f.outputStreams
+
 	if c.OutputStreamNum == 0 {
 		c.OutputStreamNum = 1
 	}
-	c.SplitMinSize = f.splitMinSize
+
 	c.Catalog, err = NewCatalog(c)
 	if err != nil {
 		t.Fatalf("EXPECT: No errors from NewCatalog() GOT: %s", err)
 	}
+
 	// spd.Dump(c)
 	// os.Exit(1)
 
-	// Mimic device mounting
-	syncTestChannelHandlers(c)
+	var err2 []error
+	errc := make(chan error, 1)
+
+	var wg sync.WaitGroup
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case e := <-errc:
+				Log.Errorln("ERROR:", e)
+				err2 = append(err2, e)
+			default:
+				if c.Exit {
+					return
+				}
+			}
+		}
+	}()
+	wg.Add(1)
 
 	// Do the work!
-	err2 := Sync(c, true)
-	if len(err2) != 0 {
+	syncTestChannelHandlers(c, err2)
+
+	if f.saveSyncContext {
+		Sync(c, false, errc)
+	} else {
+		Sync(c, true, errc)
+	}
+	c.Exit = true
+	wg.Wait()
+
+	if len(err2) == 0 && f.expectErrors != nil {
+		for _, e2 := range f.expectErrors() {
+			t.Errorf("EXPECT: Error '%s'\n\t  GOT: Nil", e2)
+		}
+
+	} else if len(err2) != 0 {
 		found := false
 		if f.expectErrors == nil {
 			t.Errorf("Expect: No errors\n\t  Got: %+#v", err2)
@@ -170,7 +201,7 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 				t.Errorf("File: %q\n\t  Got Size: %d Expect: %d\n",
 					cvf.DestPath, ls.Size, cvf.SourceSize)
 			} else if cvf.SplitEndByte != 0 && uint64(ls.Size()) != cvf.SplitEndByte-cvf.SplitStartByte {
-				t.Errorf("File: %q\n\t  Got Size: %d Expect: %d\n",
+				t.Errorf("Split File: %q\n\t  Got Size: %d Expect: %d\n",
 					cvf.DestPath, ls.Size, cvf.SplitEndByte-cvf.SplitStartByte)
 			}
 
@@ -181,19 +212,26 @@ func runSyncTest(t *testing.T, f *syncTest) *Context {
 		if err != nil {
 			t.Error(err)
 		}
+		Log.WithFields(logrus.Fields{
+			"name": dev.Name, "mountPoint": dev.MountPoint, "SizeOnDisk": ms,
+			"dev.SizeWritn": dev.SizeWritn, "d.SizeTotal": dev.SizeTotal,
+		}).Info("Mountpoint usage info")
 		if uint64(ms) > dev.SizeTotal {
 			t.Errorf("Mountpoint %q usage (%d bytes) is greater than device size (%d bytes)",
 				dev.MountPoint, ms, dev.SizeTotal)
 		}
-		Log.WithFields(logrus.Fields{
-			"1-name":        dev.Name,
-			"2-mountPoint":  dev.MountPoint,
-			"3-SizeOnDisk":  ms,
-			"4-d.SizeWritn": dev.SizeWritn,
-			"5-d.SizeTotal": dev.SizeTotal,
-		}).Info("Mountpoint usage info")
 		if uint64(ms) != dev.SizeWritn {
-			t.Errorf("MountPoint: %q\n\t  Got Size: %d Expect: %d\n", dev.MountPoint, ms, dev.SizeTotal)
+			var sCalc uint64
+			if c.SyncContextSize != 0 && dev.Name == c.Devices[len(c.Devices)-1].Name {
+				if uint64(ms) != (dev.SizeWritn + c.SyncContextSize) {
+					sCalc = dev.SizeWritn + c.SyncContextSize
+				} else {
+					continue
+				}
+			} else {
+				sCalc = dev.SizeWritn
+			}
+			t.Errorf("MountPoint: %q\n\t  Got Size: %d dev.SizeWritn: %d\n", dev.MountPoint, ms, sCalc)
 		}
 	}
 	return c
@@ -250,19 +288,43 @@ func TestSyncSimpleCopySourceFileError(t *testing.T) {
 			}
 		},
 	}
+	c := NewContext(f.backupPath, f.outputStreams, f.fileList(), f.deviceList(), f.paddingPercentage)
 	var err error
-	c := NewContext()
-	c.BackupPath = f.backupPath
-	c.Files = f.fileList()
-	c.Devices = f.deviceList()
-	c.SplitMinSize = f.splitMinSize
 	c.Catalog, err = NewCatalog(c)
 	if err != nil {
 		t.Errorf("EXPECT: No errors from NewCatalog() GOT: %s", err)
 	}
+
+	var err2 []error
+	errc := make(chan error, 1)
+
+	var wg sync.WaitGroup
+
+	// Error collector
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case e := <-errc:
+				Log.Errorln("ERROR:", e)
+				err2 = append(err2, e)
+			default:
+				if c.Exit {
+					return
+				}
+			}
+		}
+	}()
+
 	// Mimic device mounting
-	syncTestChannelHandlers(c)
-	err2 := Sync(c, true)
+	syncTestChannelHandlers(c, err2)
+
+	// Do the work!
+	Sync(c, true, errc)
+	c.Exit = true
+	wg.Wait()
+
 	if len(err2) == 0 {
 		t.Error("Expect: Errors  Got: No Errors")
 	}
@@ -297,12 +359,8 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 			}
 		},
 	}
+	c := NewContext(f.backupPath, f.outputStreams, f.fileList(), f.deviceList(), f.paddingPercentage)
 	var err error
-	c := NewContext()
-	c.BackupPath = f.backupPath
-	c.Files = f.fileList()
-	c.Devices = f.deviceList()
-	c.SplitMinSize = f.splitMinSize
 	c.Catalog, err = NewCatalog(c)
 	if err != nil {
 		t.Errorf("EXPECT: No errors from NewCatalog() GOT: %s", err)
@@ -316,11 +374,36 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 		t.Error("Expect: Errors  Got: No Errors")
 	}
 
-	// Mimic device mounting
-	syncTestChannelHandlers(c)
+	var err2 []error
+	errc := make(chan error, 1)
 
-	// Attempt to sync
-	err2 := Sync(c, true)
+	var wg sync.WaitGroup
+
+	// Error collector
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case e := <-errc:
+				Log.Errorln("ERROR:", e)
+				err2 = append(err2, e)
+			default:
+				if c.Exit {
+					return
+				}
+			}
+		}
+	}()
+	wg.Add(1)
+
+	// Mimic device mounting
+	syncTestChannelHandlers(c, err2)
+
+	// Do the work!
+	Sync(c, true, errc)
+	c.Exit = true
+	wg.Wait()
+
 	if len(err2) == 0 {
 		t.Errorf("Expect: Errors  Got: Errors: %s", err2)
 	}
@@ -465,8 +548,7 @@ func TestSyncBackupathIncluded(t *testing.T) {
 
 func TestSyncFileSplitAcrossDevices(t *testing.T) {
 	f := &syncTest{
-		backupPath:   "../../testdata/filesync_freebooks",
-		splitMinSize: 1000,
+		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 			return DeviceList{
 				&Device{
@@ -476,7 +558,7 @@ func TestSyncFileSplitAcrossDevices(t *testing.T) {
 				},
 				&Device{
 					Name:       "Test Device 1",
-					SizeTotal:  1010000,
+					SizeTotal:  1100000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
@@ -495,13 +577,12 @@ func TestSyncFileSplitAcrossDevices(t *testing.T) {
 
 func TestSyncAcrossDevicesNoSplit(t *testing.T) {
 	f := &syncTest{
-		backupPath:   "../../testdata/filesync_freebooks",
-		splitMinSize: 1000,
+		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 			return DeviceList{
 				&Device{
 					Name:       "Test Device 0",
-					SizeTotal:  668711 + 4096 + 4096,
+					SizeTotal:  700000 + 4096 + 4096,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				&Device{
@@ -528,8 +609,7 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 		t.Skip("skipping test")
 	}
 	f := &syncTest{
-		splitMinSize: 1000,
-		backupPath:   fakeTestPath,
+		backupPath: fakeTestPath,
 		fileList: func() FileList {
 			return FileList{
 				File{
@@ -553,7 +633,7 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 				},
 				&Device{
 					Name:       "Test Device 1",
-					SizeTotal:  10495760,
+					SizeTotal:  11000000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
@@ -572,8 +652,7 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 
 func TestSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 	f := &syncTest{
-		backupPath:   "../../testdata/filesync_large_binary_file/",
-		splitMinSize: 1000,
+		backupPath: "../../testdata/filesync_large_binary_file/",
 		deviceList: func() DeviceList {
 			return DeviceList{
 				&Device{
@@ -592,11 +671,11 @@ func TestSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 			return []expectDevice{
 				expectDevice{
 					name:      "Test Device 0",
-					usedBytes: 9999999,
+					usedBytes: 9900000,
 				},
 				expectDevice{
 					name:      "Test Device 1",
-					usedBytes: 3500050,
+					usedBytes: 585760,
 				},
 			}
 		},
@@ -623,17 +702,17 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 			return DeviceList{
 				&Device{
 					Name:       "Test Device 0",
-					SizeTotal:  3499350,
+					SizeTotal:  3600000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				&Device{
 					Name:       "Test Device 1",
-					SizeTotal:  3499350,
+					SizeTotal:  3600000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 				&Device{
 					Name:       "Test Device 2",
-					SizeTotal:  3500346,
+					SizeTotal:  3600000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
 				},
 			}
@@ -642,15 +721,15 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 			return []expectDevice{
 				expectDevice{
 					name:      "Test Device 0",
-					usedBytes: 3499350,
+					usedBytes: 3564000,
 				},
 				expectDevice{
 					name:      "Test Device 1",
-					usedBytes: 3499350,
+					usedBytes: 3564000,
 				},
 				expectDevice{
 					name:      "Test Device 2",
-					usedBytes: 3500050,
+					usedBytes: 3357760,
 				},
 			}
 		},
@@ -723,7 +802,7 @@ func TestSyncDirsWithLotsOfFiles(t *testing.T) {
 			return []expectDevice{
 				expectDevice{
 					name:      "Test Device 0",
-					usedBytes: 4182016,
+					usedBytes: 4096000,
 				},
 			}
 		},
@@ -763,14 +842,12 @@ func TestSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 			return []error{CatalogNotEnoughDevicePoolSpaceError{}}
 		},
 	}
-	c := NewContext()
-	c.BackupPath = f.backupPath
+	c := NewContext(f.backupPath, f.outputStreams, nil, f.deviceList(), f.paddingPercentage)
 	var err error
 	c.Files, err = NewFileList(c)
 	if err != nil {
 		t.Errorf("EXPECT: No errors from NewFileList() GOT: %s", err)
 	}
-	c.Devices = f.deviceList()
 	c.Catalog, err = NewCatalog(c)
 	if err == nil || reflect.TypeOf(err) != reflect.TypeOf(f.expectErrors()[0]) {
 		if err == nil {
@@ -848,8 +925,8 @@ func TestSyncDestPathSha1sum(t *testing.T) {
 
 func TestSyncSaveContextLastDevice(t *testing.T) {
 	f := &syncTest{
-		backupPath:   "../../testdata/filesync_freebooks",
-		splitMinSize: 1000,
+		backupPath:      "../../testdata/filesync_freebooks",
+		saveSyncContext: true,
 		deviceList: func() DeviceList {
 			return DeviceList{
 				&Device{
@@ -878,8 +955,8 @@ func TestSyncSaveContextLastDevice(t *testing.T) {
 
 func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 	f := &syncTest{
-		backupPath:   "../../testdata/filesync_freebooks",
-		splitMinSize: 1000,
+		saveSyncContext: true,
+		backupPath:      "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 			return DeviceList{
 				&Device{
@@ -889,7 +966,7 @@ func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 				},
 				&Device{
 					Name:       "Test Device 1",
-					SizeTotal:  1016382,
+					SizeTotal:  1013000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}
@@ -897,10 +974,10 @@ func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 		expectErrors: func() []error {
 			return []error{
 				SyncNotEnoughDeviceSpaceForSyncContextError{
-					DeviceName:      "Test Device 1",
-					DeviceUsed:      1000000,
-					DeviceSize:      1000000,
-					SyncContextSize: 890,
+					DeviceName:            "Test Device 1",
+					DeviceSizeWritn:       1000000,
+					DeviceSizeTotalPadded: 1000000,
+					SyncContextSize:       890,
 				},
 			}
 		},
@@ -930,8 +1007,7 @@ func TestSyncFromTempDirectory(t *testing.T) {
 		t.Fatalf("EXPECT: No copy errors GOT: %s", err)
 	}
 	f := &syncTest{
-		backupPath:   p,
-		splitMinSize: 1000,
+		backupPath: p,
 		deviceList: func() DeviceList {
 			return DeviceList{
 				&Device{

@@ -10,15 +10,16 @@ import (
 
 // CatalogNotEnoughDevicePoolSpaceError is an error given when the backup size exceeds the device pool storage size.
 type CatalogNotEnoughDevicePoolSpaceError struct {
-	TotalCatalogSize    uint64
-	TotalDevicePoolSize uint64
+	TotalCatalogSize          uint64
+	TotalDevicePoolSize       uint64
+	TotalPaddedDevicePoolSize uint64
 }
 
 // Error implements the Error interface.
 func (e CatalogNotEnoughDevicePoolSpaceError) Error() string {
-	return fmt.Sprintf("Inadequate device pool space! TotalCatalogSize: %d (%s) TotalDevicePoolSize: %d (%s)",
-		e.TotalCatalogSize, humanize.IBytes(e.TotalCatalogSize), e.TotalDevicePoolSize,
-		humanize.IBytes(e.TotalDevicePoolSize))
+	return fmt.Sprintf("Inadequate device pool space! TotalCatalogSize: %d (%s) TotalPaddedDevicePoolSize: %d (%s)",
+		e.TotalCatalogSize, humanize.IBytes(e.TotalCatalogSize), e.TotalPaddedDevicePoolSize,
+		humanize.IBytes(e.TotalPaddedDevicePoolSize))
 }
 
 // Catalog is the data structure that indicates onto which device files in the backup will be copied to. The Catalog is also
@@ -44,11 +45,9 @@ func NewCatalog(c *Context) (Catalog, error) {
 		}
 
 		d := c.Devices[dNum]
-		paddBytes := uint64(float64(c.Devices[dNum].SizeTotal) * (c.PaddingPercentage / 100))
 		if len(t[d.Name]) == 1 {
 			Log.WithFields(logrus.Fields{
-				"d.SizeTotal": d.SizeTotal, "paddBytes": paddBytes, "deviceNumber": dNum,
-				"dev.SizeTotal-paddBytes": c.Devices[dNum].SizeTotal - paddBytes,
+				"d.SizeTotal": d.SizeTotal, "deviceNumber": dNum, "d.SizeTotalPadded": d.SizeTotalPadded(),
 			}).Debugln("Device stats")
 		}
 
@@ -66,12 +65,12 @@ func NewCatalog(c *Context) (Catalog, error) {
 			continue
 		}
 
-		if (dSize + f.DestSize) <= (d.SizeTotal - paddBytes) {
+		if (dSize + f.DestSize) <= d.SizeTotalPadded() {
 			dSize += f.DestSize
-		} else if dSize <= (d.SizeTotal-paddBytes) && f.SourceSize > d.SizeTotal-dSize-paddBytes {
+		} else if dSize <= d.SizeTotalPadded() && f.SourceSize > d.SizeTotal-d.SizeTotalPadded() {
 			split = true
 			f.SplitStartByte = 0
-			f.SplitEndByte = (c.Devices[dNum].SizeTotal - paddBytes) - dSize
+			f.SplitEndByte = d.SizeTotalPadded() - dSize
 			f.DestSize = f.SplitEndByte - f.SplitStartByte
 			Log.WithFields(logrus.Fields{
 				"dSize": dSize, "f.SplitEndByte": f.SplitEndByte, "f.DestSize": f.DestSize,
@@ -132,9 +131,9 @@ func NewCatalog(c *Context) (Catalog, error) {
 				fNew.DestSize = fNew.SourceSize - fNew.SplitStartByte
 
 				// If the file is still larger than the new device, use all of the available space
-				if (dSize + fNew.DestSize) >= (d.SizeTotal - paddBytes) {
+				if (dSize + fNew.DestSize) >= d.SizeTotalPadded() {
 					// Use the remaining device space
-					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeTotal - dSize - paddBytes)
+					fNew.SplitEndByte = fNew.SplitStartByte + (d.SizeTotalPadded() - dSize)
 					fNew.DestSize = fNew.SplitEndByte - fNew.SplitStartByte
 				}
 				dSize += fNew.DestSize
@@ -171,9 +170,10 @@ func NewCatalog(c *Context) (Catalog, error) {
 					// Add a fake device so that we can finish and report an error back with actual usage
 					// data.
 					c.Devices = append(c.Devices, &Device{
-						Name:       "overrun",
-						MountPoint: "none",
-						SizeTotal:  fNew.SourceSize,
+						Name:              "overrun",
+						MountPoint:        "none",
+						PaddingPercentage: c.PaddingPercentage,
+						SizeTotal:         fNew.SourceSize,
 					})
 				}
 				lastf = fNew
@@ -185,8 +185,9 @@ func NewCatalog(c *Context) (Catalog, error) {
 	}
 	if notEnoughSpaceError {
 		err = CatalogNotEnoughDevicePoolSpaceError{
-			TotalCatalogSize:    t.TotalSize(),
-			TotalDevicePoolSize: c.Devices.TotalSize(),
+			TotalCatalogSize:          t.TotalSize(),
+			TotalDevicePoolSize:       c.Devices.TotalSize(),
+			TotalPaddedDevicePoolSize: c.Devices.TotalSizePadded(),
 		}
 	}
 	return t, err
