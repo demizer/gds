@@ -153,7 +153,7 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 	<-c.SyncDeviceMount[deviceIndex]
 	log.Debugf("Receive from SyncDeviceMount[%d] after wait of %s", deviceIndex, time.Since(ns))
 
-	d := &c.Devices[deviceIndex]
+	d := c.Devices[deviceIndex]
 	wg := conui.Body.DevicePanelByIndex(deviceIndex)
 	wg.SetVisible(true)
 
@@ -162,7 +162,7 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 
 	checkDevice := func(p *conui.PromptAction, keyEvent bool, mesgChan chan string) (err error) {
 		// The actual checking
-		err = ensureDeviceIsReady(*d)
+		err = ensureDeviceIsReady(d)
 		if err != nil {
 			log.Errorf("checkDevice error: %s", err)
 			switch err.(type) {

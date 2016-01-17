@@ -71,7 +71,7 @@ func saveSyncContext(c *Context) (size int64, err error) {
 	if err != nil {
 		return
 	}
-	lastDevice := &(c.Devices)[len(c.Devices)-1]
+	lastDevice := c.Devices[len(c.Devices)-1]
 	if uint64(sgzSize)+lastDevice.SizeWritn > lastDevice.SizeTotal {
 		err = SyncNotEnoughDeviceSpaceForSyncContextError{
 			lastDevice.Name, lastDevice.SizeWritn, lastDevice.SizeTotal, uint64(sgzSize),
@@ -312,7 +312,7 @@ func sync2dev(device *Device, catalog *Catalog, trakc chan<- fileTracker, cerr c
 
 func syncLaunch(c *Context, index int, err chan error, done chan bool) {
 	Log.Debugln("Starting Sync() iteration", index)
-	d := &(c.Devices)[index]
+	d := c.Devices[index]
 
 	// ENSURE DEVICE IS MOUNTED
 	// Block until a reply is sent. Discard the value because it's not important.

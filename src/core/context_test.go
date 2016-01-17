@@ -63,7 +63,7 @@ func TestContextMarshalJSON(t *testing.T) {
 		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),

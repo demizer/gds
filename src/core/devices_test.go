@@ -4,8 +4,8 @@ import "testing"
 
 func TestDeviceByName(t *testing.T) {
 	a := &DeviceList{
-		Device{Name: "Device 1"},
-		Device{Name: "Device 2"},
+		&Device{Name: "Device 1"},
+		&Device{Name: "Device 2"},
 	}
 	_, err := a.DeviceByName("Device 1")
 	if err != nil {

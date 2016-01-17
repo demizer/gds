@@ -75,7 +75,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 			if dNum+1 == len(c.Devices) {
 				Log.Error("Total backup size is greater than device pool size!")
 				notEnoughSpaceError = true
-				c.Devices = append(c.Devices, Device{
+				c.Devices = append(c.Devices, &Device{
 					Name: "overrun", MountPoint: "none", SizeTotal: d.SizeTotal,
 				})
 			} else {
@@ -162,7 +162,7 @@ func NewCatalog(c *Context) (Catalog, error) {
 				if notEnoughSpaceError {
 					// Add a fake device so that we can finish and report an error back with actual usage
 					// data.
-					c.Devices = append(c.Devices, Device{
+					c.Devices = append(c.Devices, &Device{
 						Name:       "overrun",
 						MountPoint: "none",
 						SizeTotal:  fNew.SourceSize,

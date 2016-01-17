@@ -10,7 +10,7 @@ type Device struct {
 }
 
 // DeviceList is a type for a list of devices.
-type DeviceList []Device
+type DeviceList []*Device
 
 // TotalSize returns the total size in bytes of the device pool.
 func (d *DeviceList) TotalSize() uint64 {
@@ -52,7 +52,7 @@ func (d DeviceNotFoundError) Error() string {
 func (d *DeviceList) DeviceByName(name string) (*Device, error) {
 	for x, y := range *d {
 		if y.Name == name {
-			return &(*d)[x], nil
+			return (*d)[x], nil
 		}
 	}
 	return nil, new(DeviceNotFoundError)

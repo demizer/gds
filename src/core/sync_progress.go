@@ -107,7 +107,7 @@ func (s *SyncProgressTracker) fileCopyReporter(index int, ft fileTracker) {
 	fbps := newBytesPerSecond()
 	// Used to track times from the last report
 	lr := time.Now()
-	dev := &(s.devices)[index]
+	dev := s.devices[index]
 	dt := &s.Device[index]
 outer:
 	for {

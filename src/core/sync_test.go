@@ -204,10 +204,10 @@ func TestSyncSimpleCopy(t *testing.T) {
 		backupPath: "../../testdata/filesync_freebooks/",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -242,7 +242,7 @@ func TestSyncSimpleCopySourceFileError(t *testing.T) {
 		},
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  42971520,
 					MountPoint: testOutputDir,
@@ -289,7 +289,7 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 		},
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  42971520,
 					MountPoint: testOutputDir,
@@ -308,7 +308,7 @@ func TestSyncSimpleCopyDestPathError(t *testing.T) {
 		t.Errorf("EXPECT: No errors from NewCatalog() GOT: %s", err)
 	}
 	// Create the destination files
-	preSync(&(c.Devices)[0], &c.Catalog)
+	preSync(c.Devices[0], &c.Catalog)
 
 	// Make the file read only
 	err = os.Chmod((c.Files)[0].DestPath, 0444)
@@ -372,7 +372,7 @@ func TestSyncPerms(t *testing.T) {
 		},
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
 					MountPoint: testOutputDir,
@@ -402,10 +402,10 @@ func TestSyncSubDirs(t *testing.T) {
 		backupPath: "../../testdata/filesync_directories/subdirs",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -423,10 +423,10 @@ func TestSyncSymlinks(t *testing.T) {
 		backupPath: "../../testdata/filesync_symlinks/",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -447,10 +447,10 @@ func TestSyncBackupathIncluded(t *testing.T) {
 		backupPath: "../../testdata/filesync_freebooks",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  28173338480,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -469,12 +469,12 @@ func TestSyncFileSplitAcrossDevices(t *testing.T) {
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1010000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
@@ -499,12 +499,12 @@ func TestSyncAcrossDevicesNoSplit(t *testing.T) {
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  668711 + 4096 + 4096,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1812584 + 4096 + 4096 + 1000, // 1000 sync context data
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
@@ -546,12 +546,12 @@ func TestSyncFileSplitAcrossDevicesWithProgress(t *testing.T) {
 		},
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  31485760,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  10495760,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
@@ -576,12 +576,12 @@ func TestSyncLargeFileAcrossOneWholeDeviceAndHalfAnother(t *testing.T) {
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  9999999,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  850000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
@@ -621,17 +621,17 @@ func TestSyncLargeFileAcrossThreeDevices(t *testing.T) {
 		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 2",
 					SizeTotal:  3500346,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
@@ -712,7 +712,7 @@ func TestSyncDirsWithLotsOfFiles(t *testing.T) {
 		backupPath: path.Join(testTempDir, "filesync_directories"),
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  4300000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
@@ -742,17 +742,17 @@ func TestSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 		backupPath: "../../testdata/filesync_large_binary_file",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  3499350,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 2",
 					SizeTotal:  300000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),
@@ -793,7 +793,7 @@ func TestSyncDestPathPermissionDenied(t *testing.T) {
 		backupPath: "../../testdata/filesync_nowrite_perms/",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  10000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
@@ -816,10 +816,10 @@ func TestSyncDestPathSha1sum(t *testing.T) {
 		backupPath: "../../testdata/filesync_freebooks/alice/",
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  769000,
-					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0"),
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 			}
 		},
@@ -852,12 +852,12 @@ func TestSyncSaveContextLastDevice(t *testing.T) {
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1020000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
@@ -882,12 +882,12 @@ func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  1493583,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1016382,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
@@ -934,17 +934,17 @@ func TestSyncFromTempDirectory(t *testing.T) {
 		splitMinSize: 1000,
 		deviceList: func() DeviceList {
 			return DeviceList{
-				Device{
+				&Device{
 					Name:       "Test Device 0",
 					SizeTotal:  1000000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  1000000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
-				Device{
+				&Device{
 					Name:       "Test Device 2",
 					SizeTotal:  1000000,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-2-"),

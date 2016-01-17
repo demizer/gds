@@ -96,7 +96,7 @@ func (e deviceNotFoundByUUIDError) Error() string {
 
 // ensureDeviceIsReady checks if the device d is mounted. If the d is mounted, then a test file is written to it to check
 // write permissions.
-func ensureDeviceIsReady(d core.Device) error {
+func ensureDeviceIsReady(d *core.Device) error {
 	m, err := deviceIsMountedByUUID(d.MountPoint, d.UUID)
 	if err != nil {
 		log.Errorf("ensureDeviceIsReady: deviceIsMountedByUUID returned error: %s", err)
