@@ -49,6 +49,8 @@ type syncTest struct {
 	expectErrors func() []error
 
 	expectDeviceUsage func() []expectDevice
+
+	dumpFileIndex bool // If set to true, the FileIndex is dumped to stdout witohut syncing
 }
 
 // checkErrors checks errors returned from a test against any expected errors. Returns a bool that tells the caller the
@@ -277,8 +279,10 @@ func (s *syncTest) run() {
 	}
 	s.ctx = c
 
-	// spd.Dump(c.FileIndex)
-	// os.Exit(1)
+	if s.dumpFileIndex {
+		spd.Dump(c.FileIndex)
+		os.Exit(1)
+	}
 
 	s.errorCollector()
 	s.progressDump()
