@@ -138,6 +138,15 @@ func (s *syncTest) checkSha1Sum(f *File) {
 	}
 }
 
+// checkSplitSizes will double check the size calculation of split files.
+func (s *syncTest) checkSplitSizes(f *File) {
+	for _, df := range f.DestFiles {
+		if df.EndByte-df.StartByte != df.Size {
+			s.t.Errorf("EXPECT: destFile.Size: %d GOT: %d", df.EndByte-df.StartByte, df.Size)
+		}
+	}
+}
+
 // checkSplitFile will check the sha1sum of a file that has been split across devices.
 func (s *syncTest) checkSplitFile(f *File) {
 	var md5Expect string
@@ -164,6 +173,8 @@ func (s *syncTest) checkSplitFile(f *File) {
 		s.t.Errorf("EXPECT: md5: %q\n\t GOT: %q", md5Expect, calcMd5)
 	}
 	Log.Infof("md5 %q matched for split file copy %q", calcMd5, f.Name)
+
+	s.checkSplitSizes(f)
 }
 
 // checkMountPointSizes calculates the sizes of the mountpoints for each device on disk and checks against expected values.
@@ -607,6 +618,29 @@ func TestSyncFileSplitAcrossDevices2(t *testing.T) {
 			}
 		},
 	}
+	f.Run()
+}
+
+// TestSyncFileSplitAcrossDevices3 tests splitting a file starting from the end of the first device into the second device.
+func TestSyncFileSplitAcrossDevices3(t *testing.T) {
+	f := &syncTest{t: t,
+		backupPath: "../../testdata/filesync_freebooks",
+		deviceList: func() DeviceList {
+			return DeviceList{
+				&Device{
+					Name:       "Test Device 0",
+					SizeTotal:  1575006 + 15751, // Size needed plus 1% for padding
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+				},
+				&Device{
+					Name:       "Test Device 1",
+					SizeTotal:  4575006,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+				},
+			}
+		},
+	}
+	// f.dumpFileIndex = true
 	f.Run()
 }
 

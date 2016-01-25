@@ -323,6 +323,8 @@ func (ct *catalogTracker) splitFile() error {
 			ct.debugPrintSplit("Before size calc")
 			ct.splitEndByteCalc()
 			ct.debugPrintSplit("After size calc")
+		} else {
+			ct.destFile.Size = ct.destFile.EndByte - ct.destFile.StartByte
 		}
 
 		ct.size += ct.destFile.Size
