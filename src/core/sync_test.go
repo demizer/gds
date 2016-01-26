@@ -1,7 +1,7 @@
 package core
 
 import (
-	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -125,6 +125,19 @@ func (s *syncTest) checkDestSize(f *File) {
 
 // checkSha1Sum will check the sha1 sums of all the destination files
 func (s *syncTest) checkSha1Sum(f *File) {
+
+	// Check sha1sum for source file
+	eSum, err := sha1sum(f.Path)
+	if err != nil {
+		s.t.Errorf("Error: No errors from CalcSha1Sum()\n\t Got Sha1Sum: %s", err)
+		return
+	}
+	if eSum != f.Sha1Sum {
+		s.t.Errorf("Error: File: %q\n\t  Expect Sha1Sum: %q\n\t  Got Sha1Sum: %q", f.Name, eSum, f.Sha1Sum)
+	}
+	Log.Debugf("%s sha1sum %q, got f.sha1sum: %q", f.Name, eSum, f.Sha1Sum)
+
+	// Check sha1sum for each dest file
 	for _, df := range f.DestFiles {
 		sum, err := sha1sum(df.Path)
 		if err != nil {
@@ -138,6 +151,32 @@ func (s *syncTest) checkSha1Sum(f *File) {
 	}
 }
 
+// checkSplitFile will check the sha1sum of a file that has been split across devices.
+func (s *syncTest) checkMergedSplitFileSha1Sum(f *File) {
+	ss := sha1.New()
+	for _, df := range f.DestFiles {
+		pf, err := os.Open(df.Path)
+		if err != nil {
+			s.t.Fatal(err)
+		}
+		if _, err := io.Copy(ss, pf); err != nil {
+			s.t.Fatal(err)
+		}
+	}
+	cSum := hex.EncodeToString(ss.Sum(nil))
+	eSum, err := sha1sum(f.Path)
+	if err != nil {
+		s.t.Errorf("Error: No errors from CalcSha1Sum()\n\t Got Sha1Sum: %s", err)
+		return
+	}
+	if eSum != cSum {
+		s.t.Errorf("EXPECT: sha1: %q\n\t GOT: %q", eSum, cSum)
+	}
+	Log.Infof("sha1 %q matched for split file copy %q", cSum, f.Name)
+
+	s.checkSplitSizes(f)
+}
+
 // checkSplitSizes will double check the size calculation of split files.
 func (s *syncTest) checkSplitSizes(f *File) {
 	for _, df := range f.DestFiles {
@@ -145,36 +184,6 @@ func (s *syncTest) checkSplitSizes(f *File) {
 			s.t.Errorf("EXPECT: destFile.Size: %d GOT: %d", df.EndByte-df.StartByte, df.Size)
 		}
 	}
-}
-
-// checkSplitFile will check the sha1sum of a file that has been split across devices.
-func (s *syncTest) checkSplitFile(f *File) {
-	var md5Expect string
-	switch f.Name {
-	case "ulysses_by_james_joyce_gutenberg.org.htm":
-		md5Expect = "eacade09510dc7dea763438e1491abb1"
-	case "a_large_file":
-		md5Expect = "b5fd86659c3bae8bd047d1826a27a139"
-	case "alice_in_wonderland_by_lewis_carroll_gutenberg.org.htm":
-		md5Expect = "aff8252a257ff13c79a00d0e814fcc0f"
-	}
-	md5 := md5.New()
-	for _, df := range f.DestFiles {
-		pf, err := os.Open(df.Path)
-		if err != nil {
-			s.t.Fatal(err)
-		}
-		if _, err := io.Copy(md5, pf); err != nil {
-			s.t.Fatal(err)
-		}
-	}
-	calcMd5 := hex.EncodeToString(md5.Sum(nil))
-	if md5Expect != calcMd5 {
-		s.t.Errorf("EXPECT: md5: %q\n\t GOT: %q", md5Expect, calcMd5)
-	}
-	Log.Infof("md5 %q matched for split file copy %q", calcMd5, f.Name)
-
-	s.checkSplitSizes(f)
 }
 
 // checkMountPointSizes calculates the sizes of the mountpoints for each device on disk and checks against expected values.
@@ -268,6 +277,11 @@ func (s *syncTest) prepareFileIndex() (FileIndex, DeviceList) {
 		}
 	}
 	files := s.fileIndex()
+	for _, f := range files {
+		if f.sha1 == nil {
+			f.sha1 = sha1.New()
+		}
+	}
 	devs := s.deviceList()
 	return files, devs
 }
@@ -319,8 +333,10 @@ func (s *syncTest) Run() {
 		if s.t.Failed() {
 			continue
 		}
+		// Check sha1 of dest files
+		s.checkSha1Sum(file)
 		if len(file.DestFiles) > 1 {
-			s.checkSplitFile(file)
+			s.checkMergedSplitFileSha1Sum(file)
 		}
 		s.checkDestSize(file)
 	}
@@ -872,6 +888,7 @@ func TestSyncLargeFileNotEnoughDeviceSpace(t *testing.T) {
 	f.Run()
 }
 
+// TestSyncDestPathMd5Sum does what???
 func TestSyncDestPathMd5Sum(t *testing.T) {
 	f := &syncTest{t: t,
 		backupPath: "../../testdata/filesync_freebooks/alice/",

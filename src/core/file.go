@@ -1,10 +1,8 @@
 package core
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
-	"io"
+	"hash"
 	"os"
 	"path/filepath"
 	"time"
@@ -70,6 +68,8 @@ type File struct {
 
 	// A destination file can be split across multiple devices
 	DestFiles []*DestFile
+
+	sha1 hash.Hash // Source file sha1 tracking
 }
 
 // IsSplit returns true if the file is split across devices.
@@ -90,27 +90,5 @@ func (f *File) AddDestFile(file *DestFile) {
 
 func (f *File) SetSymlinkTargetPath() (err error) {
 	f.SymlinkTarget, err = filepath.EvalSymlinks(f.Path)
-	return
-}
-
-// DestPathSha1Sum checks the sum of the destination file with that of the source file. If the hashes differ, then an error
-// is returned.
-func (f *File) DestPathSha1Sum() (err error) {
-	for _, file := range f.DestFiles {
-		var s = sha1.New()
-		var df *os.File
-		if len(f.Name) > 0 {
-			if df, err = os.Open(file.Path); err != nil {
-				return
-			}
-		}
-		if _, err = io.Copy(s, df); err != nil {
-			return
-		}
-		ds := hex.EncodeToString(s.Sum(nil))
-		if f.Sha1Sum != ds {
-			return fmt.Errorf("sha1sum error: expect: %s got: %s", f.Sha1Sum, ds)
-		}
-	}
 	return
 }

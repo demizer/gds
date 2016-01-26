@@ -3,8 +3,10 @@ package core
 import (
 	"compress/flate"
 	"compress/gzip"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"os"
@@ -181,7 +183,12 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 		}
 
 		pReporter := make(chan uint64, 100)
-		mIo := NewIoReaderWriter(oFile, pReporter, d.df.Size)
+		var srcSha1 *hash.Hash
+		if len(d.f.DestFiles) > 1 {
+			// An additional sha1 hash object is needed to calculate the sha1 sum for the entire source file
+			srcSha1 = &d.f.sha1
+		}
+		mIo := NewIoReaderWriter(oFile, pReporter, d.df.Size, srcSha1)
 		nIo := mIo.MultiWriter()
 
 		ns := time.Now()
@@ -232,8 +239,15 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 			}
 		}
 		if err == nil {
-			d.f.Sha1Sum = mIo.Sha1SumToString()
-			Log.WithFields(logrus.Fields{"file": d.df.Path, "sha1sum": d.f.Sha1Sum}).Infoln("File sha1sum")
+			d.df.Sha1Sum = mIo.Sha1SumToString()
+			if d.f.Size == d.df.Size {
+				d.f.Sha1Sum = d.df.Sha1Sum
+			}
+			// If the file is split, calculate the sha1 sum for the source file
+			if len(d.f.DestFiles) > 1 && d.df == d.f.DestFiles[len(d.f.DestFiles)-1] {
+				d.f.Sha1Sum = hex.EncodeToString(d.f.sha1.Sum(nil))
+			}
+			Log.WithFields(logrus.Fields{"file": d.df.Path, "sha1sum": d.df.Sha1Sum}).Infoln("File sha1sum")
 			err = d.df.setMetaData(d.f)
 			// For zero length files, report zero on the sizeWritn channel. io.Copy will only
 			// create the file, but it will not report bytes written since there are none.
@@ -245,6 +259,7 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 			cerr <- fmt.Errorf("%s %s", syncErrCtx, err.Error())
 			break
 		}
+
 		// Wait for the filetracker reporter to complete
 		<-ft.done
 	}

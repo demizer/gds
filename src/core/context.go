@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -229,6 +230,7 @@ func (c *Context) gatherFiles() error {
 			ChgTime: time.Unix(info.Sys().(*syscall.Stat_t).Ctim.Unix()),
 			Owner:   int(info.Sys().(*syscall.Stat_t).Uid),
 			Group:   int(info.Sys().(*syscall.Stat_t).Gid),
+			sha1:    sha1.New(),
 		}
 		if info.IsDir() {
 			f.FileType = DIRECTORY
