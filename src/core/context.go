@@ -285,7 +285,7 @@ func (ct *catalogTracker) splitCheck() bool {
 
 func (ct *catalogTracker) splitEndByteCalc() {
 	avail := ct.device.SizeTotalPadded() - ct.size
-	remain := ct.destFile.Source.Size - ct.destFile.StartByte
+	remain := ct.file.Size - ct.destFile.StartByte
 	Log.Debugf("Remain: %d Avail: %d", remain, avail)
 	ct.destFile.EndByte = ct.destFile.StartByte + remain
 	if avail > 0 && remain > avail {
@@ -311,7 +311,7 @@ func (ct *catalogTracker) splitFile() error {
 	// Loop until the file is completely accounted for, across devices if necessary
 	ct.debugPrintSplit("Before loop")
 	for {
-		ct.destFile = NewDestFile(ct.file, ct.destFilePrev, ct.destFilePrev, ct.device)
+		ct.destFile = NewDestFile(ct.file, ct.device, ct.destFilePrev, ct.destFilePrev)
 		if (ct.device.SizeTotalPadded() - ct.size) == 0 {
 			if err := ct.nextDevice(); err != nil {
 				return err
@@ -379,14 +379,14 @@ func (c *Context) catalog() error {
 		if (ct.device.SizeTotalPadded() - ct.size) == 0 {
 			ct.nextDevice()
 		}
-		ct.destFile = NewDestFile(file, nil, nil, ct.device)
+		ct.destFile = NewDestFile(file, ct.device, nil, nil)
 
 		if ct.splitCheck() {
 			Log.WithFields(logrus.Fields{
 				"deviceSize": ct.device.SizeTotal,
 				"ct.size":    ct.size,
-				"file":       ct.destFile.Source.Name,
-				"size":       ct.destFile.Source.Size}).Debugf("Splitting")
+				"file":       ct.file.Name,
+				"size":       ct.file.Size}).Debugf("Splitting")
 			if err := ct.splitFile(); err != nil {
 				return err
 			}

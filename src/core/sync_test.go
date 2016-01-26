@@ -269,14 +269,6 @@ func (s *syncTest) prepareFileIndex() (FileIndex, DeviceList) {
 	}
 	files := s.fileIndex()
 	devs := s.deviceList()
-	for _, file := range files {
-		for dfx, df := range file.DestFiles {
-			df.Source = file
-			// Set the device pointer in sequential order. This may not work, we'll see...
-			df.DeviceName = devs[dfx].Name
-			df.DeviceMountPoint = devs[dfx].MountPoint
-		}
-	}
 	return files, devs
 }
 
@@ -590,6 +582,7 @@ func TestSyncFileSplitAcrossDevices(t *testing.T) {
 			}
 		},
 	}
+	// f.dumpFileIndex = true
 	f.Run()
 }
 

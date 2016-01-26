@@ -38,13 +38,19 @@ func (f *FileIndex) FileByName(name string) (*File, error) {
 	return nil, new(FileNotFoundError)
 }
 
+type destFileData struct {
+	f   *File
+	df  *DestFile
+	dev *Device
+}
+
 // DeviceFiles returns all of the destination file objects that are to be copied to the named device.
-func (f *FileIndex) DeviceFiles(deviceName string) []*DestFile {
-	var files []*DestFile
+func (f *FileIndex) DeviceFiles(d *Device) []*destFileData {
+	var files []*destFileData
 	for _, file := range *f {
 		for _, df := range file.DestFiles {
-			if df.DeviceName == deviceName {
-				files = append(files, df)
+			if df.DeviceName == d.Name {
+				files = append(files, &destFileData{file, df, d})
 			}
 		}
 	}

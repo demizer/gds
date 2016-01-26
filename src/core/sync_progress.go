@@ -13,7 +13,8 @@ type bpsRecord struct {
 
 type fileTracker struct {
 	io     *IoReaderWriter
-	file   *DestFile
+	f      *File
+	df     *DestFile
 	device *Device
 	closed bool
 	done   chan bool
@@ -115,10 +116,10 @@ outer:
 		select {
 		case bw := <-ft.io.sizeWritn:
 			Log.WithFields(logrus.Fields{
-				"fileName":                   ft.file.Source.Name,
-				"fileDestPath":               ft.file.Path,
+				"fileName":                   ft.f.Name,
+				"fileDestPath":               ft.f.Path,
 				"fileBytesWritn":             bw,
-				"fileTotalBytes":             ft.file.Size,
+				"fileTotalBytes":             ft.f.Size,
 				"elapsedTimeSinceLastReport": time.Since(lr),
 				"copyTotalBytesWritn":        ft.io.sizeWritnTotal,
 			}).Infoln("Copy report")
@@ -127,9 +128,9 @@ outer:
 			size += bw
 			fbps.addPoint(size)
 			s.Device[index].Report <- SyncDeviceProgress{
-				FileName:             ft.file.Source.Name,
-				FilePath:             ft.file.Path,
-				FileSize:             ft.file.Size,
+				FileName:             ft.f.Name,
+				FilePath:             ft.df.Path,
+				FileSize:             ft.df.Size,
 				FileSizeWritn:        bw,
 				FileTotalSizeWritn:   ft.io.sizeWritnTotal,
 				FileBytesPerSecond:   fbps.calc(),
@@ -137,11 +138,11 @@ outer:
 				DeviceTotalSizeWritn: dev.SizeWritn,
 				DeviceBytesPerSecond: dt.bps.calc(),
 			}
-			if size == ft.file.Size {
+			if size == ft.df.Size {
 				Log.WithFields(logrus.Fields{
 					"bw":                   bw,
-					"destPath":             ft.file.Path,
-					"destSize":             ft.file.Size,
+					"destPath":             ft.f.Path,
+					"destSize":             ft.f.Size,
 					"ft.io.sizeWritnTotal": ft.io.sizeWritnTotal,
 				}).Print("Copy complete")
 				// Test the sync goroutine that file is accounted for
@@ -154,7 +155,7 @@ outer:
 				Log.Debugln("Tracker loop has been closed. Exiting.")
 				break outer
 			}
-			Log.Debugf("No bytes written to %q on device %q in last second.", ft.file.Source.Name, dev.Name)
+			Log.Debugf("No bytes written to %q on device %q in last second.", ft.f.Name, dev.Name)
 			dt.bps.addPoint(0)
 			fbps.addPoint(0)
 			lr = time.Now()
