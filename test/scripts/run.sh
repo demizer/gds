@@ -128,11 +128,11 @@ run() {
 
 if [[ ${RUN_EMULATION} == 1 ]]; then
     prepare_devices_emu_img
-    run "test/emu_test/config_emulation.yml"
+    run "test/config/config_emulation.yml"
 elif [[ ${RUN_IMAGES} == 1 ]]; then
     prepare_devices_emu_img
-    run "test/emu_test/config_images.yml"
+    run "test/config/config_images.yml"
 elif [[ ${RUN_BTRFS_1} == 1 ]]; then
     prepare_devices_btrfs_compressed
-    run "test/emu_test/config_btrfs.yml"
+    run "test/config/config_btrfs.yml"
 fi
