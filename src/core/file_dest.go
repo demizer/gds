@@ -18,6 +18,7 @@ type DestFile struct {
 	EndByte    uint64
 	Sha1Sum    string
 	err        error // Used to record errors that occurr when creating or writing to the dest file.
+	done       bool  // When set to true, the file has been copied and verified at the destination
 }
 
 // NewDestFile will return a new destination file with the UUID dest path set. If df is not nil, then the start and end bytes

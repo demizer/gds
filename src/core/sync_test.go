@@ -75,7 +75,8 @@ func (s *syncTest) checkErrors() {
 				}
 			}
 			if !foundErr {
-				s.t.Errorf("EXPECT: Error TypeOf %s GOT: No error of this type", reflect.TypeOf(e))
+				// s.t.Errorf("EXPECT: Error TypeOf %s GOT: %#v", reflect.TypeOf(e), s.expectErrors)
+				s.t.Errorf("EXPECT: Error %#v\n\t GOT: %#v", s.expectErrors(), e)
 				s.t.FailNow()
 			}
 		}
@@ -147,6 +148,15 @@ func (s *syncTest) checkSha1Sum(f *File) {
 		if df.Sha1Sum != sum {
 			s.t.Errorf("Error: DestFile: %q\n\t  Expect Sha1Sum: %q\n\t  Got Sha1Sum: %q",
 				df.Path, df.Sha1Sum, sum)
+		}
+	}
+
+	// Sha1 sum of source file should not be similar to sha1 sum of dest files if the file is split
+	if len(f.DestFiles) > 1 {
+		for _, df := range f.DestFiles {
+			if f.Sha1Sum == df.Sha1Sum {
+				s.t.Errorf("Error: Source file %q and dest file have same sha1 sum!", f.Name)
+			}
 		}
 	}
 }
@@ -253,10 +263,10 @@ func (s *syncTest) errorCollector() {
 		for {
 			select {
 			case e := <-s.errChan:
-				Log.Errorln("ERROR:", e)
+				Log.Errorln(e)
 				s.errors = append(s.errors, e)
 			default:
-				if s.ctx.Exit {
+				if s.ctx != nil && s.ctx.Exit {
 					return
 				}
 			}
@@ -277,11 +287,6 @@ func (s *syncTest) prepareFileIndex() (FileIndex, DeviceList) {
 		}
 	}
 	files := s.fileIndex()
-	for _, f := range files {
-		if f.sha1 == nil {
-			f.sha1 = sha1.New()
-		}
-	}
 	devs := s.deviceList()
 	return files, devs
 }
@@ -289,7 +294,10 @@ func (s *syncTest) prepareFileIndex() (FileIndex, DeviceList) {
 // run intiates the test sync
 func (s *syncTest) run() {
 	fi, dl := s.prepareFileIndex()
-	c, err := NewContext(s.backupPath, s.outputStreams, fi, dl, s.paddingPercentage)
+
+	s.errorCollector()
+
+	c, err := NewContext(s.backupPath, s.outputStreams, fi, dl, s.paddingPercentage, s.errChan)
 	if err != nil {
 		s.errors = append(s.errors, err)
 		return
@@ -301,7 +309,6 @@ func (s *syncTest) run() {
 		os.Exit(1)
 	}
 
-	s.errorCollector()
 	s.progressDump()
 
 	// DO IT NOW!!
@@ -644,6 +651,31 @@ func TestSyncFileSplitAcrossDevices3(t *testing.T) {
 				&Device{
 					Name:       "Test Device 1",
 					SizeTotal:  4575006,
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
+				},
+			}
+		},
+	}
+	// f.dumpFileIndex = true
+	f.Run()
+}
+
+// TestSyncFileSplitAcrossDevices4 tests sha1 calculation for a file that is split across devices with first split being
+// larger than second.
+func TestSyncFileSplitAcrossDevices4(t *testing.T) {
+	f := &syncTest{t: t,
+		backupPath:    "../../testdata/filesync_large_binary_file",
+		outputStreams: 2,
+		deviceList: func() DeviceList {
+			return DeviceList{
+				&Device{
+					Name:       "Test Device 0",
+					SizeTotal:  8991689 + 89905, // Size needed plus 1% for padding
+					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
+				},
+				&Device{
+					Name:       "Test Device 1",
+					SizeTotal:  1495254 + 14952,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-1-"),
 				},
 			}

@@ -19,27 +19,20 @@ type IoReaderWriter struct {
 	sizeWritnFromLastReport uint64      // Number of bytes written to the dest file since last progress report
 
 	sha1 hash.Hash
-
-	// Set by NewIoReaderWriter from a passed argument. This is used to generate the hash of the source file when the file is split
-	srcSha1 *hash.Hash
 }
 
-func NewIoReaderWriter(outFile io.Writer, progressReport chan uint64, outFileSize uint64, sSha1 *hash.Hash) *IoReaderWriter {
+func NewIoReaderWriter(outFile io.Writer, progressReport chan uint64, outFileSize uint64) *IoReaderWriter {
 	i := &IoReaderWriter{
 		Writer:    outFile,
 		sizeTotal: outFileSize,
 		timeStart: time.Now(),
 		sizeWritn: progressReport,
 		sha1:      sha1.New(),
-		srcSha1:   sSha1,
 	}
 	return i
 }
 
 func (i *IoReaderWriter) MultiWriter() io.Writer {
-	if i.srcSha1 != nil {
-		return io.MultiWriter(i, i.sha1, *i.srcSha1)
-	}
 	return io.MultiWriter(i, i.sha1)
 }
 

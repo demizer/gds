@@ -1,8 +1,10 @@
 package core
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
-	"hash"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -15,6 +17,16 @@ const (
 	DIRECTORY
 	SYMLINK
 )
+
+var fileTypes = []string{
+	"File",
+	"Directory",
+	"Symlink",
+}
+
+func (f *FileType) String() string {
+	return fileTypes[*f]
+}
 
 type FileNotFoundError int
 
@@ -68,8 +80,6 @@ type File struct {
 
 	// A destination file can be split across multiple devices
 	DestFiles []*DestFile
-
-	sha1 hash.Hash // Source file sha1 tracking
 }
 
 // IsSplit returns true if the file is split across devices.
@@ -91,4 +101,29 @@ func (f *File) AddDestFile(file *DestFile) {
 func (f *File) SetSymlinkTargetPath() (err error) {
 	f.SymlinkTarget, err = filepath.EvalSymlinks(f.Path)
 	return
+}
+
+// DestFilesDone returns true if all the destination files have completed copy to destination device.
+func (f *File) DestFilesDone() bool {
+	for _, df := range f.DestFiles {
+		if !df.done {
+			return false
+		}
+	}
+	return true
+}
+
+// ComputeSha1 will calculate the sha1 sum of the file and return the hash as a string.
+func (f *File) ComputeSha1() (string, error) {
+	var hstr string
+	file, err := os.Open(f.Path)
+	if err != nil {
+		return hstr, fmt.Errorf("ComputeSha1: %s", err)
+	}
+	defer file.Close()
+	hash := sha1.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return hstr, fmt.Errorf("ComputeSha1: %s", err)
+	}
+	return hex.EncodeToString(hash.Sum(nil)), err
 }

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -92,7 +91,7 @@ type Context struct {
 }
 
 // NewContext returns a context ready to use.
-func NewContext(bp string, os uint16, files FileIndex, devices DeviceList, pp float64) (*Context, error) {
+func NewContext(bp string, os uint16, files FileIndex, devices DeviceList, pp float64, cErr chan error) (*Context, error) {
 	c := &Context{
 		BackupPath:        bp,
 		OutputStreamNum:   os,
@@ -101,6 +100,7 @@ func NewContext(bp string, os uint16, files FileIndex, devices DeviceList, pp fl
 		Devices:           devices,
 		SyncDeviceMount:   make(map[int]chan bool),
 		FileIndex:         files,
+		errors:            cErr,
 	}
 	if c.PaddingPercentage == 0 {
 		c.PaddingPercentage = 1.0
@@ -230,7 +230,6 @@ func (c *Context) gatherFiles() error {
 			ChgTime: time.Unix(info.Sys().(*syscall.Stat_t).Ctim.Unix()),
 			Owner:   int(info.Sys().(*syscall.Stat_t).Uid),
 			Group:   int(info.Sys().(*syscall.Stat_t).Gid),
-			sha1:    sha1.New(),
 		}
 		if info.IsDir() {
 			f.FileType = DIRECTORY
@@ -365,7 +364,20 @@ func (c *Context) catalog() error {
 	// Let's light this candle
 	for _, file := range ct.ctx.FileIndex {
 
-		Log.Debugf("Inspecting: %s - %d Bytes", file.Name, file.Size)
+		Log.Infof("Inspecting: %s - FileType: %s - %d Bytes", file.Name, file.FileType.String(), file.Size)
+
+		// TODO: This is where we will determine if the file needs to be updated in the replica
+		if file.FileType == FILE && !strings.Contains(file.Path, fakeTestPath) {
+			Log.Infof("Computing sha1 for %q ...", file.Name)
+			tn := time.Now()
+			sum, err := file.ComputeSha1()
+			if err != nil {
+				c.errors <- err
+				continue
+			}
+			Log.Infof("Got sha1 %q for %q in %s", sum, file.Name, time.Since(tn))
+			file.Sha1Sum = sum
+		}
 
 		// Directories can be ignored, symlinks only need the symlink target set.
 		if file.FileType == DIRECTORY {
