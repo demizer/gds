@@ -71,7 +71,7 @@
 		{
 			"importpath": "github.com/nsf/termbox-go",
 			"repository": "https://github.com/nsf/termbox-go",
-			"revision": "785b5546a97f27460cfbc4c77132a46b90beb834",
+			"revision": "362329b0aa6447eadd52edd8d660ec1dff470295",
 			"branch": "master"
 		},
 		{
