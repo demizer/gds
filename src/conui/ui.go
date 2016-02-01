@@ -14,7 +14,7 @@ var spd = spew.ConfigState{Indent: "\t"} //, DisableMethods: true}
 
 var (
 	Body   *Grid
-	Redraw = make(chan bool, 1)
+	Redraw = make(chan bool)
 	Events = EventCh()
 )
 
@@ -34,17 +34,9 @@ var Log = &logrus.Logger{
 // After initialization, the library must be finalized by 'Close' function.
 func Init() error {
 	os.Setenv("TERM", "xterm")
-	Body = NewGrid()
-	Body.X = 0
-	Body.Y = 0
-	Body.SelectedDevicePanel = 0
-	Body.ProgressPanelHeight = 5
-	Body.DevicePanelHeight = 10
-	Body.BgColor = theme.BodyBg
-
 	err := termbox.Init()
-	w, _ := termbox.Size()
-	Body.Width = w
+	w, h := termbox.Size()
+	Body = NewGrid(w, h)
 	evtListen()
 	return err
 }
@@ -62,26 +54,32 @@ func Layout() {
 		"TermWidth":                TermWidth(),
 		"Body.ProgressPanelHeight": Body.ProgressPanelHeight,
 	}).Debugf("Layout")
+
 	// Use all of the width of the terminal
 	Body.Width = TermWidth()
-	Body.ProgressPanel.SetWidth(TermWidth())
-	for x := 0; x < len(Body.DevicePanels); x++ {
-		Body.DevicePanels[x].SetWidth(TermWidth())
-	}
-	if (Body.NumVisible() * Body.DevicePanelHeight) > (TermHeight() - Body.ProgressPanelHeight) {
-		Log.Debugln("Layout: Calling Body.scrollVisible()")
-		Body.scrollVisible()
-	} else {
-		Log.Debugln("Layout: Default rendering")
-		yPos := Body.ProgressPanelHeight
+
+	if Body.ProgressPanel.IsVisible() {
 		Body.ProgressPanel.SetWidth(TermWidth())
-		Body.ProgressPanel.SetY(0)
+	}
+	if len(Body.DevicePanels) > 0 {
 		for x := 0; x < len(Body.DevicePanels); x++ {
-			row := Body.DevicePanels[x]
-			row.SetWidth(TermWidth())
-			yHeight := row.Height()
-			row.SetY(yPos)
-			yPos += yHeight
+			Body.DevicePanels[x].SetWidth(TermWidth())
+		}
+		if (Body.NumVisible() * Body.DevicePanelHeight) > (TermHeight() - Body.ProgressPanelHeight) {
+			Log.Debugln("Layout: Calling Body.scrollVisible()")
+			Body.scrollVisible()
+		} else {
+			Log.Debugln("Layout: Default rendering")
+			yPos := Body.ProgressPanelHeight
+			Body.ProgressPanel.SetWidth(TermWidth())
+			Body.ProgressPanel.SetY(0)
+			for x := 0; x < len(Body.DevicePanels); x++ {
+				row := Body.DevicePanels[x]
+				row.SetWidth(TermWidth())
+				yHeight := row.Height()
+				row.SetY(yPos)
+				yPos += yHeight
+			}
 		}
 	}
 }

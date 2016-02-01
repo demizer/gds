@@ -6,19 +6,37 @@
 package conui
 
 type Grid struct {
-	SelectedDevicePanel int
-	DevicePanels        []Widget
-	DevicePanelHeight   int
-	ProgressPanel       *ProgressGauge
-	ProgressPanelHeight int
-	Width               int
-	X                   int
-	Y                   int
-	BgColor             Attribute
+	SelectedDevicePanel        int
+	DevicePanels               []Widget
+	DevicePanelHeight          int
+	ProgressPanel              *ProgressGauge
+	ProgressPanelHeight        int
+	HashingDialog              *HashingDialog
+	HashingDialogHeight        int
+	HashingProgressGauge       *HashingProgressGauge
+	HashingProgressGaugeHeight int
+	Width                      int
+	Height                     int
+	X                          int
+	Y                          int
+	BgColor                    Attribute
 }
 
-func NewGrid() *Grid {
-	return &Grid{DevicePanels: []Widget{}, ProgressPanel: &ProgressGauge{}}
+func NewGrid(width int, height int) *Grid {
+	return &Grid{
+		DevicePanels:         []Widget{},
+		ProgressPanel:        &ProgressGauge{},
+		HashingDialog:        &HashingDialog{},
+		HashingProgressGauge: &HashingProgressGauge{},
+		SelectedDevicePanel:  0,
+		ProgressPanelHeight:  5,
+		DevicePanelHeight:    10,
+		X:                    0,
+		Y:                    0,
+		Width:                width,
+		Height:               height,
+		BgColor:              theme.BodyBg,
+	}
 }
 
 func (g *Grid) selected() int {

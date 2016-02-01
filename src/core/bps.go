@@ -5,64 +5,73 @@ import "time"
 // Maximum number of points used to calculate the average
 var windowSize = 10
 
-type progressPoint struct {
-	time              time.Time
-	totalBytesWritten uint64
+// ProgressPoint is a progress point containing bytes written in the last second added to the bps tracker.
+type ProgressPoint struct {
+	Time              time.Time // The time the point was added
+	TotalBytesWritten uint64    // Total bytes written since the last update
 }
 
-type bytesPerSecond struct {
-	timeStart time.Time
-	points    []progressPoint
-	counter   uint64 // Used to track bytes that are added in between seconds
+// BytesPerSecond is used to calculate bytes per second transfer speeds using the average of the last ten points. A point
+// should be added every second for accurate calculation.
+type BytesPerSecond struct {
+	TimeStart time.Time        // The time the bps tracker was initialized
+	Points    []*ProgressPoint // Used to do the calculation
+	counter   uint64           // Used to track bytes that are added in between seconds
 }
 
-func newBytesPerSecond() *bytesPerSecond {
-	return &bytesPerSecond{timeStart: time.Now(), points: make([]progressPoint, 0)}
+// NewBytesPerSecond returns a new bytes per second object that can be used to track bytes per second transfer speeds.
+func NewBytesPerSecond() *BytesPerSecond {
+	return &BytesPerSecond{TimeStart: time.Now(), Points: make([]*ProgressPoint, 0)}
 }
 
-func (b *bytesPerSecond) addPoint(totalBytesWritten uint64) {
+// AddPoint adds a new point to the progress points. It is initialized with using the totalBytesWritten argument. This should
+// be called once a second for accurate results.
+func (b *BytesPerSecond) AddPoint(totalBytesWritten uint64) {
 	var addPoint bool
-	if len(b.points) == 0 {
+	if len(b.Points) == 0 {
 		addPoint = true
-	} else if (time.Since(b.lastPoint().time).Seconds()) > 1 {
+	} else if (time.Since(b.LastPoint().Time).Seconds()) > 1 {
 		addPoint = true
 	}
 	if addPoint {
 		b.counter += totalBytesWritten
-		b.points = append(b.points, progressPoint{time: time.Now(), totalBytesWritten: b.counter})
+		b.Points = append(b.Points, &ProgressPoint{Time: time.Now(), TotalBytesWritten: b.counter})
 		b.counter = 0
 	} else {
 		b.counter += totalBytesWritten
 	}
 }
 
-func (b *bytesPerSecond) lastPoint() progressPoint {
-	return (b.points)[len(b.points)-1]
+// LastPoint returns the last progress point.
+func (b *BytesPerSecond) LastPoint() *ProgressPoint {
+	return (b.Points)[len(b.Points)-1]
 }
 
-func (b *bytesPerSecond) calc() uint64 {
+// Calc returns the average bps calculation using the last 10 points.
+func (b *BytesPerSecond) Calc() uint64 {
 	var tBytes uint64
-	if len(b.points) == 0 {
+	if len(b.Points) == 0 {
 		return 0
 	}
-	points := b.points
-	end := len(b.points)
+	points := b.Points
+	end := len(b.Points)
 	if end > windowSize {
-		points = b.points[end-windowSize : end]
+		points = b.Points[end-windowSize : end]
 	}
 	for _, y := range points {
-		tBytes += y.totalBytesWritten
+		tBytes += y.TotalBytesWritten
 	}
 	return uint64(float64(tBytes / uint64(len(points))))
 }
 
-func (b *bytesPerSecond) calcFull() uint64 {
+// CalcFull returns the average bps since time start including all points.
+func (b *BytesPerSecond) CalcFull() uint64 {
 	var tBytes uint64
-	if len(b.points) == 0 {
+	if len(b.Points) == 0 {
 		return 0
 	}
-	for _, y := range b.points {
-		tBytes += y.totalBytesWritten
+	for _, y := range b.Points {
+		tBytes += y.TotalBytesWritten
 	}
-	return uint64(float64(tBytes / uint64(len(b.points))))
+	return uint64(float64(tBytes / uint64(len(b.Points))))
 }

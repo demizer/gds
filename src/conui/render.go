@@ -13,14 +13,12 @@ type Bufferer interface {
 
 // TermWidth returns the current terminal's width.
 func TermWidth() int {
-	termbox.Sync()
 	w, _ := termbox.Size()
 	return w
 }
 
 // TermHeight returns the current terminal's height.
 func TermHeight() int {
-	termbox.Sync()
 	_, h := termbox.Size()
 	return h
 }
@@ -32,9 +30,17 @@ func Render() {
 			termbox.SetCell(v.X, v.Y, v.Ch, termbox.Attribute(v.Fg), termbox.Attribute(v.Bg))
 		}
 	}
-	for x := 0; x < len(Body.DevicePanels); x++ {
-		rangeBuf(Body.DevicePanels[x].Buffer())
+	if Body.HashingDialog.IsVisible() {
+		rangeBuf(Body.HashingDialog.Buffer())
 	}
-	rangeBuf(Body.ProgressPanel.Buffer())
+	if Body.HashingProgressGauge.IsVisible() {
+		rangeBuf(Body.HashingProgressGauge.Buffer())
+	}
+	if len(Body.DevicePanels) > 1 {
+		for x := 0; x < len(Body.DevicePanels); x++ {
+			rangeBuf(Body.DevicePanels[x].Buffer())
+		}
+		rangeBuf(Body.ProgressPanel.Buffer())
+	}
 	termbox.Flush()
 }

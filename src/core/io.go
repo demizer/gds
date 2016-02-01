@@ -11,23 +11,31 @@ import (
 type IoReaderWriter struct {
 	io.Reader
 	io.Writer
+	destPath                string
 	timeStart               time.Time   // The start time of the file copy
 	timeLastReport          time.Time   // The time of the last report
 	sizeTotal               uint64      // The total size of the input file
 	sizeWritn               chan uint64 // Channel for reporting number of bytes written
 	sizeWritnTotal          uint64      // Total number of bytes written to dest file
 	sizeWritnFromLastReport uint64      // Number of bytes written to the dest file since last progress report
+	done                    *chan bool  // If closed, copy will exit with DoneSignalReceived
 
 	sha1 hash.Hash
 }
 
-func NewIoReaderWriter(outFile io.Writer, progressReport chan uint64, outFileSize uint64) *IoReaderWriter {
+// NewIoReaderWriter takes an output file, a channel of uint64 for reporting bytes written, and total number of bytes
+// written. If ns is true, then sha1 hash computation is not used.
+func NewIoReaderWriter(dp string, of io.Writer, ofs uint64, pr chan uint64, ns bool, done *chan bool) *IoReaderWriter {
 	i := &IoReaderWriter{
-		Writer:    outFile,
-		sizeTotal: outFileSize,
+		destPath:  dp,
+		Writer:    of,
+		sizeTotal: ofs,
 		timeStart: time.Now(),
-		sizeWritn: progressReport,
-		sha1:      sha1.New(),
+		sizeWritn: pr,
+		done:      done,
+	}
+	if !ns {
+		i.sha1 = sha1.New()
 	}
 	return i
 }
@@ -49,7 +57,7 @@ func (i *IoReaderWriter) Write(p []byte) (int, error) {
 		ns := time.Now()
 		report := func() {
 			i.sizeWritn <- i.sizeWritnFromLastReport
-			Log.Debugf("REPORTING FINISHED in %s FILE SIZE: %d", time.Since(ns), i.sizeTotal)
+			Log.Debugf("REPORTING FINISHED (%q) in %s FILE SIZE: %d", i.destPath, time.Since(ns), i.sizeTotal)
 			if i.sizeWritnTotal != i.sizeTotal {
 				i.sizeWritnFromLastReport = 0
 				i.timeLastReport = time.Now()
@@ -57,19 +65,26 @@ func (i *IoReaderWriter) Write(p []byte) (int, error) {
 		}
 
 		// Limit the number of reports to once a second
-		if i.timeLastReport.IsZero() {
-			Log.Debugf("REPORTING: %p timeLastReport.IsZero: %t BYTES: %d FILE SIZE: %d",
-				i, i.timeLastReport.IsZero(), i.sizeWritnFromLastReport, i.sizeTotal)
+		if i.sizeWritnTotal == i.sizeTotal {
+			Log.Debugf("REPORTING: %q (%p) -- FILE WRITE COMPLETE -- timeSinceLastReport %s BYTES: %d FILE SIZE: %d",
+				i.destPath, i, time.Since(i.timeLastReport), i.sizeWritnFromLastReport, i.sizeTotal)
+			report()
+		} else if i.timeLastReport.IsZero() {
+			Log.Debugf("REPORTING: %q (%p) timeLastReport.IsZero: %t BYTES: %d FILE SIZE: %d",
+				i.destPath, i, i.timeLastReport.IsZero(), i.sizeWritnFromLastReport, i.sizeTotal)
 			report()
 		} else if time.Since(i.timeLastReport).Seconds() > 1 {
-			Log.Debugf("REPORTING: %p timeSinceLastReport %s BYTES: %d FILE SIZE: %d",
-				i, time.Since(i.timeLastReport), i.sizeWritnFromLastReport, i.sizeTotal)
-			report()
-		} else if i.sizeWritnTotal == i.sizeTotal {
-			Log.Debugf("REPORTING: %p -- FILE WRITE COMPLETE -- timeSinceLastReport %s BYTES: %d FILE SIZE: %d",
-				i, time.Since(i.timeLastReport), i.sizeWritnFromLastReport, i.sizeTotal)
+			Log.Debugf("REPORTING: %q (%p) timeSinceLastReport %s BYTES: %d FILE SIZE: %d",
+				i.destPath, i, time.Since(i.timeLastReport), i.sizeWritnFromLastReport, i.sizeTotal)
 			report()
 		}
+	}
+	select {
+	case _, ok := <-*i.done:
+		if !ok {
+			return n, new(DoneSignalReceived)
+		}
+	default:
 	}
 	return n, err
 }

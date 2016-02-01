@@ -70,6 +70,7 @@ func saveSyncContext(c *Context) (size uint64, err error) {
 		return
 	}
 	lastDevice := c.Devices[len(c.Devices)-1]
+	Log.Debugln(uint64(sgzSize)+lastDevice.SizeWritn, lastDevice.SizeTotalPadded())
 	if uint64(sgzSize)+lastDevice.SizeWritn > lastDevice.SizeTotalPadded() {
 		err = SyncNotEnoughDeviceSpaceForSyncContextError{
 			lastDevice.Name, lastDevice.SizeWritn, lastDevice.SizeTotalPadded(), uint64(sgzSize),
@@ -124,22 +125,22 @@ func (e SyncSourceFileOpenError) Error() string {
 }
 
 // sync2dev is the main file syncing function. It is big, mean, and will eat your bytes.
-func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr chan<- error) {
+func sync2dev(c *Context, device *Device, trakc chan<- fileTracker) {
 	Log.WithFields(logrus.Fields{"device": device.Name}).Infoln("Syncing to device")
 
 	syncErrCtx := fmt.Sprintf("sync Device[%q]:", device.Name)
 
-	for _, d := range files.DeviceFiles(device) {
+	for _, d := range c.FileIndex.DeviceFiles(device) {
 
 		d.df.createFile(d.f)
 		if d.df.err != nil {
-			cerr <- d.df.err
+			c.Errors <- d.df.err
 			continue
 		}
 
 		if d.df.err != nil {
 			// An error was generated in pre-sync, send it down the line
-			cerr <- d.df.err
+			c.Errors <- d.df.err
 			continue
 		}
 		Log.WithFields(logrus.Fields{"fileName": d.f.Name, "device": device.Name,
@@ -151,7 +152,7 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 		// Open dest file for writing
 		oFile, err = os.OpenFile(d.df.Path, os.O_RDWR, d.f.Mode)
 		if err != nil {
-			cerr <- SyncDestinatonFileOpenError{fmt.Errorf("%s ofile open: %s", syncErrCtx, err.Error())}
+			c.Errors <- SyncDestinatonFileOpenError{fmt.Errorf("%s ofile open: %s", syncErrCtx, err.Error())}
 			continue
 		}
 		defer oFile.Close()
@@ -167,7 +168,7 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 			defer sFile.Close()
 		}
 		if err != nil {
-			cerr <- SyncSourceFileOpenError{fmt.Errorf("%s sfile open: %s", syncErrCtx, err.Error())}
+			c.Errors <- SyncSourceFileOpenError{fmt.Errorf("%s sfile open: %s", syncErrCtx, err.Error())}
 			continue
 		}
 
@@ -175,13 +176,13 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 		if d.f.IsSplit() {
 			_, err = sFile.Seek(int64(d.df.StartByte), 0)
 			if err != nil {
-				cerr <- fmt.Errorf("%s seek: %s", syncErrCtx, err.Error())
+				c.Errors <- fmt.Errorf("%s seek: %s", syncErrCtx, err.Error())
 				continue
 			}
 		}
 
 		pReporter := make(chan uint64, 100)
-		mIo := NewIoReaderWriter(oFile, pReporter, d.df.Size)
+		mIo := NewIoReaderWriter(d.df.Path, oFile, d.df.Size, pReporter, false, &c.Done)
 		nIo := mIo.MultiWriter()
 
 		ns := time.Now()
@@ -198,7 +199,7 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 				Log.WithFields(logrus.Fields{"filePath": d.df.Path, "fileSourceSize": d.f.Size,
 					"fileDestSize": d.df.Size, "deviceSize": device.SizeTotal,
 				}).Error("Error copying file!")
-				cerr <- fmt.Errorf("%s copy %s: %s", syncErrCtx, d.df.Path, err.Error())
+				c.Errors <- fmt.Errorf("%s copy %s: %s", syncErrCtx, d.df.Path, err.Error())
 				break
 			} else {
 				err = sFile.Close()
@@ -224,7 +225,7 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 					"file.Size": d.f.Size, "d.df.Size": d.df.Size,
 					"d.SizeTotal": device.SizeTotal,
 				}).Error("Error copying file!")
-				cerr <- fmt.Errorf("%s copyn: %s", syncErrCtx, err.Error())
+				c.Errors <- fmt.Errorf("%s copyn: %s", syncErrCtx, err.Error())
 				break
 			} else {
 				err = sFile.Close()
@@ -243,7 +244,7 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 				mIo.sizeWritn <- 0
 			}
 		} else {
-			cerr <- fmt.Errorf("%s %s", syncErrCtx, err.Error())
+			c.Errors <- fmt.Errorf("%s %s", syncErrCtx, err.Error())
 			break
 		}
 
@@ -253,7 +254,7 @@ func sync2dev(device *Device, files *FileIndex, trakc chan<- fileTracker, cerr c
 	Log.WithFields(logrus.Fields{"device": device.Name, "mountPoint": device.MountPoint}).Info("Sync to device complete")
 }
 
-func syncLaunch(c *Context, index int, err chan error, done chan bool) {
+func syncLaunch(c *Context, index int, done chan bool) {
 	Log.Debugln("Starting Sync() iteration", index)
 	d := c.Devices[index]
 
@@ -267,7 +268,7 @@ func syncLaunch(c *Context, index int, err chan error, done chan bool) {
 	go c.SyncProgress.deviceCopyReporter(index)
 
 	// Finally, starting syncing!
-	sync2dev(d, &c.FileIndex, c.SyncProgress.Device[index].files, err)
+	sync2dev(c, d, c.SyncProgress.Device[index].files)
 
 	done <- true
 
@@ -280,7 +281,7 @@ func syncLaunch(c *Context, index int, err chan error, done chan bool) {
 // Sync synchronizes files to mounted devices on mountpoints. Sync will copy new files, delete old files, and fix or update
 // files on the destination device that do not match the source sha1 hash. If disableContextSave is true, the context file
 // will be NOT be dumped to the last devices as compressed JSON.
-func Sync(c *Context, disableContextSave bool, errChan chan error) {
+func Sync(c *Context, disableContextSave bool) {
 	Log.WithFields(logrus.Fields{
 		"dataSize": c.FileIndex.TotalSize(), "poolSizePadded": c.Devices.TotalSizePadded(),
 	}).Info("Data vs Pool size")
@@ -299,7 +300,7 @@ func Sync(c *Context, disableContextSave bool, errChan chan error) {
 		if i < len(c.Devices) && i < c.DevicesUsed && streamCount < c.OutputStreamNum {
 			streamCount += 1
 			// Launch into go routine in case exec is blocked waiting for a user to mount a device
-			go syncLaunch(c, i, errChan, done)
+			go syncLaunch(c, i, done)
 			i += 1
 		} else {
 			select {
@@ -314,13 +315,14 @@ func Sync(c *Context, disableContextSave bool, errChan chan error) {
 	// One final update to show full copy
 	c.SyncProgress.report(true)
 
-	close(c.SyncProgress.Report)
-
 	if !disableContextSave {
 		var err error
 		c.SyncContextSize, err = saveSyncContext(c)
 		if err != nil {
-			errChan <- err
+			c.Errors <- err
 		}
 	}
+
+	close(c.SyncProgress.Report)
+	close(c.Done)
 }

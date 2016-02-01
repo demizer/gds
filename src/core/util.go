@@ -1,12 +1,12 @@
 package core
 
 import (
-	"bytes"
 	"crypto/rand"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
-	"os/exec"
-	"strings"
+	"os"
 	"syscall"
 	"unsafe"
 )
@@ -28,15 +28,20 @@ func NewID() (string, error) {
 }
 
 // sha1sum gets the sha1 hash of filePath using an external hashing tool.
-func sha1sum(filePath string) (string, error) {
-	cmd := exec.Command("/usr/bin/sha1sum", filePath)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
+func sha1sum(filePath string) (hash string, err error) {
+	f, err := os.Open(filePath)
 	if err != nil {
-		return "", fmt.Errorf("sha1sum error - %s", err.Error())
+		err = fmt.Errorf("sha1sum: %s", err.Error())
+		return
 	}
-	return strings.Fields(out.String())[0], err
+	sh := sha1.New()
+	_, err = io.Copy(sh, f)
+	if err != nil {
+		err = fmt.Errorf("sha1sum: %s", err.Error())
+		return
+	}
+	hash = hex.EncodeToString(sh.Sum(nil))
+	return
 }
 
 // From https://github.com/docker/docker/blob/master/pkg/system/utimes_linux.go

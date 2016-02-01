@@ -7,7 +7,7 @@ import (
 )
 
 type bpsRecord struct {
-	bps                      *bytesPerSecond
+	bps                      *BytesPerSecond
 	lastReportedBytesWritten uint64
 }
 
@@ -67,10 +67,12 @@ func NewSyncProgressTracker(devices DeviceList) *SyncProgressTracker {
 	}
 	for x := 0; x < len(devices); x++ {
 		sp.Device = append(sp.Device, deviceTracker{})
-		sp.Device[x].files = make(chan fileTracker, 10)
-		sp.Device[x].Report = make(chan SyncDeviceProgress, 10)
+		// sp.Device[x].files = make(chan fileTracker, 10)
+		sp.Device[x].files = make(chan fileTracker)
+		// sp.Device[x].Report = make(chan SyncDeviceProgress, 10)
+		sp.Device[x].Report = make(chan SyncDeviceProgress)
 	}
-	sp.bps = newBytesPerSecond()
+	sp.bps = NewBytesPerSecond()
 	return sp
 }
 
@@ -88,11 +90,11 @@ func (s *SyncProgressTracker) report(finalReport bool) {
 		"diff":                diffSizeWritn,
 	}).Infoln("Overall progress report")
 
-	s.bps.addPoint(diffSizeWritn)
+	s.bps.AddPoint(diffSizeWritn)
 
-	nbps := s.bps.calc()
+	nbps := s.bps.Calc()
 	if finalReport {
-		nbps = s.bps.calcFull()
+		nbps = s.bps.CalcFull()
 	}
 	s.Report <- SyncProgress{
 		SizeWritn:      totalSyncBytesWritten,
@@ -106,7 +108,7 @@ func (s *SyncProgressTracker) fileCopyReporter(index int, ft fileTracker) {
 	// Tracks total file size reported to the fileTracker
 	var size uint64
 	// File bps calculation
-	fbps := newBytesPerSecond()
+	fbps := NewBytesPerSecond()
 	// Used to track times from the last report
 	lr := time.Now()
 	dev := s.devices[index]
@@ -124,19 +126,19 @@ outer:
 				"copyTotalBytesWritn":        ft.io.sizeWritnTotal,
 			}).Infoln("Copy report")
 			dev.SizeWritn += bw
-			dt.bps.addPoint(bw)
+			dt.bps.AddPoint(bw)
 			size += bw
-			fbps.addPoint(size)
+			fbps.AddPoint(size)
 			s.Device[index].Report <- SyncDeviceProgress{
 				FileName:             ft.f.Name,
 				FilePath:             ft.df.Path,
 				FileSize:             ft.df.Size,
 				FileSizeWritn:        bw,
 				FileTotalSizeWritn:   ft.io.sizeWritnTotal,
-				FileBytesPerSecond:   fbps.calc(),
+				FileBytesPerSecond:   fbps.Calc(),
 				DeviceSizeWritn:      bw,
 				DeviceTotalSizeWritn: dev.SizeWritn,
-				DeviceBytesPerSecond: dt.bps.calc(),
+				DeviceBytesPerSecond: dt.bps.Calc(),
 			}
 			if size == ft.df.Size {
 				Log.WithFields(logrus.Fields{
@@ -156,8 +158,8 @@ outer:
 				break outer
 			}
 			Log.Debugf("No bytes written to %q on device %q in last second.", ft.f.Name, dev.Name)
-			dt.bps.addPoint(0)
-			fbps.addPoint(0)
+			dt.bps.AddPoint(0)
+			fbps.AddPoint(0)
 			lr = time.Now()
 		}
 	}
@@ -165,7 +167,7 @@ outer:
 
 // Reports device progress. Should be called every second.
 func (s *SyncProgressTracker) deviceCopyReporter(index int) {
-	s.Device[index].bps = newBytesPerSecond()
+	s.Device[index].bps = NewBytesPerSecond()
 	for {
 		// Report the progress for each file
 		if ft, ok := <-s.Device[index].files; ok {

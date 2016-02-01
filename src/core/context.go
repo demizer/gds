@@ -85,22 +85,23 @@ type Context struct {
 
 	SyncContextSize uint64 `json:"syncContextSize"`
 
-	Exit bool
+	Errors chan error `json:"-"` // All errors generated in the context will appear here. This chan is buffered.
 
-	errors chan error // All errors generated in the context will appear here. This chan is buffered.
+	Done chan bool `json:"-"`
 }
 
 // NewContext returns a context ready to use.
-func NewContext(bp string, os uint16, files FileIndex, devices DeviceList, pp float64, cErr chan error) (*Context, error) {
+func NewContext(bp string, os uint16, files FileIndex, devices DeviceList, pp float64) (*Context, error) {
 	c := &Context{
 		BackupPath:        bp,
 		OutputStreamNum:   os,
 		PaddingPercentage: pp,
 		SyncStartDate:     time.Now(),
 		Devices:           devices,
-		SyncDeviceMount:   make(map[int]chan bool),
 		FileIndex:         files,
-		errors:            cErr,
+		SyncDeviceMount:   make(map[int]chan bool),
+		Errors:            make(chan error),
+		Done:              make(chan bool),
 	}
 	if c.PaddingPercentage == 0 {
 		c.PaddingPercentage = 1.0
@@ -135,6 +136,8 @@ func NewContextFromJSON(b []byte) (*Context, error) {
 		SyncStartDate:   time.Now(),
 		OutputStreamNum: 1,
 		SyncDeviceMount: make(map[int]chan bool),
+		Errors:          make(chan error),
+		Done:            make(chan bool),
 	}
 	if err := json.Unmarshal(b, c); err != nil {
 		return nil, err
@@ -163,6 +166,8 @@ func NewContextFromYaml(config []byte) (*Context, error) {
 		SyncStartDate:   time.Now(),
 		OutputStreamNum: 1,
 		SyncDeviceMount: make(map[int]chan bool),
+		Errors:          make(chan error),
+		Done:            make(chan bool),
 	}
 	err := yaml.Unmarshal(config, c)
 	if err != nil {
@@ -366,25 +371,12 @@ func (c *Context) catalog() error {
 
 		Log.Infof("Inspecting: %s - FileType: %s - %d Bytes", file.Name, file.FileType.String(), file.Size)
 
-		// TODO: This is where we will determine if the file needs to be updated in the replica
-		if file.FileType == FILE && !strings.Contains(file.Path, fakeTestPath) {
-			Log.Infof("Computing sha1 for %q ...", file.Name)
-			tn := time.Now()
-			sum, err := file.ComputeSha1()
-			if err != nil {
-				c.errors <- err
-				continue
-			}
-			Log.Infof("Got sha1 %q for %q in %s", sum, file.Name, time.Since(tn))
-			file.Sha1Sum = sum
-		}
-
 		// Directories can be ignored, symlinks only need the symlink target set.
 		if file.FileType == DIRECTORY {
 			continue
 		} else if file.FileType == SYMLINK {
 			if err := file.SetSymlinkTargetPath(); err != nil {
-				c.errors <- err
+				c.Errors <- err
 			}
 			continue
 		}

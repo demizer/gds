@@ -1,10 +1,7 @@
 package core
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -111,19 +108,4 @@ func (f *File) DestFilesDone() bool {
 		}
 	}
 	return true
-}
-
-// ComputeSha1 will calculate the sha1 sum of the file and return the hash as a string.
-func (f *File) ComputeSha1() (string, error) {
-	var hstr string
-	file, err := os.Open(f.Path)
-	if err != nil {
-		return hstr, fmt.Errorf("ComputeSha1: %s", err)
-	}
-	defer file.Close()
-	hash := sha1.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return hstr, fmt.Errorf("ComputeSha1: %s", err)
-	}
-	return hex.EncodeToString(hash.Sum(nil)), err
 }

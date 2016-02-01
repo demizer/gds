@@ -11,7 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"sync"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -35,7 +35,6 @@ var (
 type syncTest struct {
 	t   *testing.T
 	ctx *Context
-	wg  sync.WaitGroup
 
 	outputStreams     uint16
 	paddingPercentage float64
@@ -45,12 +44,14 @@ type syncTest struct {
 	saveSyncContext   bool
 
 	errors       []error // These are checked
-	errChan      chan error
+	errChan      *chan error
 	expectErrors func() []error
 
 	expectDeviceUsage func() []expectDevice
 
 	dumpFileIndex bool // If set to true, the FileIndex is dumped to stdout witohut syncing
+
+	// done chan bool
 }
 
 // checkErrors checks errors returned from a test against any expected errors. Returns a bool that tells the caller the
@@ -126,7 +127,6 @@ func (s *syncTest) checkDestSize(f *File) {
 
 // checkSha1Sum will check the sha1 sums of all the destination files
 func (s *syncTest) checkSha1Sum(f *File) {
-
 	// Check sha1sum for source file
 	eSum, err := sha1sum(f.Path)
 	if err != nil {
@@ -256,20 +256,15 @@ func (s *syncTest) progressDump() {
 }
 
 func (s *syncTest) errorCollector() {
-	s.wg.Add(1)
-	s.errChan = make(chan error, 1)
+	s.errChan = &s.ctx.Errors
 	go func() {
-		defer s.wg.Done()
 		for {
-			select {
-			case e := <-s.errChan:
-				Log.Errorln(e)
-				s.errors = append(s.errors, e)
-			default:
-				if s.ctx != nil && s.ctx.Exit {
-					return
-				}
+			e, ok := <-*s.errChan
+			if !ok {
+				return
 			}
+			Log.Errorln(e)
+			s.errors = append(s.errors, e)
 		}
 	}()
 }
@@ -291,18 +286,36 @@ func (s *syncTest) prepareFileIndex() (FileIndex, DeviceList) {
 	return files, devs
 }
 
+func (s *syncTest) calcSha1Sum(files FileIndex) {
+	for _, f := range files {
+		if strings.Contains(f.Path, fakeTestPath) {
+			continue
+		}
+		if f.FileType != FILE {
+			continue
+		}
+		eSum, err := sha1sum(f.Path)
+		if err != nil {
+			*s.errChan <- err
+		}
+		f.Sha1Sum = eSum
+	}
+}
+
 // run intiates the test sync
 func (s *syncTest) run() {
 	fi, dl := s.prepareFileIndex()
 
-	s.errorCollector()
-
-	c, err := NewContext(s.backupPath, s.outputStreams, fi, dl, s.paddingPercentage, s.errChan)
+	c, err := NewContext(s.backupPath, s.outputStreams, fi, dl, s.paddingPercentage)
 	if err != nil {
 		s.errors = append(s.errors, err)
 		return
 	}
 	s.ctx = c
+
+	s.errorCollector()
+
+	s.calcSha1Sum(c.FileIndex)
 
 	if s.dumpFileIndex {
 		spd.Dump(c.FileIndex)
@@ -313,18 +326,17 @@ func (s *syncTest) run() {
 
 	// DO IT NOW!!
 	if s.saveSyncContext {
-		Sync(c, false, s.errChan)
+		Sync(c, false)
 	} else {
-		Sync(c, true, s.errChan)
+		Sync(c, true)
 	}
-
-	s.ctx.Exit = true
-	s.wg.Wait()
 }
 
 // Run initiates the test
 func (s *syncTest) Run() {
 	s.run()
+	// Slowdown, give the errorCollector a chance to process any errors
+	time.Sleep(time.Millisecond)
 	s.checkErrors()
 	if s.expectErrors != nil {
 		// If checkErrors() did not fail with expectErrors() set, then the expected errors have been found and the
@@ -395,7 +407,7 @@ func TestSyncSimpleCopySourceFileError(t *testing.T) {
 			}
 		},
 		expectErrors: func() []error {
-			return []error{FileSourceNotReadable{}}
+			return []error{FileSourceNotReadable{}, errors.New("Permission denied")}
 		},
 	}
 	f.Run()
@@ -967,7 +979,7 @@ func TestSyncSaveContextLastDeviceNotEnoughSpaceError(t *testing.T) {
 			return DeviceList{
 				&Device{
 					Name:       "Test Device 0",
-					SizeTotal:  1493583,
+					SizeTotal:  1493370,
 					MountPoint: NewMountPoint(t, testTempDir, "mountpoint-0-"),
 				},
 				&Device{

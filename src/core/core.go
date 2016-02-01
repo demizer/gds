@@ -19,3 +19,11 @@ var Log = &logrus.Logger{
 	Hooks:     make(logrus.LevelHooks),
 	Level:     logrus.InfoLevel,
 }
+
+// DoneSignalReceived indicates a process is shutting down.
+type DoneSignalReceived bool
+
+// Error satisfies the error interface.
+func (s *DoneSignalReceived) Error() string {
+	return "Done signal received"
+}

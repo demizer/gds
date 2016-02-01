@@ -14,6 +14,9 @@ import (
 	"github.com/nsf/termbox-go"
 )
 
+// When set to true all the go routines exit
+var exit = make(chan bool)
+
 func NewSyncCommand() cli.Command {
 	return cli.Command{
 		Name:  "sync",
@@ -72,9 +75,9 @@ func dumpContextToFile(c *cli.Context, c2 *core.Context) {
 	}
 }
 
-// BuildConsole creates the UI widgets First is the main progress guage for the overall progress Widgets are then created for
+// InitPanelUI creates the UI widgets First is the main progress guage for the overall progress Widgets are then created for
 // each of the devices, but are hidden initially.
-func BuildConsole(c *core.Context) {
+func InitPanelUI(c *core.Context) {
 	visible := c.OutputStreamNum
 	for x, y := range c.Devices {
 		conui.Body.DevicePanels = append(conui.Body.DevicePanels, conui.NewDevicePanel(y.Name, y.SizeTotal))
@@ -92,8 +95,18 @@ func BuildConsole(c *core.Context) {
 	conui.Layout()
 }
 
-func eventListener(c *core.Context) {
+func eventHandler(c *core.Context) {
 	defer cleanupAtExit()
+	go func() {
+		for {
+			if !termbox.IsInit {
+				break
+			}
+			conui.Redraw <- true
+			// Rate limit redrawing
+			time.Sleep(time.Second / 3)
+		}
+	}()
 	for {
 		select {
 		case e := <-conui.Events:
@@ -118,8 +131,16 @@ func eventListener(c *core.Context) {
 				}
 			}
 			if e.Type == conui.EventKey && e.Ch == 'q' {
+				log.Warnln("Sending signal to shutdown!")
+				log.Errorln(conui.Body.HashingProgressGauge.SizeWritn, conui.Body.HashingProgressGauge.SizeTotal)
+				select {
+				case <-c.Done:
+				default:
+					log.Debugln("Closing done channel")
+					close(c.Done)
+				}
 				conui.Close()
-				c.Exit = true
+				close(exit)
 				break
 			}
 			if e.Type == conui.EventResize {
@@ -145,7 +166,7 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 	wg.SetVisible(true)
 
 	// Used to correctly time the display of the message in the prompt for the device panel.
-	pmc := make(chan string, 10)
+	pmc := make(chan string)
 
 	checkDevice := func(p *conui.PromptAction, keyEvent bool, mesgChan chan string) (err error) {
 		// The actual checking
@@ -207,19 +228,17 @@ func deviceMountHandler(c *core.Context, deviceIndex int) {
 	c.SyncDeviceMount[deviceIndex] <- true
 }
 
-func update(c *core.Context) {
+func progressUpdater(c *core.Context) {
 	// Main progress panel updater
 	go func() {
 		for {
-			if c.Exit {
-				break
-			}
-			if p, ok := <-c.SyncProgress.Report; ok {
+			select {
+			case p := <-c.SyncProgress.Report:
 				prg := conui.Body.ProgressPanel
 				prg.SizeWritn = p.SizeWritn
 				prg.BytesPerSecond = p.BytesPerSecond
-			} else {
-				break
+			case <-c.Done:
+				return
 			}
 		}
 	}()
@@ -229,8 +248,15 @@ func update(c *core.Context) {
 		c.SyncDeviceMount[x] = make(chan bool)
 		go func(index int) {
 			dw := conui.Body.DevicePanelByIndex(index)
+		outer:
 			for {
-				if fp, ok := <-c.SyncProgress.Device[index].Report; ok {
+				select {
+				// The Report channel will be closed by the syncLaunch function once copying to the device
+				// is complete.
+				case fp, ok := <-c.SyncProgress.Device[index].Report:
+					if !ok {
+						break outer
+					}
 					dw.SizeWritn += fp.DeviceSizeWritn
 					dw.BytesPerSecond = fp.DeviceBytesPerSecond
 					log.WithFields(logrus.Fields{
@@ -241,47 +267,92 @@ func update(c *core.Context) {
 						"fp.FileTotalSizeWritn": fp.FileTotalSizeWritn,
 						"deviceIndex":           index,
 					}).Debugln("Sync file progress")
-				} else if !ok || c.Exit {
-					dw.BytesPerSecondVisible = false
+				case <-c.Done:
 					break
 				}
 			}
+			dw.BytesPerSecondVisible = false
 			log.Debugln("DONE REPORTING index:", index)
 		}(x)
 	}
+}
+
+func calcFileIndexHashes(c *core.Context) {
+	h := core.NewSourceFileHashComputer(c.FileIndex, c.Errors)
+	conui.Body.HashingProgressGauge = conui.NewHashingProgressGauge(c.FileIndex.TotalSizeFiles())
+	conui.Body.HashingProgressGauge.SetVisible(true)
 	go func() {
+		conui.Body.HashingDialog = conui.NewHashingDialog(8, 2)
+		bars := make(map[string]*conui.HashingProgressBar)
+		bps := core.NewBytesPerSecond()
 		for {
-			if !termbox.IsInit || c.Exit {
-				break
+			select {
+			case hf, ok := <-h.Reports:
+				if !ok {
+					return
+				}
+				bps.AddPoint(hf.SizeWritnLast)
+				conui.Body.HashingProgressGauge.SizeWritn += hf.SizeWritnLast
+				conui.Body.HashingProgressGauge.BytesPerSecond = bps.Calc()
+				if conui.Body.HashingProgressGauge.SizeWritn == conui.Body.HashingProgressGauge.SizeTotal {
+					conui.Body.HashingProgressGauge.BytesPerSecond = bps.CalcFull()
+				}
+				if hf.SizeWritn == hf.SizeTotal {
+					log.Debugf("HASH RECEIVED: FILE WRITE COMPLETE: %q Size: %d",
+						hf.FilePath, hf.SizeTotal)
+				} else {
+					log.Debugf("HASH RECEIVED: %q BytesWritnLast: %d TotalBytes: %d",
+						hf.FilePath, hf.SizeWritnLast, hf.SizeTotal)
+				}
+				if val, ok := bars[hf.FilePath]; ok {
+					val.SizeWritn = hf.SizeWritn
+					val.BytesPerSecond = hf.BytesPerSecond.Calc()
+					if hf.SizeWritn == hf.SizeTotal {
+						val.BytesPerSecond = hf.BytesPerSecond.CalcFull()
+					}
+				} else {
+					bars[hf.FilePath] = conui.Body.HashingDialog.AddBar(hf.FileName, hf.SizeWritn, hf.SizeTotal)
+					conui.Body.HashingDialog.SetVisible(true)
+					conui.Layout()
+				}
+				conui.Body.HashingDialog.SortBars()
+			case err := <-c.Errors:
+				log.Error(err)
+			case <-c.Done:
+				return
 			}
-			conui.Redraw <- true
-			// Rate limit redrawing
-			time.Sleep(time.Second / 3)
 		}
 	}()
+	h.ComputeAll(c.Done)
+	conui.Body.HashingDialog.SetVisible(false)
+	conui.Body.HashingDialog.Bars = nil
 }
 
 func syncStart(c *cli.Context) {
 	defer cleanupAtExit()
+
 	log.WithFields(logrus.Fields{
 		"version": 0.2,
 		"date":    time.Now().Format(time.RFC3339),
 	}).Infoln("Ghetto Device Storage")
+
 	c2 := loadInitialState(c)
 
-	// log.Debugln(spd.Sdump(c2.FileIndex))
-	// os.Exit(1)
-
 	conui.Init()
-	BuildConsole(c2)
-	go eventListener(c2)
-	update(c2)
+	go eventHandler(c2)
 
-	errChan := make(chan error, 100)
+	calcFileIndexHashes(c2)
+
+	InitPanelUI(c2)
+	progressUpdater(c2)
+
+	// log.Debugln(spd.Sdump(c2.FileIndex))
+	// conui.Close()
+	// os.Exit(0)
 
 	// Sync the things
 	go func() {
-		core.Sync(c2, c.GlobalBool("no-dev-context"), errChan)
+		core.Sync(c2, c.GlobalBool("no-dev-context"))
 		log.Info("ALL DONE -- Sync complete!")
 		// c2.Exit = true
 	}()
@@ -290,12 +361,10 @@ func syncStart(c *cli.Context) {
 outer:
 	for {
 		select {
-		case err := <-errChan:
+		case err := <-c2.Errors:
 			log.Errorf("Sync error: %s", err)
-		case <-time.After(time.Second):
-			if c2.Exit {
-				break outer
-			}
+		case <-exit:
+			break outer
 		}
 	}
 
