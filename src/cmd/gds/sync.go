@@ -298,11 +298,13 @@ func calcFileIndexHashes(c *core.Context) {
 					conui.Body.HashingProgressGauge.BytesPerSecond = bps.CalcFull()
 				}
 				if hf.SizeWritn == hf.SizeTotal {
-					log.Debugf("HASH RECEIVED: FILE WRITE COMPLETE: %q Size: %d",
-						hf.FilePath, hf.SizeTotal)
+					log.WithFields(logrus.Fields{"filePath": hf.FilePath,
+						"bytesWritnLast": hf.SizeWritnLast, "size": hf.SizeTotal,
+					}).Debugln("calcFileIndexHashes: RECEIVED: FILE WRITE COMPLETE")
 				} else {
-					log.Debugf("HASH RECEIVED: %q BytesWritnLast: %d TotalBytes: %d",
-						hf.FilePath, hf.SizeWritnLast, hf.SizeTotal)
+					log.WithFields(logrus.Fields{"filePath": hf.FilePath,
+						"bytesWritnLast": hf.SizeWritnLast, "size": hf.SizeTotal,
+					}).Debugln("calcFileIndexHashes: RECEIVED")
 				}
 				if val, ok := bars[hf.FilePath]; ok {
 					val.SizeWritn = hf.SizeWritn

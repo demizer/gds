@@ -369,7 +369,9 @@ func (c *Context) catalog() error {
 	// Let's light this candle
 	for _, file := range ct.ctx.FileIndex {
 
-		Log.Infof("Inspecting: %s - FileType: %s - %d Bytes", file.Name, file.FileType.String(), file.Size)
+		Log.WithFields(logrus.Fields{
+			"filePath": file.Path, "fileType": file.FileType.String(), "size": file.Size,
+		}).Infof("Inspecting file attributes")
 
 		// Directories can be ignored, symlinks only need the symlink target set.
 		if file.FileType == DIRECTORY {

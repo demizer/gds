@@ -58,16 +58,21 @@ func (i *IoReaderWriter) Write(p []byte) (int, error) {
 		report := func() {
 			i.sizeWritn <- i.sizeWritnFromLastReport
 			Log.Debugf("REPORTING FINISHED (%q) in %s FILE SIZE: %d", i.destPath, time.Since(ns), i.sizeTotal)
-			if i.sizeWritnTotal != i.sizeTotal {
+			if i.sizeWritnTotal < i.sizeTotal {
 				i.sizeWritnFromLastReport = 0
 				i.timeLastReport = time.Now()
+				Log.Debugf("RESETTING sizeWritnFromLastReport for %q (%d)", i.destPath, i.sizeWritnFromLastReport)
 			}
 		}
 
 		// Limit the number of reports to once a second
 		if i.sizeWritnTotal == i.sizeTotal {
+			var tl string
+			if !i.timeLastReport.IsZero() {
+				tl = time.Since(i.timeLastReport).String()
+			}
 			Log.Debugf("REPORTING: %q (%p) -- FILE WRITE COMPLETE -- timeSinceLastReport %s BYTES: %d FILE SIZE: %d",
-				i.destPath, i, time.Since(i.timeLastReport), i.sizeWritnFromLastReport, i.sizeTotal)
+				i.destPath, i, tl, i.sizeWritnFromLastReport, i.sizeTotal)
 			report()
 		} else if i.timeLastReport.IsZero() {
 			Log.Debugf("REPORTING: %q (%p) timeLastReport.IsZero: %t BYTES: %d FILE SIZE: %d",
