@@ -33,21 +33,12 @@ type HashingProgressGauge struct {
 
 // NewHashingProgressGauge returns an new HashingProgressGauge.
 func NewHashingProgressGauge(sizeTotal uint64) *HashingProgressGauge {
-	g := &HashingProgressGauge{
-		// Block:     *NewBlock(),
-		SizeWritn: 1,
-		SizeTotal: sizeTotal,
-	}
-	return g
+	return &HashingProgressGauge{SizeTotal: sizeTotal}
 }
 
-func (g *HashingProgressGauge) IsVisible() bool {
-	return g.visible
-}
+func (g *HashingProgressGauge) IsVisible() bool { return g.visible }
 
-func (g *HashingProgressGauge) SetVisible(b bool) {
-	g.visible = b
-}
+func (g *HashingProgressGauge) SetVisible(b bool) { g.visible = b }
 
 func (g *HashingProgressGauge) Width() int { return g.width }
 
