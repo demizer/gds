@@ -294,9 +294,6 @@ func calcFileIndexHashes(c *core.Context) {
 				bps.AddPoint(hf.SizeWritnLast)
 				conui.Body.HashingProgressGauge.SizeWritn += hf.SizeWritnLast
 				conui.Body.HashingProgressGauge.BytesPerSecond = bps.Calc()
-				if conui.Body.HashingProgressGauge.SizeWritn == conui.Body.HashingProgressGauge.SizeTotal {
-					conui.Body.HashingProgressGauge.BytesPerSecond = bps.CalcFull()
-				}
 				if hf.SizeWritn == hf.SizeTotal {
 					log.WithFields(logrus.Fields{"filePath": hf.FilePath,
 						"bytesWritnLast": hf.SizeWritnLast, "size": hf.SizeTotal,
@@ -318,6 +315,11 @@ func calcFileIndexHashes(c *core.Context) {
 					conui.Layout()
 				}
 				conui.Body.HashingDialog.SortBars()
+				if conui.Body.HashingProgressGauge.SizeWritn == conui.Body.HashingProgressGauge.SizeTotal {
+					conui.Body.HashingProgressGauge.BytesPerSecond = bps.CalcFull()
+					time.Sleep(time.Second * 6)
+					c.Done <- true
+				}
 			case err := <-c.Errors:
 				log.Error(err)
 			case <-c.Done:

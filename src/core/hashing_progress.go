@@ -107,13 +107,13 @@ end:
 	close(bw)
 }
 
-// ComputeAll will compute the hashes of all files. If the done channel is closed, then the function exits.
+// ComputeAll will compute the hashes of all files. If a value is sent on the done channel, or it is closed, then the
+// function exits.
 func (h *HashComputer) ComputeAll(done chan bool) {
 	runs := runtime.NumCPU()
 	workDone := make(chan bool)
 	var wg sync.WaitGroup
 	x, count := 0, 0
-	exit := false
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -123,8 +123,6 @@ func (h *HashComputer) ComputeAll(done chan bool) {
 				go h.calc(h.Files[x], workDone)
 				count++
 				x++
-			} else if count == 0 && x == len(h.Files) || exit {
-				break
 			}
 			select {
 			case <-done:
