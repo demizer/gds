@@ -20,16 +20,21 @@ type DeviceFile struct {
 }
 
 // DeviceFileHist is a helper type for tracking progress.
-type DeviceFileHist []DeviceFile
+type DeviceFileHist []*DeviceFile
 
 // Append is used to append a new DeviceFile to the DeviceFileHist.
-func (f *DeviceFileHist) Append(fl DeviceFile) {
+func (f *DeviceFileHist) Append(fl *DeviceFile) {
 	*f = append(*f, fl)
 }
 
-// UpdateLast should be used to update the last value in the DeviceFileHist.
-func (f *DeviceFileHist) UpdateLast(bps uint64, sizeWritten uint64) {
-
+// DeviceFileByPath returns the divice file in the file history identified by path.
+func (f *DeviceFileHist) DeviceFileByPath(path string) *DeviceFile {
+	for x := 0; x < len(*f); x++ {
+		if (*f)[x].Path == path {
+			return (*f)[x]
+		}
+	}
+	return nil
 }
 
 // The size of the box drawn around the widget
@@ -209,6 +214,7 @@ func (g *DevicePanel) Buffer() []Point {
 		if len(g.DeviceFileHist) == 0 {
 			break
 		}
+		Log.Debugln("PLOOP IN HEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEERRRRRRRRRRRRREEEEE")
 	}
 	tw.Flush()
 

@@ -269,6 +269,13 @@ func progressUpdater(c *core.Context) {
 						"fp.FileTotalSizeWritn": fp.FileTotalSizeWritn,
 						"deviceIndex":           index,
 					}).Debugln("Sync file progress")
+					dp := conui.Body.DevicePanelByIndex(index)
+					if val := dp.DeviceFileHist.DeviceFileByPath(fp.FilePath); val != nil {
+						val.SizeWritn += fp.FileSizeWritn
+					} else {
+						dp.DeviceFileHist.Append(&conui.DeviceFile{fp.FileName, fp.FilePath,
+							fp.FileSizeWritn, fp.FileSize})
+					}
 				case <-c.Done:
 					break
 				}
