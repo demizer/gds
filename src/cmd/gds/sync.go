@@ -286,7 +286,7 @@ func calcFileIndexHashes(c *core.Context) {
 	go func() {
 		conui.Body.HashingDialog = conui.NewHashingDialog(8, 2)
 		bars := make(map[string]*conui.HashingProgressBar)
-		bps := core.NewBytesPerSecond()
+		bps := core.NewBytesPerSecond(c.FileIndex.TotalSize())
 		for {
 			select {
 			case hf, ok := <-h.Reports:
@@ -306,13 +306,20 @@ func calcFileIndexHashes(c *core.Context) {
 					}).Debugln("calcFileIndexHashes: RECEIVED")
 				}
 				if val, ok := bars[hf.FilePath]; ok {
-					val.SizeWritn = hf.SizeWritn
 					val.BytesPerSecond = hf.BytesPerSecond.Calc()
 					if hf.SizeWritn == hf.SizeTotal {
 						val.BytesPerSecond = hf.BytesPerSecond.CalcFull()
 					}
+					val.SizeWritn = hf.SizeWritn
 				} else {
-					bars[hf.FilePath] = conui.Body.HashingDialog.AddBar(hf.FileName, hf.SizeWritn, hf.SizeTotal)
+					var calc uint64
+					if hf.SizeWritn == hf.SizeTotal {
+						calc = hf.BytesPerSecond.CalcFull()
+					} else {
+						calc = hf.BytesPerSecond.Calc()
+					}
+					bars[hf.FilePath] = conui.Body.HashingDialog.AddBar(hf.FileName, hf.SizeWritn,
+						hf.SizeTotal, calc)
 					conui.Body.HashingDialog.SetVisible(true)
 					conui.Layout()
 				}
@@ -330,6 +337,7 @@ func calcFileIndexHashes(c *core.Context) {
 		}
 	}()
 	h.ComputeAll(c.Done)
+	conui.Body.HashingProgressGauge.SetVisible(false)
 	conui.Body.HashingDialog.SetVisible(false)
 	conui.Body.HashingDialog.Bars = nil
 }
@@ -360,6 +368,8 @@ func syncStart(c *cli.Context) {
 	go func() {
 		core.Sync(c2, c.GlobalBool("no-dev-context"))
 		log.Info("ALL DONE -- Sync complete!")
+		// Fin
+		dumpContextToFile(c, c2)
 		// c2.Exit = true
 	}()
 
@@ -373,7 +383,4 @@ outer:
 			break outer
 		}
 	}
-
-	// Fin
-	dumpContextToFile(c, c2)
 }

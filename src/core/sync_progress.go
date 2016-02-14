@@ -70,7 +70,7 @@ func NewSyncProgressTracker(devices DeviceList) *SyncProgressTracker {
 		sp.Device[x].files = make(chan fileTracker)
 		sp.Device[x].Report = make(chan SyncDeviceProgress)
 	}
-	sp.bps = NewBytesPerSecond()
+	sp.bps = NewBytesPerSecond(devices.TotalSize())
 	return sp
 }
 
@@ -106,7 +106,7 @@ func (s *SyncProgressTracker) fileCopyReporter(index int, ft fileTracker) {
 	// Tracks total file size reported to the fileTracker
 	var size uint64
 	// File bps calculation
-	fbps := NewBytesPerSecond()
+	fbps := NewBytesPerSecond(ft.f.Size)
 	// Used to track times from the last report
 	lr := time.Now()
 	dev := s.devices[index]
@@ -165,7 +165,7 @@ outer:
 
 // Reports device progress. Should be called every second.
 func (s *SyncProgressTracker) deviceCopyReporter(index int) {
-	s.Device[index].bps = NewBytesPerSecond()
+	s.Device[index].bps = NewBytesPerSecond(s.devices[index].SizeTotal)
 	for {
 		// Report the progress for each file
 		if ft, ok := <-s.Device[index].files; ok {

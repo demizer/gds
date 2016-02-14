@@ -43,8 +43,14 @@ func (h *HashingProgressBar) Stats() string {
 		Log.Debugf("Setting timeFinished for File: %q Size: %d", h.Label, h.SizeTotal)
 		h.timeFinished = time.Now()
 	}
-	return fmt.Sprintf("%s/%s [%s/s] (%02.f%%)", humanize.IBytes(h.SizeWritn), humanize.IBytes(h.SizeTotal),
+	var text string
+	text = fmt.Sprintf("%s/%s [%s/s] (%02.f%%)", humanize.IBytes(h.SizeWritn), humanize.IBytes(h.SizeTotal),
 		humanize.IBytes(h.BytesPerSecond), float32(h.percent))
+	if h.BytesPerSecond == 0 {
+		text = fmt.Sprintf("%s/%s (%02.f%%)", humanize.IBytes(h.SizeWritn), humanize.IBytes(h.SizeTotal),
+			float32(h.percent))
+	}
+	return text
 }
 
 // BarWidth returns the width of the actual progress bar
@@ -207,14 +213,15 @@ func (g *HashingDialog) SetY(y int) { g.y = y }
 
 func (d HashingDialog) GetHeight() int { return d.height }
 
-func (g *HashingDialog) AddBar(text string, sw uint64, st uint64) *HashingProgressBar {
+func (g *HashingDialog) AddBar(text string, sw uint64, st uint64, bps uint64) *HashingProgressBar {
 	h := &HashingProgressBar{
-		Label:     text,
-		SizeWritn: sw,
-		SizeTotal: st,
-		height:    g.barHeight,
-		x:         g.x,
-		y:         g.y,
+		Label:          text,
+		SizeWritn:      sw,
+		SizeTotal:      st,
+		BytesPerSecond: bps,
+		height:         g.barHeight,
+		x:              g.x,
+		y:              g.y,
 	}
 	g.Bars = append(g.Bars, h)
 	return h

@@ -21,7 +21,7 @@ type HashFile struct {
 	SizeWritn      uint64
 	SizeWritnLast  uint64 // The number of bytes written since the last update
 	SizeTotal      uint64
-	BytesPerSecond BytesPerSecond
+	BytesPerSecond *BytesPerSecond
 	file           *File
 }
 
@@ -38,10 +38,11 @@ func NewSourceFileHashComputer(files FileIndex, errChan chan error) *HashCompute
 	for _, f := range files {
 		if f.FileType == FILE && !strings.Contains(f.Path, fakeTestPath) {
 			nFiles = append(nFiles, HashFile{
-				FileName:  f.Name,
-				FilePath:  f.Path,
-				SizeTotal: f.Size,
-				file:      f,
+				FileName:       f.Name,
+				FilePath:       f.Path,
+				SizeTotal:      f.Size,
+				file:           f,
+				BytesPerSecond: NewBytesPerSecond(f.Size),
 			})
 		}
 	}
