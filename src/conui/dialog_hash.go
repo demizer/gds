@@ -5,7 +5,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/demizer/go-humanize"
 	"github.com/mattn/go-runewidth"
 	"github.com/nsf/termbox-go"
@@ -239,89 +238,38 @@ func (g *HashingDialog) Buffer() []Point {
 	return g.chopOverflow(ps)
 }
 
-func (g *HashingDialog) debugPrintlastSorted() {
-	Log.WithFields(logrus.Fields{"lastSorted": g.lastSorted}).Debugln("SortBars: lastSorted")
-}
-
-func (g *HashingDialog) debugPrintAlreadySorted(index int) {
-	Log.WithFields(logrus.Fields{
-		"label": g.Bars[index].Label, "pos": index, "sorted": g.Bars[index].sorted,
-	}).Debugln("SortBars: Already sorted")
-}
-
-func (g *HashingDialog) debugPrintSetSorted(index int) {
-	Log.WithFields(logrus.Fields{
-		"label": g.Bars[index].Label, "pos": index, "sorted": g.Bars[index].sorted,
-	}).Debugln("SortBars: Set sorted")
-}
-
-func (g *HashingDialog) debugPrintBarFinished(index int) {
-	Log.WithFields(logrus.Fields{
-		"label": g.Bars[index].Label, "pos": index, "sorted": g.Bars[index].sorted,
-	}).Debugln("SortBars: Finished bar")
-
-}
-
-func (g *HashingDialog) debugPrintBarInsert(index int, newIndex int) {
-	Log.WithFields(logrus.Fields{
-		"label": g.Bars[index].Label, "oldPos": index, "newPos": newIndex,
-	}).Debugln("SortBars: Moving finished bar")
-
-}
-
-func (g *HashingDialog) debugPrintBars() {
-	for x := 0; x < len(g.Bars); x++ {
-		Log.Debugf("SortBars: Sorted: %t Pos: %d Bar: %q Sorted: %t", g.Bars[x].sorted, x, g.Bars[x].Label)
-	}
-}
-
 // SortBars moves completed bars to the top of the current active bars keeping order as much as possible.
 func (g *HashingDialog) SortBars() {
-	Log.Debugln("SortBars: START")
-	g.debugPrintBars()
+	// See commit Ð5b0ad75b60cfcfc25fb43b9ac583ab3948169 for debug logging, it has been removed because it is too
+	// noisy/messy
 	g.lastSorted = -1
-	for x := g.lastSorted; x < len(g.Bars); x++ {
-		if x < 0 {
-			continue
-		}
-		Log.WithFields(logrus.Fields{"length": len(g.Bars), "X": x}).Debugln("SortBars: Iteration")
-		g.debugPrintlastSorted()
+	for x := 0; x < len(g.Bars); x++ {
 		if g.Bars[x].sorted {
-			g.debugPrintAlreadySorted(x)
 			g.lastSorted = x
 			continue
 		}
 		f := g.Bars[x]
 		// Move complete bars to after the previously found complete bar
 		if f.SizeWritn == f.SizeTotal && !f.timeFinished.IsZero() && !f.sorted {
-			g.debugPrintBarFinished(x)
 			if x == 0 || x > 0 && g.Bars[x-1].sorted {
-				// The first bar is done, but not sorted
+				// The first bar (or current bar) is done, but not sorted
 				g.lastSorted = x
 				f.sorted = true
-				g.debugPrintSetSorted(x)
 				continue
 
 			}
-			// Push down bars after g.lastSorted
+			// Push down bars
 			g.lastSorted++
-			Log.Debugln("SortBars: g.lastSorted incremented:", g.lastSorted)
 			buf := g.Bars[g.lastSorted]
 			g.Bars[g.lastSorted] = f
-			Log.Debugf("SortBars: Setting g.Bars[%d] to %q was %q", g.lastSorted, g.Bars[g.lastSorted].Label, buf.Label)
 			for y := x; y >= g.lastSorted; y-- {
-				Log.WithFields(logrus.Fields{"length": y - g.lastSorted, "y": x}).Debugln("SortBars: Back iteration")
 				if y == g.lastSorted+1 {
-					Log.Debugf("SortBars: y == g.lastSorted+1: Setting g.Bars[%d] to %q", y, buf.Label)
 					g.Bars[y] = buf
 					break
 				}
-				Log.Debugf("SortBars: Back iteration: Setting g.Bars[%d] to %q", y, g.Bars[y-1].Label)
 				g.Bars[y] = g.Bars[y-1]
 			}
 			f.sorted = true
 		}
 	}
-	g.debugPrintBars()
-	Log.Debugln("SortBars: DONE")
 }
