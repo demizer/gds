@@ -107,7 +107,7 @@ func (g *HashingProgressGauge) Buffer() []Point {
 		humanize.IBytes(g.BytesPerSecond), strconv.Itoa(g.percent))
 	pry := g.innerY + g.innerHeight/2
 	rs := []rune(s)
-	pos := (g.width / 2) //- (runewidth.StringWidth(s) / 2)
+	pos := g.innerX + ((g.width / 2) - (len(s) / 2))
 
 	for i, v := range rs {
 		p := Point{}
