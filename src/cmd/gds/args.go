@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-var defaultConfig = `# Ghetto Device Storage Configuration File
+var defaultConfig = `# Generic Device Storage Configuration File
 # Use: \df -B1 <mountpoint> to find correct available space in bytes.
 # Undersize the device by 1MiB (more or less), otherwise errors will occurr.
 backupPath: "/mnt/data"

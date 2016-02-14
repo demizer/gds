@@ -139,7 +139,7 @@ func main() {
 	}
 
 	app := cli.NewApp()
-	app.Name = "Ghetto Device Storage (gds)"
+	app.Name = "Generic Device Storage (gds)"
 	app.Version = "0.0.1"
 	app.Email = "jeezusjr@gmail.com"
 	app.Author = "Jesus Alvarez"

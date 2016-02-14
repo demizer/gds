@@ -348,7 +348,7 @@ func syncStart(c *cli.Context) {
 	log.WithFields(logrus.Fields{
 		"version": 0.2,
 		"date":    time.Now().Format(time.RFC3339),
-	}).Infoln("Ghetto Device Storage")
+	}).Infoln("Generic Device Storage")
 
 	c2 := loadInitialState(c)
 
