@@ -1,3 +1,7 @@
+* Sun Feb 14 12:34 2016: Hashing view should fill up entire window
+
+  This is a simple solution to belowe that will stop the panics on resize
+
 * Sun Feb 14 12:09 2016: Fix when resizing window during hashing progress
 
 FATAL ERROR: runtime error: slice bounds out of range
