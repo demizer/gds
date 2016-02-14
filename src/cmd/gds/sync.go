@@ -132,7 +132,6 @@ func eventHandler(c *core.Context) {
 			}
 			if e.Type == conui.EventKey && e.Ch == 'q' {
 				log.Warnln("Sending signal to shutdown!")
-				log.Errorln(conui.Body.HashingProgressGauge.SizeWritn, conui.Body.HashingProgressGauge.SizeTotal)
 				select {
 				case <-c.Done:
 				default:
