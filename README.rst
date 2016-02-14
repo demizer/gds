@@ -11,13 +11,13 @@ GDS syncs files from one large storage pool, to multiple dissimilar devices asyn
 Sha1 hashing view
 -----------------
 
-.. image:: data/images/Screenshot from 2016-02-14 12-17-49.png
+.. image:: data/images/Screenshot_from_2016-02-14_12-17-49.png
 
 --------------------------------
 GDS syncing to 8 devices at once
 --------------------------------
 
-.. image:: data/images/Screenshot from 2016-02-14 12-22-35.png
+.. image:: data/images/Screenshot_from_2016-02-14_12-22-35.png
 
 ------
 How-to
