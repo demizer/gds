@@ -17,6 +17,8 @@ type HashingProgressBar struct {
 	BytesPerSecond uint64 // Write speed in bytes per second
 	height         int
 	width          int
+	statsWidth     int
+	labelWidth     int
 	x              int
 	y              int
 	percent        int // The calculated percentage
@@ -35,6 +37,10 @@ func (h *HashingProgressBar) Percent() int {
 }
 
 func (h *HashingProgressBar) Text() string {
+	h.labelWidth = len(h.Label)
+	if (h.statsWidth+h.labelWidth)+5 > h.width {
+		return fmt.Sprintf("%s...", h.Label[:h.width-h.statsWidth-8])
+	}
 	return fmt.Sprintf("%s", h.Label)
 }
 
@@ -50,6 +56,7 @@ func (h *HashingProgressBar) Stats() string {
 		text = fmt.Sprintf("%s/%s (%02.f%%)", humanize.IBytes(h.SizeWritn), humanize.IBytes(h.SizeTotal),
 			float32(h.percent))
 	}
+	h.statsWidth = len(text)
 	return text
 }
 
@@ -238,8 +245,8 @@ func (g *HashingDialog) Buffer() []Point {
 	// Render stuff
 	for _, b := range g.Bars {
 		b.BufferBar(&ps)
-		b.BufferLabel(&ps)
 		b.BufferStats(&ps)
+		b.BufferLabel(&ps)
 	}
 
 	return g.chopOverflow(ps)

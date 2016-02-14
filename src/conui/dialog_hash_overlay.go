@@ -106,8 +106,8 @@ func (g *HashingProgressGauge) Buffer() []Point {
 	s := fmt.Sprintf("Computing SHA1 Hash ... %s/%s [%s/s] (%s%%)", humanize.IBytes(g.SizeWritn), humanize.IBytes(g.SizeTotal),
 		humanize.IBytes(g.BytesPerSecond), strconv.Itoa(g.percent))
 	pry := g.innerY + g.innerHeight/2
-	rs := []rune(s)
 	pos := g.innerX + ((g.width / 2) - (len(s) / 2))
+	rs := []rune(s)
 
 	for i, v := range rs {
 		p := Point{}
