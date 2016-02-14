@@ -232,7 +232,10 @@ func progressUpdater(c *core.Context) {
 	go func() {
 		for {
 			select {
-			case p := <-c.SyncProgress.Report:
+			case p, ok := <-c.SyncProgress.Report:
+				if !ok {
+					break
+				}
 				prg := conui.Body.ProgressPanel
 				prg.SizeWritn = p.SizeWritn
 				prg.BytesPerSecond = p.BytesPerSecond

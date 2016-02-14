@@ -70,7 +70,10 @@ func saveSyncContext(c *Context) (size uint64, err error) {
 		return
 	}
 	lastDevice := c.Devices[len(c.Devices)-1]
-	Log.Debugln(uint64(sgzSize)+lastDevice.SizeWritn, lastDevice.SizeTotalPadded())
+	Log.WithFields(logrus.Fields{
+		"sgzSize+lastDevice.SizeWritn": uint64(sgzSize) + lastDevice.SizeWritn,
+		"lastDevice.SizeTotalPadded":   lastDevice.SizeTotalPadded(),
+	}).Debugln("saveSyncContext: Sizes")
 	if uint64(sgzSize)+lastDevice.SizeWritn > lastDevice.SizeTotalPadded() {
 		err = SyncNotEnoughDeviceSpaceForSyncContextError{
 			lastDevice.Name, lastDevice.SizeWritn, lastDevice.SizeTotalPadded(), uint64(sgzSize),

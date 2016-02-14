@@ -67,9 +67,7 @@ func NewSyncProgressTracker(devices DeviceList) *SyncProgressTracker {
 	}
 	for x := 0; x < len(devices); x++ {
 		sp.Device = append(sp.Device, deviceTracker{})
-		// sp.Device[x].files = make(chan fileTracker, 10)
 		sp.Device[x].files = make(chan fileTracker)
-		// sp.Device[x].Report = make(chan SyncDeviceProgress, 10)
 		sp.Device[x].Report = make(chan SyncDeviceProgress)
 	}
 	sp.bps = NewBytesPerSecond()
