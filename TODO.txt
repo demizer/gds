@@ -1,0 +1,171 @@
+* Sun Feb 14 12:09 2016: Fix when resizing window during hashing progress
+
+FATAL ERROR: runtime error: slice bounds out of range
+
+goroutine 37 [running]:
+main.cleanupAtExit()
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/main.go:93 +0x133
+conui.(*HashingProgressBar).Text(0xc8202c4680, 0x0, 0x0)
+        /mnt/data/home/demizer/src/gds/src/conui/view_hashing.go:42 +0x178
+conui.(*HashingProgressBar).BufferLabel(0xc8202c4680, 0xc820871d38)
+        /mnt/data/home/demizer/src/gds/src/conui/view_hashing.go:87 +0x33
+conui.(*HashingDialog).Buffer(0xc8200e00b0, 0x0, 0x0, 0x0)
+        /mnt/data/home/demizer/src/gds/src/conui/view_hashing.go:249 +0x14e
+conui.Render()
+        /mnt/data/home/demizer/src/gds/src/conui/render.go:34 +0x64
+main.eventHandler(0xc8200e1d90)
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/sync.go:150 +0x62b
+created by main.syncStart
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/sync.go:356 +0x36d
+
+goroutine 1 [select]:
+core.(*HashComputer).ComputeAll(0xc8206e2000, 0xc82001ab40)
+        /mnt/data/home/demizer/src/gds/src/core/hashing_progress.go:139 +0x1e6
+main.calcFileIndexHashes(0xc8200e1d90)
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/sync.go:339 +0x13e
+main.syncStart(0xc8201360f0)
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/sync.go:358 +0x37b
+main.NewSyncCommand.func1(0xc8201360f0)
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/sync.go:43 +0x6ca
+github.com/codegangsta/cli.Command.Run(0x8b0190, 0x4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x906ec0, 0x1c, 0x0, ...)
+        /mnt/data/home/demizer/src/gds/vendor/src/github.com/codegangsta/cli/command.go:127 +0x1052
+github.com/codegangsta/cli.(*App).Run(0xc820086900, 0xc82000a0a0, 0xa, 0xa, 0x0, 0x0)
+        /mnt/data/home/demizer/src/gds/vendor/src/github.com/codegangsta/cli/app.go:159 +0xc2f
+main.main()
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/main.go:191 +0xc06
+
+goroutine 17 [syscall, locked to thread]:
+runtime.goexit()
+        /usr/lib/go/src/runtime/asm_amd64.s:1721 +0x1
+
+goroutine 5 [syscall]:
+os/signal.loop()
+        /usr/lib/go/src/os/signal/signal_unix.go:22 +0x18
+created by os/signal.init.1
+        /usr/lib/go/src/os/signal/signal_unix.go:28 +0x37
+
+goroutine 7 [IO wait]:
+net.runtime_pollWait(0x7f0c16624fb0, 0x72, 0xc82000e1f0)
+        /usr/lib/go/src/runtime/netpoll.go:157 +0x60
+net.(*pollDesc).Wait(0xc820120060, 0x72, 0x0, 0x0)
+        /usr/lib/go/src/net/fd_poll_runtime.go:73 +0x3a
+net.(*pollDesc).WaitRead(0xc820120060, 0x0, 0x0)
+        /usr/lib/go/src/net/fd_poll_runtime.go:78 +0x36
+net.(*netFD).accept(0xc820120000, 0x0, 0x7f0c166250a8, 0xc820138000)
+        /usr/lib/go/src/net/fd_unix.go:408 +0x27c
+net.(*TCPListener).AcceptTCP(0xc820126000, 0xc82003ed90, 0x0, 0x0)
+        /usr/lib/go/src/net/tcpsock_posix.go:254 +0x4d
+net/http.tcpKeepAliveListener.Accept(0xc820126000, 0x0, 0x0, 0x0, 0x0)
+        /usr/lib/go/src/net/http/server.go:2135 +0x41
+net/http.(*Server).Serve(0xc82011a000, 0x7f0c16625070, 0xc820126000, 0x0, 0x0)
+        /usr/lib/go/src/net/http/server.go:1887 +0xb3
+net/http.(*Server).ListenAndServe(0xc82011a000, 0x0, 0x0)
+        /usr/lib/go/src/net/http/server.go:1877 +0x136
+net/http.ListenAndServe(0x8b36a0, 0xc, 0x0, 0x0, 0x0, 0x0)
+        /usr/lib/go/src/net/http/server.go:1967 +0x8f
+main.enable_profiling.func1()
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/main.go:124 +0x3c
+created by main.enable_profiling
+        /mnt/data/home/demizer/src/gds/src/cmd/gds/main.go:125 +0x2f
+
+goroutine 8 [syscall]:
+runtime.CPUProfile(0x0, 0x0, 0x0)
+        /usr/lib/go/src/runtime/cpuprof.go:418 +0x34
+runtime/pprof.profileWriter(0x7f0c1817c268, 0xc8200320a0)
+        /usr/lib/go/src/runtime/pprof/pprof.go:599 +0x1c
+created by runtime/pprof.StartCPUProfile
+        /usr/lib/go/src/runtime/pprof/pprof.go:593 +0x145
+
+goroutine 34 [select, locked to thread]:
+runtime.gopark(0x96e1d8, 0xc820705728, 0x8afaa8, 0x6, 0x438918, 0x2)
+        /usr/lib/go/src/runtime/proc.go:185 +0x163
+runtime.selectgoImpl(0xc820705728, 0x0, 0x18)
+        /usr/lib/go/src/runtime/select.go:392 +0xa64
+runtime.selectgo(0xc820705728)
+        /usr/lib/go/src/runtime/select.go:212 +0x12
+runtime.ensureSigM.func1()
+        /usr/lib/go/src/runtime/signal1_unix.go:227 +0x353
+runtime.goexit()
+        /usr/lib/go/src/runtime/asm_amd64.s:1721 +0x1
+
+goroutine 36 [select]:
+github.com/nsf/termbox-go.PollEvent(0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0)
+        /mnt/data/home/demizer/src/gds/vendor/src/github.com/nsf/termbox-go/api.go:321 +0x6b3
+conui.evtList
+
+* Sun Feb 14 12:16 2016: Switch TODO.txt to https://github.com/driusan/bug
+
+* Mon Jan 25 11:38 2016: Add file line progress
+
+* Sat Dec 05 11:09 2015: Add Arrow Down, Arrow Up, PageUp, and PageDown support
+
+* Sun Nov 08 00:37 2015: When there are 8 devices and a scroll up or down is made, there is a huge gap either before the
+  first device panel or after the last device panel. This only happens when the terminal takes the full screen.
+
+* Sat Dec 05 14:22 2015: When OutputStreamNum = 3 and window height is half screen size and a new device is made visible, the
+  rendering is screwed up on the first panel. There is half a panel and a full panel in the same area.
+
+* Sat Dec 05 17:56 2015: Add ETA to main progress
+
+* Sat Dec 05 20:15 2015: run.sh should have --format flag to reformat test fs. remove all files before copy.
+
+* Sun Dec 06 14:17 2015: Need DONE overlay window on finished sync.
+
+* Sat Dec 05 17:32 2015: use golint and govet on the code
+
+* Mon Jan 25 11:39 2016: Check code coverage, fix coverage where necessary.
+
+* Sun Feb 14 00:57 2016: Fix goreportcard https://goreportcard.com/report/github.com/demizer/gds
+
+  Put the badge on the readme.
+
+* Mon Dec 28 23:47 2015: Add test using BTRFS filesystem with compression.
+
+  Need to test with text files
+
+* Mon Oct 12 00:06 2015: panic() should only be used in extraordinary circumstancse, I use it when a config file can't be
+  loaded. This usage is wrong. http://stackoverflow.com/questions/25025467/catching-panics-in-go-lang
+
+* Thu Dec 31 01:04 2015: Allow specifying multiple backup paths
+
+* Wed Dec 30 00:07 2015: Ensure all test devices are mounted in run.sh
+
+* Mon Dec 28 23:21 2015: USE XFS for test filesystems.
+
+  Needs support for creating xfs filesystems with UUID. It was added here: http://comments.gmane.org/gmane.comp.file-systems.xfs.general/70028
+
+* Sun Sep 27 10:31 2015: Allow disabling of color in log output from command
+  options.
+
+* Sat Dec 05 21:51 2015: There should be a command line flag for auto unmounting
+
+* Sun Sep 27 11:08 2015: Fix file sync to device
+
+  Need to make sure the OS has synced the file to the device, I noticed this after GDS has indicated the sync was complete:
+
+  -rw-rw-r-- 1 demizer backup  746K Dec  1  2009 24e3e426-a727-480d-8456-8b6767b90f27
+  -rw-rw-r-- 1 demizer backup  514K Dec  1  2009 24f8aab2-f7be-4d5b-a8d7-bb013ae88ab0
+  -rw-r--r-- 1 demizer backup     0 Dec  1  2009 251e4523-212d-486b-be7a-2f8af2c65cf5
+  -rw-r--r-- 1 demizer backup     0 Dec  1  2009 256b507e-dcb5-453e-8ee8-b7397f1c1e23
+  -rw-r--r-- 1 demizer backup     0 Dec  1  2009 257268fd-33d3-455f-9f80-a28343339b35
+  -rw-r--r-- 1 demizer backup     0 Dec  1  2009 25a000ca-4354-49bc-a6db-326c3ec25cfd
+  -rw-rw-r-- 1 demizer backup  466K Dec  1  2009 262ac3c1-dd88-4b93-81c7-91889e903e01
+  -rw-rw-r-- 1 demizer backup  1.8M Nov 29  2009 2642a536-09ed-45db-9988-0f88d6d88702
+
+* Sun Aug 23 00:27 2015: Create a test for syncing files to devices with
+                         variable block sizes.
+
+* Fri Sep 04 17:52 2015: Test for what happens in NewCatalog() when the file is
+                         a directory "4096" and the remaining device is under 4096.
+
+* Sat Sep 05 00:24 2015: Replace TestDeviceIsMountedByUUID() with generated disk using mktestfs.sh
+
+* Sun Sep 27 02:12 2015: Test subtracting 0.002% total from a split file smaller than 0.002% of total device space.
+
+* Sat Dec 19 11:30 2015: If there are existing files on the dest device, then out of space errors will occurr.
+
+* Mon Dec 28 23:16 2015: FAQ Item: Why does GDS seem to slow down sometimes?
+
+http://permalink.gmane.org/gmane.comp.file-systems.xfs.general/47442<Paste>
+
+Either many small files are being written, or the filesystem is almost full.
