@@ -13,11 +13,14 @@ Sha1 hashing view
 
 .. image:: data/images/Screenshot_from_2016-02-14_12-36-28.png
 
---------------------------------
+j-------------------------------
 GDS syncing to 8 devices at once
 --------------------------------
 
 .. image:: data/images/Screenshot_from_2016-02-14_12-22-35.png
+
+The slow copy speeds in this image is because these devices are loop mounted. When copying to individual SATA or USB
+devices, the performance is typical of other copying tools.
 
 ------
 How-to
